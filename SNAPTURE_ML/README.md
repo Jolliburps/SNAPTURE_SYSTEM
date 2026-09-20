@@ -171,7 +171,7 @@ Start the mobile project in a second terminal:
 ```powershell
 cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE"
 if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
-npx.cmd expo start -c
+& ".\node_modules\.bin\expo.cmd" start -c
 ```
 
 ### Open the app on multiple devices over the LAN
@@ -185,7 +185,7 @@ cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE_ML"
 
 # Terminal 2: Expo/Metro
 cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE"
-npx.cmd expo start --lan --clear
+& ".\node_modules\.bin\expo.cmd" start --lan --clear
 ```
 
 If the computer's IPv4 address is `192.168.1.171`:

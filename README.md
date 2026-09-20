@@ -16,8 +16,8 @@ SNAPTURE is split into two services:
 2. In a second terminal, start the Expo app from `SNAPTURE`:
 
    ```powershell
-   npm install
-   npx expo start --lan --clear
+   npm.cmd install
+   & ".\node_modules\.bin\expo.cmd" start --lan --clear
    ```
 
 Keep the phone and computer on the same Wi-Fi. See each folder's README for

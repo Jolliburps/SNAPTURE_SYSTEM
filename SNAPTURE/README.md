@@ -7,13 +7,13 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 1. Install dependencies
 
    ```bash
-   npm install
+   npm.cmd install
    ```
 
 2. Start the app
 
    ```bash
-   npx expo start
+   & ".\node_modules\.bin\expo.cmd" start
    ```
 
 ## Run SNAPTURE with the local ML API
@@ -31,7 +31,7 @@ Start Expo/Metro in a second terminal:
 
 ```powershell
 cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE"
-npx.cmd expo start --lan --clear
+& ".\node_modules\.bin\expo.cmd" start --lan --clear
 ```
 
 For the current computer (`192.168.1.171`):
