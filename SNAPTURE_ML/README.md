@@ -43,7 +43,7 @@ The root `train_model.py` is only a compatibility entry point. The maintained tr
 Open PowerShell in the project root:
 
 ```powershell
-cd "C:\Users\My PC\Documents\SNAPTURE_ML"
+cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE_ML"
 ```
 
 The project uses Python 3.13 and the existing `.venv`. PowerShell activation is optional; direct interpreter paths avoid execution-policy problems.
@@ -169,7 +169,7 @@ For a physical Android phone, use the computer's local IPv4 address in `API_BASE
 Start the mobile project in a second terminal:
 
 ```powershell
-cd "C:\Users\My PC\Documents\SNAPTURE"
+cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE"
 if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
 npx.cmd expo start -c
 ```
@@ -180,11 +180,11 @@ npx.cmd expo start -c
 
 ```powershell
 # Terminal 1: backend
-cd "C:\Users\My PC\Documents\SNAPTURE_ML"
+cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE_ML"
 .\.venv\Scripts\python.exe -m uvicorn scripts.api_server:app --host 0.0.0.0 --port 8000
 
 # Terminal 2: Expo/Metro
-cd "C:\Users\My PC\Documents\SNAPTURE"
+cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE"
 npx.cmd expo start --lan --clear
 ```
 

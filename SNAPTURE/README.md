@@ -23,14 +23,14 @@ The machine-learning API runs from the separate `SNAPTURE_ML` folder. `localhost
 Start the API in one PowerShell terminal:
 
 ```powershell
-cd "C:\Users\My PC\Documents\SNAPTURE_ML"
+cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE_ML"
 .\.venv\Scripts\python.exe -m uvicorn scripts.api_server:app --host 0.0.0.0 --port 8000
 ```
 
 Start Expo/Metro in a second terminal:
 
 ```powershell
-cd "C:\Users\My PC\Documents\SNAPTURE"
+cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE"
 npx.cmd expo start --lan --clear
 ```
 

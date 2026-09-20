@@ -10,8 +10,7 @@ SNAPTURE is split into two services:
 1. Start the ML API from `SNAPTURE_ML`:
 
    ```powershell
-   .\.venv\Scripts\Activate.ps1
-   python -m uvicorn scripts.api_server:app --host 0.0.0.0 --port 8000
+   & ".\.venv\Scripts\python.exe" -m uvicorn scripts.api_server:app --host 0.0.0.0 --port 8000
    ```
 
 2. In a second terminal, start the Expo app from `SNAPTURE`:
@@ -23,4 +22,3 @@ SNAPTURE is split into two services:
 
 Keep the phone and computer on the same Wi-Fi. See each folder's README for
 more detailed setup and LAN camera notes.
-
