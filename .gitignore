@@ -1,0 +1,27 @@
+# Expo/mobile dependencies and generated files
+SNAPTURE/node_modules/
+SNAPTURE/.expo/
+SNAPTURE/.metro-health-check*
+SNAPTURE/dist/
+SNAPTURE/web-build/
+SNAPTURE/.env
+SNAPTURE/.env*.local
+SNAPTURE/*.tsbuildinfo
+
+# Python/backend environment, caches, and local data
+SNAPTURE_ML/.venv/
+SNAPTURE_ML/__pycache__/
+SNAPTURE_ML/**/__pycache__/
+SNAPTURE_ML/.env
+SNAPTURE_ML/.env*.local
+SNAPTURE_ML/data/
+SNAPTURE_ML/dataset-resized/
+
+# Optional mobile training-data copy
+SNAPTURE/dataset-resized/
+
+# OS/editor files
+**/.DS_Store
+**/__MACOSX/
+*.py[cod]
+

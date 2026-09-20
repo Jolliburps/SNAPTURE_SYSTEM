@@ -1,0 +1,14 @@
+{
+  "validation_loss": 1.0083492994308472,
+  "validation_accuracy": 0.6297029852867126,
+  "epochs_completed": 12,
+  "image_counts": {
+    "cardboard": 403,
+    "glass": 501,
+    "metal": 410,
+    "paper": 594,
+    "plastic": 482,
+    "trash": 137
+  },
+  "has_separate_test_set": false
+}

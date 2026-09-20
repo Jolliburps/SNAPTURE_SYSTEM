@@ -1,0 +1,7 @@
+# SNAPTURE_ML runtime and training dependencies (Python 3.13, Windows CPU)
+tensorflow==2.21.0
+numpy==2.5.3
+pillow==12.3.0
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+python-multipart==0.0.32

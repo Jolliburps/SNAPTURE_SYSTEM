@@ -1,0 +1,18 @@
+{
+  "image_size": [
+    224,
+    224
+  ],
+  "preprocessing": "mobilenet_v2_internal",
+  "confidence_threshold": 0.6,
+  "validation_split": 0.2,
+  "dataset_path": "data\\raw\\trashnet\\dataset-resized",
+  "classes": [
+    "cardboard",
+    "glass",
+    "metal",
+    "paper",
+    "plastic",
+    "trash"
+  ]
+}
