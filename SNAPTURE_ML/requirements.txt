@@ -5,3 +5,4 @@ pillow==12.3.0
 fastapi==0.141.1
 uvicorn[standard]==0.53.0
 python-multipart==0.0.32
+Django==5.2.17

@@ -1,12 +1,23 @@
-# Expo/mobile dependencies and generated files
-SNAPTURE/node_modules/
-SNAPTURE/.expo/
-SNAPTURE/.metro-health-check*
-SNAPTURE/dist/
-SNAPTURE/web-build/
-SNAPTURE/.env
-SNAPTURE/.env*.local
-SNAPTURE/*.tsbuildinfo
+# React Native Android app dependencies and generated files
+SNAPTURE_ANDROID/node_modules/
+SNAPTURE_ANDROID/android/.gradle/
+SNAPTURE_ANDROID/android/app/build/
+SNAPTURE_ANDROID/android/build/
+SNAPTURE_ANDROID/android/.cxx/
+SNAPTURE_ANDROID/android/local.properties
+SNAPTURE_ANDROID/ios/Pods/
+SNAPTURE_ANDROID/ios/build/
+SNAPTURE_ANDROID/.gradle/
+SNAPTURE_ANDROID/*.tsbuildinfo
+
+# Django local backend
+SNAPTURE_BACKEND/__pycache__/
+SNAPTURE_BACKEND/**/__pycache__/
+SNAPTURE_BACKEND/db.sqlite3
+SNAPTURE_BACKEND/media/
+SNAPTURE_BACKEND/staticfiles/
+SNAPTURE_BACKEND/.env
+SNAPTURE_BACKEND/.env*.local
 
 # Python/backend environment, caches, and local data
 SNAPTURE_ML/.venv/
@@ -16,12 +27,13 @@ SNAPTURE_ML/.env
 SNAPTURE_ML/.env*.local
 SNAPTURE_ML/data/
 SNAPTURE_ML/dataset-resized/
-
-# Optional mobile training-data copy
-SNAPTURE/dataset-resized/
+SNAPTURE_ML/models/backup-*/
 
 # OS/editor files
 **/.DS_Store
 **/__MACOSX/
 *.py[cod]
+
+# Optional local Android/JDK tool cache
+.tools/
 

@@ -1,0 +1,67 @@
+# SNAPTURE Django backend
+
+This is the local Python backend for the standalone SNAPTURE Android client.
+It uses Django 5.2, the built-in SQLite database for local development, and
+the existing TensorFlow model in `../SNAPTURE_ML`.
+
+## Start locally
+
+Run these commands from `SNAPTURE_BACKEND`:
+
+```powershell
+cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE_BACKEND"
+& "..\SNAPTURE_ML\.venv\Scripts\python.exe" manage.py migrate
+& "..\SNAPTURE_ML\.venv\Scripts\python.exe" manage.py runserver 0.0.0.0:8000
+```
+
+Create an administrator for the Django admin site:
+
+```powershell
+& "..\SNAPTURE_ML\.venv\Scripts\python.exe" manage.py createsuperuser
+```
+
+Open `http://127.0.0.1:8000/admin/` on the computer. A phone on the same
+Wi-Fi uses the computer's LAN IPv4 address instead of `127.0.0.1`.
+
+## API modules
+
+```text
+GET  /api/health/
+GET  /api/materials/
+POST /api/auth/register/
+POST /api/auth/login/
+POST /api/auth/logout/
+GET  /api/auth/me/
+GET  /api/auth/admin/overview/    administrator only
+GET  /api/predictions/
+POST /api/predictions/create/      multipart image; optional context fields
+GET  /api/predictions/<id>/
+PATCH /api/predictions/<id>/       optional context and recommendation refresh
+POST /api/predictions/<id>/recommendation/
+GET  /api/predictions/questions/<label>/
+GET  /api/datasets/counts/         administrator only
+POST /api/datasets/upload/         administrator only
+```
+
+Dataset uploads are accepted only for the seven approved labels and are kept
+pending until an administrator reviews them. Invalid, unreadable, tiny, or
+oversized images are rejected. After review, export verified images into the
+training folders:
+
+```powershell
+& "..\SNAPTURE_ML\.venv\Scripts\python.exe" manage.py export_verified_dataset
+```
+
+The mobile client receives a bearer token after registration or login. The
+server stores only a SHA-256 hash of each token. The in-app administrator
+dashboard uses the same token and the protected overview endpoint. Django
+Admin remains available for detailed user, prediction, and dataset management.
+
+## Current limitation
+
+The existing trained model is still the six-class TrashNet baseline. Generic
+`plastic` and `metal` outputs are marked **Needs verification**. The backend is
+ready for the seven scope categories, but a category must have verified images
+before a scope model is trained. Safety and reuse guidance is educational
+decision support; it is not a chemical, microbial, structural, or food-contact
+safety certification.

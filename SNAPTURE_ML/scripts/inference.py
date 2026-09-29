@@ -20,6 +20,43 @@ DEFAULT_CONFIG_PATH = PROJECT_DIR / "models" / "model_config.json"
 DEFAULT_IMAGE_SIZE = (224, 224)
 DEFAULT_CONFIDENCE_THRESHOLD = 0.60
 DEFAULT_UNSUPPORTED_CLASSES = {"glass", "trash"}
+DEFAULT_GENERIC_CLASSES = {"plastic", "metal"}
+
+# These are the only labels that may be shown as a final identification in
+# SNAPTURE.  The current baseline model still contains generic labels such as
+# ``glass`` and ``plastic``; those labels are useful for diagnostics, but they
+# are outside the thesis scope and must never be presented as a supported
+# material to a user.
+SCOPE_CLASSES = frozenset(
+    {
+        "pete_bottles",
+        "hdpe_containers",
+        "cardboard",
+        "paper",
+        "fabric_scraps",
+        "coconut_shells",
+        "dry_untreated_wood_scraps",
+    }
+)
+
+
+def _normalise_label(value: str) -> str:
+    """Convert common folder/model label spellings to scope identifiers."""
+
+    normalised = "_".join(value.strip().lower().replace("-", "_").split())
+    aliases = {
+        "pete": "pete_bottles",
+        "pete_bottle": "pete_bottles",
+        "pete_bottle_container": "pete_bottles",
+        "hdpe": "hdpe_containers",
+        "hdpe_container": "hdpe_containers",
+        "fabric": "fabric_scraps",
+        "coconut_shell": "coconut_shells",
+        "wood": "dry_untreated_wood_scraps",
+        "dry_untreated_wood": "dry_untreated_wood_scraps",
+        "dry_wood_scraps": "dry_untreated_wood_scraps",
+    }
+    return aliases.get(normalised, normalised)
 
 
 def _environment_float(name: str, default: float) -> float:
@@ -91,7 +128,21 @@ class ModelPredictor:
                 )
             ),
         )
-        self.unsupported_classes = _unsupported_classes(self.labels)
+        self.unsupported_classes = {
+            _normalise_label(label) for label in _unsupported_classes(self.labels)
+        }
+        self.scope_classes = set(SCOPE_CLASSES)
+        configured_generic = os.getenv("SNAPTURE_GENERIC_CLASSES")
+        self.generic_classes = (
+            {
+                _normalise_label(value)
+                for value in configured_generic.split(",")
+                if value.strip()
+            }
+            if configured_generic is not None
+            else DEFAULT_GENERIC_CLASSES
+        )
+        self.model_version = str(self.config.get("model_version", "local"))
 
         # The training script places MobileNetV2 preprocessing inside the model.
         # Therefore inference must pass raw RGB pixels in the 0-255 range.
@@ -130,22 +181,48 @@ class ModelPredictor:
         best_index = int(np.argmax(scores))
         best_class = self.labels[best_index]
         confidence = float(scores[best_index])
-        normalized_class = best_class.lower()
+        normalized_class = _normalise_label(best_class)
+        in_scope = normalized_class in self.scope_classes
 
-        if (
-            confidence < self.confidence_threshold
-            or normalized_class in self.unsupported_classes
-        ):
+        verification_reasons: list[str] = []
+        if confidence < self.confidence_threshold:
+            verification_reasons.append("confidence_below_threshold")
+        if not in_scope:
+            # Any class outside the seven thesis categories (including glass,
+            # metal, plastic, and trash) is deliberately treated as unknown.
+            verification_reasons.append("out_of_scope_class")
+        elif normalized_class in self.unsupported_classes:
+            verification_reasons.append("unsupported_class")
+        if in_scope and normalized_class in self.generic_classes:
+            verification_reasons.append("generic_class_requires_material_review")
+
+        if verification_reasons:
             decision = "unknown_unsupported"
         else:
-            decision = best_class
+            # Return the canonical scope identifier so material guidance and
+            # the API use one stable label even if the model uses spaces or
+            # hyphens in its labels file.
+            decision = normalized_class
+
+        top_indices = np.argsort(scores)[::-1][: min(3, len(self.labels))]
+        alternatives = [
+            {
+                "class": self.labels[int(index)],
+                "confidence": round(float(scores[int(index)]), 6),
+            }
+            for index in top_indices
+        ]
 
         return {
             "class": best_class,
             "confidence": round(confidence, 6),
             "decision": decision,
             "threshold": self.confidence_threshold,
-            "unsupported_class": normalized_class in self.unsupported_classes,
+            "unsupported_class": not in_scope or normalized_class in self.unsupported_classes,
+            "needs_verification": bool(verification_reasons),
+            "verification_reasons": verification_reasons,
+            "alternatives": alternatives,
+            "model_version": self.model_version,
         }
 
     def predict_bytes(self, image_bytes: bytes) -> dict[str, Any]:

@@ -1,0 +1,177 @@
+from __future__ import annotations
+
+import json
+
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
+from django.db import IntegrityError, transaction
+from django.db.models import Count
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+from core.auth import issue_token, require_api_admin, require_api_user, user_from_request
+from core.materials import SCOPE_LABELS, material_info
+from predictions.models import PredictionRecord
+
+from .models import ApiToken, Profile
+
+
+SUPPORTED_DECISIONS = set(SCOPE_LABELS)
+
+
+def _safe_prediction_values(record):
+    """Return a scope-safe decision/title for old and new model records."""
+    decision = record.decision if record.decision in SUPPORTED_DECISIONS else "unknown_unsupported"
+    if decision == "unknown_unsupported":
+        title = material_info("unknown_unsupported")["title"]
+    else:
+        title = material_info(decision)["title"]
+        if "user confirmed" in str(record.title).lower():
+            title = f"{title} (user confirmed)"
+    return decision, title
+
+
+def _json_body(request):
+    try:
+        return json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return None
+
+
+def _serialize_user(user):
+    profile, _ = Profile.objects.get_or_create(user=user)
+    # Django superusers/staff members are administrators even if an older
+    # database row was created before the Profile role was synchronized.
+    role = "admin" if user.is_staff or user.is_superuser else profile.role
+    if role == "admin" and profile.role != "admin":
+        Profile.objects.filter(pk=profile.pk).update(role="admin")
+    return {"id": user.id, "email": user.email, "display_name": profile.display_name or user.get_username(), "role": role}
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def register(request):
+    payload = _json_body(request)
+    if payload is None:
+        return JsonResponse({"detail": "Request body must be valid JSON."}, status=400)
+    email = str(payload.get("email", "")).strip().lower()
+    password = str(payload.get("password", ""))
+    display_name = str(payload.get("display_name", "")).strip()
+    if not email or "@" not in email:
+        return JsonResponse({"detail": "A valid email address is required."}, status=400)
+    if len(password) < 8:
+        return JsonResponse({"detail": "Password must contain at least 8 characters."}, status=400)
+    if User.objects.filter(username=email).exists():
+        return JsonResponse({"detail": "An account with that email already exists."}, status=409)
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(username=email, email=email, password=password)
+            Profile.objects.create(user=user, display_name=display_name)
+    except IntegrityError:
+        return JsonResponse({"detail": "Unable to create the account."}, status=409)
+    return JsonResponse({"user": _serialize_user(user), "token": issue_token(user)}, status=201)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def login(request):
+    payload = _json_body(request)
+    if payload is None:
+        return JsonResponse({"detail": "Request body must be valid JSON."}, status=400)
+    identifier = str(payload.get("email", "")).strip().lower()
+    password = str(payload.get("password", ""))
+    # Regular accounts use their email as the username. The administrator
+    # account uses the short username "admin", so accept either identifier.
+    user = authenticate(request, username=identifier, password=password)
+    if user is None:
+        account = User.objects.filter(email__iexact=identifier).first()
+        if account is not None:
+            user = authenticate(request, username=account.get_username(), password=password)
+    if user is None:
+        return JsonResponse({"detail": "Invalid email or password."}, status=401)
+    return JsonResponse({"user": _serialize_user(user), "token": issue_token(user)})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def logout(request):
+    header = request.headers.get("Authorization", "")
+    user = user_from_request(request)
+    if header.startswith("Bearer ") and user is not None:
+        raw_token = header.removeprefix("Bearer ").strip()
+        ApiToken.objects.filter(token_hash=ApiToken.hash_token(raw_token)).delete()
+    return JsonResponse({"logged_out": True})
+
+
+@require_api_user
+def me(request):
+    return JsonResponse({"user": _serialize_user(request.api_user)})
+
+
+@require_api_admin
+@require_http_methods(["GET"])
+def admin_overview(request):
+    """Return privacy-preserving dashboard metrics and anonymized activity."""
+    users = User.objects.order_by("-date_joined")
+    records = PredictionRecord.objects.select_related("user").order_by("-created_at")[:20]
+    category_counts = {}
+    for row in PredictionRecord.objects.values("decision").annotate(count=Count("id")):
+        decision = row["decision"] if row["decision"] in SUPPORTED_DECISIONS else "unknown_unsupported"
+        category_counts[decision] = category_counts.get(decision, 0) + row["count"]
+    recent_predictions = [
+        {
+            "id": record.id,
+            "reference": f"scan-{record.id:04d}",
+            "title": _safe_prediction_values(record)[1],
+            "decision": _safe_prediction_values(record)[0],
+            "confidence": record.confidence,
+            "created_at": record.created_at.isoformat(),
+        }
+        for record in records
+    ]
+    return JsonResponse(
+        {
+            "users_count": users.count(),
+            "predictions_count": PredictionRecord.objects.count(),
+            "admin_count": users.filter(is_staff=True).count(),
+            "category_counts": category_counts,
+            "recent_predictions": recent_predictions,
+        }
+    )
+
+
+@require_api_admin
+@require_http_methods(["GET"])
+def admin_prediction_detail(request, prediction_id):
+    """Return one record only after an administrator explicitly opens it.
+
+    The overview intentionally excludes email addresses and image URLs. This
+    endpoint is the deliberate, auditable detail action for model evaluation.
+    """
+    record = PredictionRecord.objects.filter(id=prediction_id).first()
+    if record is None:
+        return JsonResponse({"detail": "Prediction not found."}, status=404)
+    decision, title = _safe_prediction_values(record)
+    return JsonResponse(
+        {
+            "id": record.id,
+            "reference": f"scan-{record.id:04d}",
+            "user_id": record.user_id,
+            "title": title,
+            "decision": decision,
+            # Do not expose generic baseline labels such as ``glass`` in the
+            # admin UI; the only public class is the scope-safe decision.
+            "model_class": decision,
+            "confidence": record.confidence,
+            "threshold": record.threshold,
+            "model_version": record.model_version,
+            "quantity": record.quantity,
+            "condition": record.condition,
+            "previous_contents": record.previous_contents,
+            "answers": record.answers,
+            "selected_recommendation": record.selected_recommendation,
+            "created_at": record.created_at.isoformat(),
+            "image_url": record.image.url if record.image else None,
+        }
+    )

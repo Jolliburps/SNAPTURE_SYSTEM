@@ -1,14 +1,24 @@
 # SNAPTURE_ML
 
-SNAPTURE_ML is the local machine-learning backend for the SNAPTURE mobile prototype. It trains a TensorFlow image classifier from the existing dataset and exposes the trained model through a small FastAPI server.
+SNAPTURE_ML contains the shared TensorFlow training and inference code for the
+standalone SNAPTURE Android client and Django backend. The old FastAPI server
+is retained as a diagnostic compatibility tool; normal app requests now go
+through `SNAPTURE_BACKEND`.
 
-The current TrashNet-based model discovers the class folders that are present in the dataset. With the current data, the classes are:
+The maintained training pipeline is scoped to the seven thesis categories:
 
 ```text
-cardboard, glass, metal, paper, plastic, trash
+pete_bottles, hdpe_containers, cardboard, paper,
+fabric_scraps, coconut_shells, dry_untreated_wood_scraps
 ```
 
-`glass` and `trash` are treated as unsupported by default. Any prediction below the confidence threshold is also returned as `unknown_unsupported`. Confidence is only a practical rejection rule; it is not a perfect unknown-object detector or a safety certification.
+The existing TrashNet model remains available for demonstrations, but it is not
+treated as evidence for PETE or HDPE. Only the seven scope labels can become a
+final decision. Any `glass`, `plastic`, `metal`, `trash`, or other out-of-scope
+prediction—and any prediction below the confidence threshold—is returned as
+`unknown_unsupported` / **Unidentified or unsupported object**.
+Confidence is a practical rejection rule, not a perfect unknown-object detector
+or a safety certification.
 
 ## Project structure
 
@@ -54,30 +64,136 @@ Install the pinned dependencies:
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-## Dataset
+## Dataset and labeling policy
 
-Keep the original dataset folders unchanged. The trainer first checks `data/raw/trashnet/dataset-resized`, then the other project-local fallback locations. To use another local dataset root, set `SNAPTURE_DATA_DIR`:
+The canonical training location is `data/scope_dataset`. If the original
+source dataset is retained, keep it unchanged at
+`data/raw/trashnet/dataset-resized` for reference; it is not required after
+the prepared scope folder has been created.
+The trainer reads the seven labels from `data/scope_dataset/labels.json` and
+refuses to train if a scope class is missing or empty.
+
+Use a flat class layout while collecting images:
+
+```text
+data/scope_dataset/
+├── pete_bottles/
+├── hdpe_containers/
+├── cardboard/
+├── paper/
+├── fabric_scraps/
+├── coconut_shells/
+└── dry_untreated_wood_scraps/
+```
+
+For a reviewed dataset, an explicit split layout is also supported:
+
+```text
+data/scope_dataset/{train,val,test}/{class_name}/
+```
+
+Every image must be verified by a human. Never rename a generic `plastic`
+folder to PETE or HDPE without checking each image. Do not use model
+predictions as ground-truth labels.
+
+The recommended starting target is at least 100 verified images per class,
+with varied lighting, backgrounds, angles, distances, object sizes, and
+conditions. Thirty images per class is the minimum training warning threshold;
+the `SNAPTURE_ENFORCE_MIN_IMAGES=1` option can make that threshold blocking.
+
+The trainer checks image readability, flags very small images, and rejects
+exact duplicate files to prevent train/test leakage. Remove faces, documents,
+and other personal information before adding images. Keep a source/license and
+label-review record for every collected batch.
+
+To deliberately run a legacy non-scope experiment, set `SNAPTURE_DATA_DIR` and
+`SNAPTURE_ALLOW_NON_SCOPE_DATASET=1` explicitly:
 
 ```powershell
 $env:SNAPTURE_DATA_DIR = ".\data\raw\my-dataset"
+$env:SNAPTURE_ALLOW_NON_SCOPE_DATASET = "1"
 ```
 
 Each immediate subfolder becomes a class. Do not rename a broad `plastic` or `metal` folder to `plastic_bottle` or `metal_can` unless every image in that folder has been verified to match the new label.
 
-## Train the model
+### Clean checklist-scope path
+
+The concept checklist uses seven narrower categories than the current
+TrashNet source. Generate an explicit local folder layout for those labels:
+
+```powershell
+python .\scripts\prepare_scope_dataset.py
+```
+
+This creates `data/scope_dataset/` with folders for `pete_bottles`,
+`hdpe_containers`, `cardboard`, `paper`, `fabric_scraps`, `coconut_shells`,
+and `dry_untreated_wood_scraps`. Exact `cardboard` and `paper` images are
+linked into their matching folders. Generic `plastic` images are placed in
+`needs_manual_review/plastic_unclassified`, while `glass`, `metal`, and
+`trash` are placed under `out_of_scope`. The script never guesses PETE or
+HDPE from a generic plastic label. The complete source-to-label record is in
+`data/scope_dataset/dataset_manifest.json`.
+
+This workspace currently keeps only the prepared scope folder; the original
+raw source is not included. Do not run the command above without supplying a
+real `--source` directory. For new categories, upload and verify images in the
+Django dataset collector, then run the export command below.
+
+Do not train a seven-class model until each intended scope folder contains
+enough verified images. Empty folders are intentional and identify categories
+missing from the current source dataset.
+
+The current local snapshot contains 403 `cardboard` images, 594 `paper`
+images, and 482 generic-plastic images in
+`needs_manual_review/plastic_unclassified`. The PETE, HDPE, fabric, coconut
+shell, and untreated-wood folders are currently empty placeholders. Generic
+plastic images must be manually verified before moving them into PETE or HDPE.
+
+### Capture verified images
+
+The Django backend includes an administrator-protected dataset endpoint. It
+never uses the model prediction as a label. The current Android administrator
+dashboard provides system activity; detailed dataset upload and review remain
+available through Django Admin or the protected API. Uploaded images are kept
+pending until an administrator verifies the label.
+
+After reviewing uploads in Django Admin, export only verified records into the
+canonical training folders:
+
+```powershell
+cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE_BACKEND"
+& "..\SNAPTURE_ML\.venv\Scripts\python.exe" manage.py export_verified_dataset
+```
+
+The command skips pending/rejected images, avoids exact duplicate exports, and
+writes `data/scope_dataset/verified_manifest.json` without user emails.
+
+Do not expose this collector publicly or use predicted labels as ground truth.
+
+## Train and evaluate the model
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\train_model.py
 ```
 
-The trainer validates image files, automatically discovers classes, uses an 80/20 training/validation split, applies MobileNetV2 transfer learning and augmentation, and saves:
+The trainer reads `data/scope_dataset/labels.json`, ignores the review and
+out-of-scope folders, and stops with a clear error if any declared class folder
+is empty. It never silently falls back to the six-class dataset.
+
+The trainer validates image files, creates a deterministic stratified 70/15/15
+train/validation/test split when the flat layout is used, applies MobileNetV2
+transfer learning, and uses class weights for imbalance. It saves:
 
 - `models/snapture_baseline.keras` — trained Keras model
 - `models/labels.json` — class order used by the model
 - `models/model_config.json` — image size, preprocessing, threshold, and dataset metadata
 - `models/training_summary.json` — measured validation results
 
-There is currently no separate test folder, so validation accuracy is evaluation evidence, not an independent test-set score.
+The test score is kept separate from training and validation. Do not report
+validation accuracy as the final thesis accuracy.
+
+The training summary also contains per-class precision, recall, F1 scores, and
+the confusion matrices needed for a meaningful thesis evaluation.
 
 ## Test one image
 
@@ -95,41 +211,23 @@ $env:SNAPTURE_CONFIDENCE_THRESHOLD = "0.60"
 
 For a classroom demo you can experiment with `0.50` to return more borderline plastic/metal results, but a lower threshold also increases false positives. Restart the API after changing the variable.
 
-The unsupported labels can also be configured:
+The legacy unsupported list can still be configured for diagnostics (all
+out-of-scope labels are rejected regardless):
 
 ```powershell
 $env:SNAPTURE_UNSUPPORTED_CLASSES = "glass,trash"
 ```
 
-## Start the API
+## Diagnostic FastAPI server
 
-Install dependencies first, then start the server from the project root:
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn scripts.api_server:app --reload --host 0.0.0.0 --port 8000
-```
-
-The alternative command below is useful when importing the script directly:
+The maintained application uses Django, but the old FastAPI server remains
+available for model-only diagnostics:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn api_server:app --app-dir ".\scripts" --host 0.0.0.0 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn scripts.api_server:app --host 0.0.0.0 --port 18000
 ```
 
-Endpoints:
-
-```text
-GET  /health
-POST /predict   (multipart/form-data field name: file)
-```
-
-Open `http://127.0.0.1:8000/health` to confirm that the model loaded. Open `http://127.0.0.1:8000/docs` to test an image interactively.
-
-Example request with PowerShell:
-
-```powershell
-$image = Get-Item ".\data\raw\trashnet\dataset-resized\metal\metal1.jpg"
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" -Method Post -Form @{ file = $image }
-```
+Use port `18000` so it does not conflict with the Django API on port `8000`.
 
 Example response:
 
@@ -158,43 +256,13 @@ Example response:
 
 The confidence and class in this example come from the current trained model; they will vary with the image. A low-confidence result is intentionally returned as `unknown_unsupported` instead of presenting an uncertain material as fact.
 
-## Mobile app connection
+## Android app connection
 
-The Expo app is in the separate `SNAPTURE` project. Its `src/app/index.tsx` sends the captured photo to the local API and displays the returned preparation and reuse information.
-
-The mobile upload uses Expo SDK 57's `File` object from `expo-file-system` together with `expo/fetch`. Do not replace it with the older React Native `{ uri, name, type }` FormData object; Expo SDK 57's multipart encoder rejects that object with `Unsupported FormDataPart implementation`.
-
-For a physical Android phone, use the computer's local IPv4 address in `API_BASE_URL` and keep both devices on the same Wi-Fi network. Do not use `localhost` on the phone. For the Android emulator, `http://10.0.2.2:8000` normally points to the host computer.
-
-Start the mobile project in a second terminal:
-
-```powershell
-cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE"
-if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
-& ".\node_modules\.bin\expo.cmd" start -c
-```
-
-### Open the app on multiple devices over the LAN
-
-`localhost` always means the device where the browser or app is running. Other devices must use the computer's LAN IPv4 address. Start the API on all interfaces and start Expo in LAN mode:
-
-```powershell
-# Terminal 1: backend
-cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE_ML"
-.\.venv\Scripts\python.exe -m uvicorn scripts.api_server:app --host 0.0.0.0 --port 8000
-
-# Terminal 2: Expo/Metro
-cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE"
-& ".\node_modules\.bin\expo.cmd" start --lan --clear
-```
-
-If the computer's IPv4 address is `192.168.1.171`:
-
-- Open the web app on another computer or phone at `http://192.168.1.171:8081`.
-- On iPhone, open Expo Go and scan the LAN QR code (`exp://192.168.1.171:8081`). Expo CLI and Expo Go must be signed in to the same Expo account on a physical iOS device.
-- The app sends predictions to `http://192.168.1.171:8000`; the backend already enables cross-origin requests for local development.
-
-All devices must be on the same Wi-Fi/LAN, and Windows Firewall must allow Python/Node on the Private network if it prompts. If the IPv4 address changes, restart Metro after updating `.env`; during development the app also derives the API host from the browser/Expo development host when available.
+The standalone React Native CLI app is in `SNAPTURE_ANDROID`. The current
+checkout uses the connected phone's LAN address in
+`SNAPTURE_ANDROID/src/api.ts`; an Android emulator should use
+`http://10.0.2.2:8000/api`. Do not use `localhost` on a phone. Keep the phone
+and computer on the same Wi-Fi network.
 
 ## Common fixes
 
@@ -202,7 +270,7 @@ All devices must be on the same Wi-Fi/LAN, and Windows Firewall must allow Pytho
 - **PowerShell blocks `npm.ps1` or `npx.ps1`**: use `npm.cmd` or `npx.cmd`.
 - **`Model is not ready`**: train the model first and confirm the files in `models/` exist.
 - **Phone cannot connect**: start the API with `--host 0.0.0.0`, use the computer's IPv4 address, check same Wi-Fi, and allow the development server on the Private network if Windows asks.
-- **`unknown_unsupported`**: the model was below the configured confidence threshold or predicted a configured unsupported class. This is intentionally conservative.
+- **`unknown_unsupported`**: the model was below the configured confidence threshold or predicted a class outside the seven thesis categories. This is intentionally conservative.
 
 ## Limitations
 

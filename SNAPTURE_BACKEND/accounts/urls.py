@@ -1,0 +1,12 @@
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path("register/", views.register, name="register"),
+    path("login/", views.login, name="login"),
+    path("logout/", views.logout, name="logout"),
+    path("me/", views.me, name="me"),
+    path("admin/overview/", views.admin_overview, name="admin-overview"),
+    path("admin/predictions/<int:prediction_id>/", views.admin_prediction_detail, name="admin-prediction-detail"),
+]
