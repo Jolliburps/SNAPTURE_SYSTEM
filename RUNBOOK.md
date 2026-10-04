@@ -60,8 +60,17 @@ $env:Path = "$env:JAVA_HOME\bin;$env:ANDROID_SDK_ROOT\platform-tools;$env:Path"
 
 cd "C:\Users\My PC\Documents\SNAPTURE_SYSTEM\SNAPTURE_ANDROID"
 npm.cmd install
-npm.cmd run android
+$adb = "$env:ANDROID_SDK_ROOT\platform-tools\adb.exe"
+& $adb devices
+& $adb -s 8PVKYTHM6DK7RK4X reverse tcp:8081 tcp:8081
+npm.cmd run android -- --no-packager --device 8PVKYTHM6DK7RK4X
 ```
+
+The explicit `--device` value is important when both the physical phone and an
+Android emulator are connected. Replace `8PVKYTHM6DK7RK4X` with the serial
+shown by `adb devices` for another phone. The `--no-packager` option assumes
+Metro is already running with `npm.cmd start -- --reset-cache` in another
+terminal.
 
 If Android Studio installed the tools somewhere else, replace the two paths
 above with that computer's JDK 17 and Android SDK paths.

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.http import JsonResponse
@@ -91,6 +93,50 @@ def login(request):
     if user is None:
         return JsonResponse({"detail": "Invalid email or password."}, status=401)
     return JsonResponse({"user": _serialize_user(user), "token": issue_token(user)})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def password_reset_request(request):
+    """Start a password reset without revealing whether an email exists.
+
+    The local thesis build runs with DEBUG enabled and returns a one-time
+    Django reset token so the mobile UI can complete the flow without an
+    email provider. Production builds should send this token by email instead
+    of returning it in the API response.
+    """
+    payload = _json_body(request)
+    if payload is None:
+        return JsonResponse({"detail": "Request body must be valid JSON."}, status=400)
+    email = str(payload.get("email", "")).strip().lower()
+    response = {
+        "requested": True,
+        "detail": "If an account exists for that email, reset instructions are available.",
+    }
+    user = User.objects.filter(email__iexact=email).first() if email else None
+    if user is not None and settings.DEBUG:
+        response["reset_token"] = default_token_generator.make_token(user)
+    return JsonResponse(response)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def password_reset_confirm(request):
+    """Set a new password using a single-use Django reset token."""
+    payload = _json_body(request)
+    if payload is None:
+        return JsonResponse({"detail": "Request body must be valid JSON."}, status=400)
+    email = str(payload.get("email", "")).strip().lower()
+    token = str(payload.get("token", "")).strip()
+    password = str(payload.get("password", ""))
+    if len(password) < 8:
+        return JsonResponse({"detail": "Password must contain at least 8 characters."}, status=400)
+    user = User.objects.filter(email__iexact=email).first() if email else None
+    if user is None or not token or not default_token_generator.check_token(user, token):
+        return JsonResponse({"detail": "The reset code is invalid or has expired."}, status=400)
+    user.set_password(password)
+    user.save(update_fields=["password"])
+    return JsonResponse({"reset": True, "detail": "Your password has been reset. You can now log in."})
 
 
 @csrf_exempt

@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // This computer's current LAN address. Keep the phone and computer on the
 // same Wi-Fi network. For an Android emulator, use http://10.0.2.2:8000/api.
-export const API_BASE_URL = 'http://192.168.1.103:8000/api';
+// The previous address (192.168.1.103) is no longer assigned to this computer.
+export const API_BASE_URL = 'http://192.168.1.199:8000/api';
 const TOKEN_KEY = 'snapture_api_token';
 
 export type ApiUser = {
@@ -130,6 +131,24 @@ export async function loginUser(email: string, password: string) {
   return payload;
 }
 
+export async function requestPasswordReset(email: string) {
+  const response = await fetch(`${API_BASE_URL}/auth/password-reset/request/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return parseResponse<{ requested: boolean; detail: string; reset_token?: string }>(response);
+}
+
+export async function confirmPasswordReset(email: string, token: string, password: string) {
+  const response = await fetch(`${API_BASE_URL}/auth/password-reset/confirm/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, token, password }),
+  });
+  return parseResponse<{ reset: boolean; detail: string }>(response);
+}
+
 export async function logoutUser() {
   const token = await AsyncStorage.getItem(TOKEN_KEY);
   if (token) {
@@ -216,7 +235,7 @@ export async function createPrediction(uri: string, fields: Record<string, strin
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in before analyzing an image.');
   const formData = new FormData();
-  const uploadUri = uri.startsWith('file://') ? uri : `file://${uri}`;
+  const uploadUri = uri.startsWith('file://') || uri.startsWith('content://') ? uri : `file://${uri}`;
   formData.append('image', { uri: uploadUri, name: 'capture.jpg', type: 'image/jpeg' } as unknown as Blob);
   Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
   const response = await fetch(`${API_BASE_URL}/predictions/create/`, {

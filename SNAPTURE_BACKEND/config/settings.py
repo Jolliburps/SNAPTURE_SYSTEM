@@ -77,13 +77,31 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+#
+# SQLite remains the safe local default. Set SNAPTURE_DB_ENGINE=mysql and the
+# MYSQL_* variables in the environment when a MySQL server is ready.
+if os.getenv('SNAPTURE_DB_ENGINE', 'sqlite').strip().lower() == 'mysql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('MYSQL_DATABASE', 'snapture'),
+            'USER': os.getenv('MYSQL_USER', 'snapture'),
+            'PASSWORD': os.getenv('MYSQL_PASSWORD', ''),
+            'HOST': os.getenv('MYSQL_HOST', '127.0.0.1'),
+            'PORT': os.getenv('MYSQL_PORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -124,6 +142,39 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Keep development activity visible while testing from the Android app. This
+# intentionally logs request/scan metadata only; image bytes and passwords are
+# never written to the terminal.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'snapture_console': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'snapture_console': {
+            'class': 'logging.StreamHandler',
+            'level': 'INFO',
+            'formatter': 'snapture_console',
+        },
+    },
+    'loggers': {
+        'predictions': {
+            'handlers': ['snapture_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['snapture_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 SNAPTURE_ML_DIR = Path(os.getenv('SNAPTURE_ML_DIR', BASE_DIR.parent / 'SNAPTURE_ML')).resolve()
 

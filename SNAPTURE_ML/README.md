@@ -128,11 +128,12 @@ python .\scripts\prepare_scope_dataset.py
 This creates `data/scope_dataset/` with folders for `pete_bottles`,
 `hdpe_containers`, `cardboard`, `paper`, `fabric_scraps`, `coconut_shells`,
 and `dry_untreated_wood_scraps`. Exact `cardboard` and `paper` images are
-linked into their matching folders. Generic `plastic` images are placed in
-`needs_manual_review/plastic_unclassified`, while `glass`, `metal`, and
-`trash` are placed under `out_of_scope`. The script never guesses PETE or
-HDPE from a generic plastic label. The complete source-to-label record is in
-`data/scope_dataset/dataset_manifest.json`.
+linked into their matching folders. Generic `plastic` images must remain
+outside the seven active classes until a human verifies PETE or HDPE; the
+current audit keeps them in the recoverable
+`data/scope_dataset/_quarantine_2026-10-02/` folder. The script never guesses
+PETE or HDPE from a generic plastic label. The complete source-to-label record
+is in `data/scope_dataset/dataset_manifest.json`.
 
 This workspace currently keeps only the prepared scope folder; the original
 raw source is not included. Do not run the command above without supplying a
@@ -143,11 +144,12 @@ Do not train a seven-class model until each intended scope folder contains
 enough verified images. Empty folders are intentional and identify categories
 missing from the current source dataset.
 
-The current local snapshot contains 403 `cardboard` images, 594 `paper`
-images, and 482 generic-plastic images in
-`needs_manual_review/plastic_unclassified`. The PETE, HDPE, fabric, coconut
-shell, and untreated-wood folders are currently empty placeholders. Generic
-plastic images must be manually verified before moving them into PETE or HDPE.
+The current local snapshot contains 1,325 `cardboard` images, 1,594 `paper`
+images, and 175 `dry_untreated_wood_scraps` images. The PETE, HDPE, fabric,
+and coconut-shell folders are empty until verified images are added. The
+previous generic-plastic and public-search candidate images were audited and
+moved out of the active dataset; see
+`data/scope_dataset/_quarantine_2026-10-02/README.md`.
 
 ### Capture verified images
 
@@ -176,9 +178,9 @@ Do not expose this collector publicly or use predicted labels as ground truth.
 .\.venv\Scripts\python.exe .\scripts\train_model.py
 ```
 
-The trainer reads `data/scope_dataset/labels.json`, ignores the review and
-out-of-scope folders, and stops with a clear error if any declared class folder
-is empty. It never silently falls back to the six-class dataset.
+The trainer reads `data/scope_dataset/labels.json`, ignores the quarantine
+folder, and stops with a clear error if any declared class folder is empty. It
+never silently falls back to a smaller dataset.
 
 The trainer validates image files, creates a deterministic stratified 70/15/15
 train/validation/test split when the flat layout is used, applies MobileNetV2

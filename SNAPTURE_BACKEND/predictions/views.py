@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from django.core.files.base import ContentFile
 from django.http import JsonResponse
@@ -16,6 +17,7 @@ from .models import PredictionRecord
 
 
 SUPPORTED_DECISIONS = set(SCOPE_LABELS)
+logger = logging.getLogger(__name__)
 
 
 def _parse_int(value):
@@ -105,6 +107,7 @@ def create_prediction(request):
     try:
         result = predict_image(image_bytes)
     except (RuntimeError, ValueError) as error:
+        logger.exception("prediction_failed user_id=%s", request.api_user.id)
         return JsonResponse({"detail": str(error)}, status=503 if isinstance(error, RuntimeError) else 400)
 
     quantity = _parse_int(request.POST.get("quantity"))
@@ -135,6 +138,16 @@ def create_prediction(request):
     filename = getattr(uploaded, "name", "capture.jpg")
     record.image.save(filename, ContentFile(image_bytes), save=False)
     record.save()
+    logger.info(
+        "scan_created id=%s user_id=%s model=%s decision=%s confidence=%.3f threshold=%.3f recommendations=%s",
+        record.id,
+        request.api_user.id,
+        record.model_class,
+        record.decision,
+        record.confidence,
+        record.threshold,
+        len(choices),
+    )
     return JsonResponse({"prediction": _serialize(record), "result": result, "recommendations": choices}, status=201)
 
 
@@ -198,6 +211,15 @@ def prediction_detail(request, prediction_id):
             "answers",
             "recommendation_choices",
         ])
+        logger.info(
+            "scan_updated id=%s user_id=%s decision=%s quantity=%s condition=%s recommendations=%s",
+            record.id,
+            request.api_user.id,
+            record.decision,
+            record.quantity,
+            record.condition or "<empty>",
+            len(choices),
+        )
     return JsonResponse({"prediction": _serialize(record), "recommendations": record.recommendation_choices})
 
 
@@ -229,6 +251,12 @@ def select_recommendation(request, prediction_id):
         return JsonResponse({"detail": "Choose one of the available recommendations."}, status=400)
     record.selected_recommendation = selected
     record.save(update_fields=["selected_recommendation"])
+    logger.info(
+        "recommendation_selected prediction_id=%s user_id=%s recommendation_id=%s",
+        record.id,
+        request.api_user.id,
+        selected,
+    )
     return JsonResponse({"prediction": _serialize(record)})
 
 

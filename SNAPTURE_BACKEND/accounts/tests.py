@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 # Create your tests here.
 import json
@@ -85,3 +85,31 @@ class AuthenticationApiTests(TestCase):
         logout = self.client.post("/api/auth/logout/", HTTP_AUTHORIZATION=f"Bearer {token}")
         self.assertEqual(logout.status_code, 200)
         self.assertEqual(self.client.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {token}").status_code, 401)
+
+    @override_settings(DEBUG=True)
+    def test_password_reset_request_and_confirm(self):
+        user = User.objects.create_user(username="reset@example.com", email="reset@example.com", password="oldpass123")
+        Profile.objects.create(user=user)
+        request = self.client.post(
+            "/api/auth/password-reset/request/",
+            data=json.dumps({"email": "reset@example.com"}),
+            content_type="application/json",
+        )
+        self.assertEqual(request.status_code, 200)
+        reset_token = request.json().get("reset_token")
+        self.assertTrue(reset_token)
+
+        confirm = self.client.post(
+            "/api/auth/password-reset/confirm/",
+            data=json.dumps({"email": "reset@example.com", "token": reset_token, "password": "newpass123"}),
+            content_type="application/json",
+        )
+        self.assertEqual(confirm.status_code, 200)
+        self.assertEqual(
+            self.client.post(
+                "/api/auth/login/",
+                data=json.dumps({"email": "reset@example.com", "password": "newpass123"}),
+                content_type="application/json",
+            ).status_code,
+            200,
+        )

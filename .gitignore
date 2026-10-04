@@ -34,6 +34,9 @@ SNAPTURE_ML/models/backup-*/
 **/__MACOSX/
 *.py[cod]
 
+# Local run diagnostics
+.run-logs/
+
 # Optional local Android/JDK tool cache
 .tools/
 

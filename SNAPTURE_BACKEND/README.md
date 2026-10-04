@@ -23,6 +23,21 @@ Create an administrator for the Django admin site:
 Open `http://127.0.0.1:8000/admin/` on the computer. A phone on the same
 Wi-Fi uses the computer's LAN IPv4 address instead of `127.0.0.1`.
 
+## Switch to MySQL
+
+SQLite is still the default until a MySQL server is installed and configured.
+After creating a MySQL database and user, run the migration helper from this
+folder:
+
+```powershell
+.\scripts\migrate_sqlite_to_mysql.ps1 -MysqlDatabase snapture -MysqlUser snapture
+```
+
+The helper exports the current SQLite records, runs Django migrations on
+MySQL, and imports the records. It does not delete `db.sqlite3`. To use
+MySQL after the migration, set `SNAPTURE_DB_ENGINE=mysql` and the `MYSQL_*`
+variables from `.env.example` before starting Django.
+
 ## API modules
 
 ```text
@@ -30,6 +45,8 @@ GET  /api/health/
 GET  /api/materials/
 POST /api/auth/register/
 POST /api/auth/login/
+POST /api/auth/password-reset/request/
+POST /api/auth/password-reset/confirm/
 POST /api/auth/logout/
 GET  /api/auth/me/
 GET  /api/auth/admin/overview/    administrator only
@@ -56,6 +73,11 @@ The mobile client receives a bearer token after registration or login. The
 server stores only a SHA-256 hash of each token. The in-app administrator
 dashboard uses the same token and the protected overview endpoint. Django
 Admin remains available for detailed user, prediction, and dataset management.
+
+For local development (`DEBUG=True`), the password-reset request returns a
+single-use reset token so the mobile app can complete the flow without an
+email provider. In a production deployment, configure email delivery and do
+not expose reset tokens in API responses.
 
 ## Current limitation
 
