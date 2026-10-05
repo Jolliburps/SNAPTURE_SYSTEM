@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Android Emulator routes 10.0.2.2 to the development computer. For a
-// physical phone, use that computer's LAN IPv4 address on the same Wi-Fi.
-export const API_BASE_URL = 'http://10.0.2.2:8000/api';
+// Development address for the USB-connected phone on the current Wi-Fi.
+// Replace this if the computer's LAN IPv4 address changes. Use 10.0.2.2 for
+// the Android emulator instead.
+export const API_BASE_URL = 'http://192.168.1.217:8000/api';
 const TOKEN_KEY = 'snapture_api_token';
 
 export type ApiUser = {

@@ -135,21 +135,32 @@ current audit keeps them in the recoverable
 PETE or HDPE from a generic plastic label. The complete source-to-label record
 is in `data/scope_dataset/dataset_manifest.json`.
 
-This workspace currently keeps only the prepared scope folder; the original
-raw source is not included. Do not run the command above without supplying a
-real `--source` directory. For new categories, upload and verify images in the
-Django dataset collector, then run the export command below.
+The original TrashNet source is not included in this checkout. Do not run the
+command above without supplying a real `--source` directory. For new
+categories, upload and verify images in the Django dataset collector, then run
+the export command below.
 
 Do not train a seven-class model until each intended scope folder contains
 enough verified images. Empty folders are intentional and identify categories
 missing from the current source dataset.
 
-The current local snapshot contains 1,325 `cardboard` images, 1,594 `paper`
-images, and 175 `dry_untreated_wood_scraps` images. The PETE, HDPE, fabric,
-and coconut-shell folders are empty until verified images are added. The
-previous generic-plastic and public-search candidate images were audited and
-moved out of the active dataset; see
-`data/scope_dataset/_quarantine_2026-10-02/README.md`.
+### Google Drive batch status (2026-10-06)
+
+A 9,626-item Google Drive batch is present locally under the seven
+`data/<class>/` folders, in addition to the legacy prepared data. It is a
+candidate collection, not a reviewed training set: the current
+`data/verified_manifest.json` has no approved records, and sample review found
+label/provenance issues in several categories. Do not point the trainer at the
+whole `data/` tree or copy these images into `data/scope_dataset/` until they
+have been reviewed image by image. The integrity findings, per-class counts,
+and next steps are recorded in
+[`DATA_REVIEW_2026-10-06.md`](DATA_REVIEW_2026-10-06.md).
+
+The data ignore rule has been removed, so dataset files can be selected for
+Git tracking. The generated review contact sheets remain ignored. The legacy
+six-class checkpoint remains in `models/`; it is not a trained seven-class
+model. Review privacy, source permissions, and labels before publishing any
+raw images.
 
 ### Capture verified images
 

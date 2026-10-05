@@ -14,12 +14,12 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, type CameraRef, useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
+import Leaf from 'lucide-react-native/icons/leaf';
 
 import { confirmPasswordReset, createPrediction, deleteAllPredictions, deletePrediction, getAdminOverview, getAdminPredictionDetail, getCurrentUser, getMaterials, listPredictions, loginUser, logoutUser, registerUser, requestPasswordReset, selectRecommendation, updatePrediction, type AdminOverview, type AdminPredictionDetail, type ApiUser, type MaterialGuide, type Prediction, type PredictionSummary } from './src/api';
 import { BottomNavigation, MainExperience, type MainRoute } from './src/MainExperience';
 
 type Screen =
-  | 'welcome'
   | 'login'
   | 'register'
   | 'forgot-password'
@@ -64,7 +64,6 @@ const CATEGORY_ASSETS: Record<string, number> = {
   coconut: require('./src/assets/icons/coconut-shells.png'),
   wood: require('./src/assets/icons/dry-wood-scraps.png'),
 };
-
 function CategoryGlyph({ kind, size = 34 }: { kind?: string; size?: number }) {
   const source = CATEGORY_ASSETS[kind || ''];
   return source ? <Image source={source} resizeMode="contain" style={{ width: size, height: size }} /> : null;
@@ -154,7 +153,7 @@ function followUpPromptFor(prediction: Prediction | null): FollowUpPrompt | null
 }
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('welcome');
+  const [screen, setScreen] = useState<Screen>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -250,7 +249,7 @@ function App() {
     setCapturedUri(null);
     setFollowUpAnswer('');
     setQuantity('1');
-    setScreen('welcome');
+    setScreen('login');
   };
 
   const analyzeCapturedPhoto = async () => {
@@ -353,9 +352,8 @@ function App() {
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.safeArea}>
-        {screen === 'welcome' && <Welcome onStart={() => navigate('login')} onLogin={() => navigate('login')} />}
-        {screen === 'login' && <AuthScreen mode="login" email={email} password={password} confirmPassword={confirmPassword} displayName={displayName} barangay={barangay} setEmail={setEmail} setPassword={setPassword} setConfirmPassword={setConfirmPassword} setDisplayName={setDisplayName} setBarangay={setBarangay} onSubmit={() => submitAuth('login')} onSwitch={() => { setAuthError(''); setConfirmPassword(''); navigate('register'); }} onForgot={() => { setAuthError(''); navigate('forgot-password'); }} onBack={() => navigate('welcome')} error={authError} busy={authBusy} />}
-        {screen === 'register' && <AuthScreen mode="register" email={email} password={password} confirmPassword={confirmPassword} displayName={displayName} barangay={barangay} setEmail={setEmail} setPassword={setPassword} setConfirmPassword={setConfirmPassword} setDisplayName={setDisplayName} setBarangay={setBarangay} onSubmit={() => submitAuth('register')} onSwitch={() => { setAuthError(''); setConfirmPassword(''); navigate('login'); }} onForgot={() => { setAuthError(''); navigate('forgot-password'); }} onBack={() => navigate('welcome')} error={authError} busy={authBusy} />}
+        {screen === 'login' && <AuthScreen mode="login" email={email} password={password} confirmPassword={confirmPassword} displayName={displayName} barangay={barangay} setEmail={setEmail} setPassword={setPassword} setConfirmPassword={setConfirmPassword} setDisplayName={setDisplayName} setBarangay={setBarangay} onSubmit={() => submitAuth('login')} onSwitch={() => { setAuthError(''); setConfirmPassword(''); navigate('register'); }} onForgot={() => { setAuthError(''); navigate('forgot-password'); }} onBack={() => navigate('login')} error={authError} busy={authBusy} />}
+        {screen === 'register' && <AuthScreen mode="register" email={email} password={password} confirmPassword={confirmPassword} displayName={displayName} barangay={barangay} setEmail={setEmail} setPassword={setPassword} setConfirmPassword={setConfirmPassword} setDisplayName={setDisplayName} setBarangay={setBarangay} onSubmit={() => submitAuth('register')} onSwitch={() => { setAuthError(''); setConfirmPassword(''); navigate('login'); }} onForgot={() => { setAuthError(''); navigate('forgot-password'); }} onBack={() => navigate('login')} error={authError} busy={authBusy} />}
         {screen === 'forgot-password' && <ForgotPasswordScreen email={email} setEmail={setEmail} onBack={() => navigate('login')} />}
         {screen === 'admin-login' && <AdminLoginScreen identifier={adminIdentifier} password={adminPassword} setIdentifier={setAdminIdentifier} setPassword={setAdminPassword} onSubmit={submitAdminAuth} onBack={() => navigate('login')} error={adminError} busy={adminBusy} />}
         {screen === 'admin-dashboard' && <AdminDashboardScreen user={currentUser} onLogout={signOut} />}
@@ -372,27 +370,28 @@ function App() {
   );
 }
 
-function Welcome({ onStart, onLogin }: { onStart: () => void; onLogin: () => void }) {
-  return <View style={styles.centerPage}>
-    <View style={styles.leafDecorationTop} />
-    <View style={styles.logoBadge}><Text style={styles.logoIcon}>◒</Text></View>
-    <Text style={styles.brand}>SNAPTURE</Text>
-    <Text style={styles.tagline}>Give waste another purpose.</Text>
-    <Text style={styles.welcomeCopy}>Identify. Assess. Reuse.{`\n`}A safer way to turn household waste into something useful.</Text>
-    <View style={styles.spacer} />
-    <PrimaryButton label="Get Started" onPress={onStart} />
-    <Pressable onPress={onLogin} style={styles.textButton}><Text style={styles.textButtonLabel}>Already have an account? <Text style={styles.textButtonStrong}>Log in</Text></Text></Pressable>
-    <View style={styles.leafDecorationBottom} />
+function AuthDecoratedPage({ children }: { children: React.ReactNode }) {
+  return <View style={styles.authDecoratedScreen}>
+    <View pointerEvents="none" style={styles.authDecorationTop} />
+    <View pointerEvents="none" style={styles.authDecorationBottom} />
+    <ScrollView style={styles.authScroll} contentContainerStyle={styles.authPage} keyboardShouldPersistTaps="handled">
+      {children}
+    </ScrollView>
   </View>;
 }
 
 function AuthScreen({ mode, email, password, confirmPassword, displayName, barangay, setEmail, setPassword, setConfirmPassword, setDisplayName, setBarangay, onSubmit, onSwitch, onForgot, onBack, error, busy }: { mode: 'login' | 'register'; email: string; password: string; confirmPassword: string; displayName: string; barangay: string; setEmail: (value: string) => void; setPassword: (value: string) => void; setConfirmPassword: (value: string) => void; setDisplayName: (value: string) => void; setBarangay: (value: string) => void; onSubmit: () => void; onSwitch: () => void; onForgot: () => void; onBack: () => void; error: string; busy: boolean }) {
   const isLogin = mode === 'login';
   const isAdminShortcut = isLogin && email.trim().toLowerCase() === 'admin';
-  return <ScrollView contentContainerStyle={styles.authPage} keyboardShouldPersistTaps="handled">
-    <Pressable onPress={onBack} style={styles.backButton}><Text style={styles.backText}>‹</Text></Pressable>
-    <Text style={styles.authTitle}>{isLogin ? 'Welcome back' : 'Create your account'}</Text>
-    <Text style={styles.authSubtitle}>{isLogin ? 'Continue your reuse journey.' : 'Save your scans and projects in one place.'}</Text>
+  return <AuthDecoratedPage>
+    {!isLogin ? <Pressable onPress={onBack} style={styles.backButton}><Text style={styles.backText}>‹</Text></Pressable> : null}
+    <View style={[styles.authBrandBlock, isLogin && styles.authBrandBlockLogin]}>
+      <View style={styles.authBrandLogo}><Leaf size={54} color="#176b45" fill="#d9efdf" strokeWidth={2} /></View>
+      <Text style={styles.authBrandName}>SNAPTURE</Text>
+      <Text style={styles.authBrandTagline}>Give waste another purpose.</Text>
+      <Text style={styles.authBrandIntro}>{isLogin ? 'Identify. Assess. Reuse.\nA safer way to turn household waste into something useful.' : 'Create an account to save your scans and history.'}</Text>
+    </View>
+    {!isLogin ? <><Text style={styles.authTitle}>Create your account</Text><Text style={styles.authSubtitle}>Save your scans and projects in one place.</Text></> : null}
     <View style={styles.formCard}>
       <Text style={styles.inputLabel}>Email address</Text>
       <TextInput value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor="#9aa9a0" autoCapitalize="none" keyboardType="email-address" style={styles.input} />
@@ -415,7 +414,7 @@ function AuthScreen({ mode, email, password, confirmPassword, displayName, baran
       <SecondaryButton label="Google sign-in (setup required)" onPress={() => Alert.alert('Google sign-in', 'Google authentication is not configured yet. Use email and password for now.')} />
     </View>
     <Pressable onPress={onSwitch} style={styles.textButton}><Text style={styles.textButtonLabel}>{isLogin ? 'New to SNAPTURE? ' : 'Already registered? '}<Text style={styles.textButtonStrong}>{isLogin ? 'Create an account' : 'Log in'}</Text></Text></Pressable>
-  </ScrollView>;
+  </AuthDecoratedPage>;
 }
 
 function ForgotPasswordScreen({ email, setEmail, onBack }: { email: string; setEmail: (value: string) => void; onBack: () => void }) {
@@ -475,7 +474,7 @@ function ForgotPasswordScreen({ email, setEmail, onBack }: { email: string; setE
     }
   };
 
-  return <ScrollView contentContainerStyle={styles.authPage} keyboardShouldPersistTaps="handled">
+  return <AuthDecoratedPage>
     <Pressable onPress={onBack} style={styles.backButton}><Text style={styles.backText}>‹</Text></Pressable>
     <Text style={styles.authTitle}>{step === 'request' ? 'Forgot password?' : step === 'confirm' ? 'Create a new password' : 'Password updated'}</Text>
     <Text style={styles.authSubtitle}>{step === 'request' ? 'Enter your email address to request account recovery.' : step === 'confirm' ? 'Use the reset code and choose a new password.' : 'Your SNAPTURE account is ready to use again.'}</Text>
@@ -501,7 +500,7 @@ function ForgotPasswordScreen({ email, setEmail, onBack }: { email: string; setE
         <PrimaryButton label="Back to login" onPress={onBack} />
       </>}
     </View>
-  </ScrollView>;
+  </AuthDecoratedPage>;
 }
 
 function AdminLoginScreen({ identifier, password, setIdentifier, setPassword, onSubmit, onBack, error, busy }: { identifier: string; password: string; setIdentifier: (value: string) => void; setPassword: (value: string) => void; onSubmit: () => void; onBack: () => void; error: string; busy: boolean }) {
@@ -894,15 +893,6 @@ function SecondaryButton({ label, onPress, disabled = false }: { label: string; 
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
-  centerPage: { flex: 1, alignItems: 'center', paddingHorizontal: 26, paddingTop: 68, backgroundColor: COLORS.background },
-  leafDecorationTop: { position: 'absolute', top: -24, left: -18, width: 150, height: 110, borderBottomRightRadius: 120, backgroundColor: '#dcedd2', opacity: 0.9 },
-  leafDecorationBottom: { position: 'absolute', bottom: -40, right: -24, width: 170, height: 130, borderTopLeftRadius: 140, backgroundColor: '#dcedd2', opacity: 0.8 },
-  logoBadge: { width: 82, height: 82, borderRadius: 28, borderWidth: 3, borderColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginTop: 40 },
-  logoIcon: { color: COLORS.primary, fontSize: 44 },
-  brand: { color: COLORS.primary, fontSize: 31, fontWeight: '900', letterSpacing: 1, marginTop: 16 },
-  tagline: { color: COLORS.primary, fontSize: 17, fontWeight: '700', marginTop: 8 },
-  welcomeCopy: { color: COLORS.muted, fontSize: 14, textAlign: 'center', lineHeight: 22, marginTop: 28 },
-  spacer: { flex: 1 },
   primaryButton: { minHeight: 52, borderRadius: 16, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, marginTop: 16 },
   primaryButtonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   buttonDisabled: { opacity: 0.45 },
@@ -911,7 +901,17 @@ const styles = StyleSheet.create({
   textButton: { paddingVertical: 18, zIndex: 2 },
   textButtonLabel: { color: COLORS.muted, fontSize: 13 },
   textButtonStrong: { color: COLORS.primary, fontWeight: '800' },
+  authDecoratedScreen: { flex: 1, backgroundColor: COLORS.background, overflow: 'hidden' },
+  authScroll: { flex: 1, zIndex: 1 },
   authPage: { padding: 24, paddingBottom: 50 },
+  authDecorationTop: { position: 'absolute', top: -24, left: -18, width: 150, height: 110, borderBottomRightRadius: 120, backgroundColor: '#dcedd2', opacity: 0.9 },
+  authDecorationBottom: { position: 'absolute', bottom: -40, right: -24, width: 170, height: 130, borderTopLeftRadius: 140, backgroundColor: '#dcedd2', opacity: 0.8 },
+  authBrandBlock: { alignItems: 'center', marginBottom: 14 },
+  authBrandBlockLogin: { marginTop: 24, marginBottom: 23 },
+  authBrandLogo: { width: 68, height: 68, alignItems: 'center', justifyContent: 'center' },
+  authBrandName: { color: COLORS.primary, fontSize: 25, fontWeight: '900', letterSpacing: 1.2, marginTop: 5 },
+  authBrandTagline: { color: COLORS.primary, fontSize: 14, fontWeight: '800', marginTop: 5 },
+  authBrandIntro: { color: COLORS.muted, fontSize: 12, textAlign: 'center', lineHeight: 18, marginTop: 15, maxWidth: 310 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#eaf2eb', alignItems: 'center', justifyContent: 'center', marginBottom: 28 },
   backText: { color: COLORS.primary, fontSize: 32, lineHeight: 32 },
   authTitle: { color: COLORS.text, fontSize: 30, fontWeight: '900' },

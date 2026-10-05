@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ArrowLeft, Camera, ChevronRight, LogOut, UserRound } from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Camera from 'lucide-react-native/icons/camera';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import LogOut from 'lucide-react-native/icons/log-out';
+import UserRound from 'lucide-react-native/icons/user-round';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 
 import { updateMyProfile, uploadProfilePicture, type ApiUser } from './api';

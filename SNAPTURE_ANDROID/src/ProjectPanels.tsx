@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ArrowLeft, Bookmark, Check, ChevronRight, ClipboardList, FolderOpen, Lightbulb, Search, X } from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Bookmark from 'lucide-react-native/icons/bookmark';
+import Check from 'lucide-react-native/icons/check';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import ClipboardList from 'lucide-react-native/icons/clipboard-list';
+import FolderOpen from 'lucide-react-native/icons/folder-open';
+import Lightbulb from 'lucide-react-native/icons/lightbulb';
+import Search from 'lucide-react-native/icons/search';
+import X from 'lucide-react-native/icons/x';
 
 import type { UserProject } from './api';
 import { activeProjectsSorted, type SavedEntry } from './projectData';

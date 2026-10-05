@@ -37,9 +37,11 @@ SNAPTURE_ML/__pycache__/
 SNAPTURE_ML/**/__pycache__/
 SNAPTURE_ML/.env
 SNAPTURE_ML/.env*.local
-SNAPTURE_ML/data/
 SNAPTURE_ML/dataset-resized/
 SNAPTURE_ML/models/backup-*/
+
+# Local visual review artifacts; the dataset and manifests themselves may be tracked.
+SNAPTURE_ML/data/_audit_ml_2026-10-06/
 
 # OS/editor files
 **/.DS_Store

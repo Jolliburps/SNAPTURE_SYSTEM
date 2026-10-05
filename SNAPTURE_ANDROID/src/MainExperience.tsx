@@ -10,29 +10,27 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import {
-  ArrowLeft,
-  BookOpen,
-  Bookmark,
-  CalendarDays,
-  Camera,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  FolderOpen,
-  House,
-  Info,
-  Leaf,
-  Lightbulb,
-  MapPin,
-  Recycle,
-  Search,
-  Settings,
-  ShieldAlert,
-  Sparkles,
-  UserRound,
-  type LucideIcon,
-} from 'lucide-react-native';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import BookOpen from 'lucide-react-native/icons/book-open';
+import Bookmark from 'lucide-react-native/icons/bookmark';
+import CalendarDays from 'lucide-react-native/icons/calendar-days';
+import Camera from 'lucide-react-native/icons/camera';
+import ChevronLeft from 'lucide-react-native/icons/chevron-left';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import ClipboardList from 'lucide-react-native/icons/clipboard-list';
+import FolderOpen from 'lucide-react-native/icons/folder-open';
+import House from 'lucide-react-native/icons/house';
+import Info from 'lucide-react-native/icons/info';
+import Leaf from 'lucide-react-native/icons/leaf';
+import Lightbulb from 'lucide-react-native/icons/lightbulb';
+import MapPin from 'lucide-react-native/icons/map-pin';
+import Recycle from 'lucide-react-native/icons/recycle';
+import Search from 'lucide-react-native/icons/search';
+import Settings from 'lucide-react-native/icons/settings';
+import ShieldAlert from 'lucide-react-native/icons/shield-alert';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import UserRound from 'lucide-react-native/icons/user-round';
+import type { LucideIcon } from 'lucide-react-native';
 
 import {
   getMaterials,
@@ -56,6 +54,16 @@ export type MainRoute = 'home' | 'learn' | 'camera' | 'waste' | 'profile' | 'cal
 type TabRoute = 'home' | 'learn' | 'camera' | 'waste' | 'profile';
 type Navigate = (route: MainRoute) => void;
 
+const WASTE_CATEGORY_ICONS: Record<string, number> = {
+  pete_bottles: require('./assets/icons/pete-bottles.png'),
+  hdpe_containers: require('./assets/icons/hdpe-containers.png'),
+  cardboard: require('./assets/icons/cardboard.png'),
+  paper: require('./assets/icons/paper.png'),
+  fabric_scraps: require('./assets/icons/fabric-scraps.png'),
+  coconut_shells: require('./assets/icons/coconut-shells.png'),
+  dry_untreated_wood_scraps: require('./assets/icons/dry-wood-scraps.png'),
+};
+const SNAPTURE_CAMERA_LOGO = require('./assets/icons/camera-badge.png');
 const COLORS = {
   green: '#176b45',
   deep: '#143f30',
@@ -113,9 +121,9 @@ export function BottomNavigation({ active, navigate }: { active: TabRoute; navig
         style={styles.tab}
       >
         {key === 'camera'
-          ? <View style={styles.cameraTab}><Icon size={27} color={COLORS.white} strokeWidth={2.3} /></View>
+          ? <View style={styles.cameraTab}><Image source={SNAPTURE_CAMERA_LOGO} resizeMode="contain" style={styles.cameraTabLogo} /></View>
           : <Icon size={23} color={selected ? COLORS.green : COLORS.muted} strokeWidth={selected ? 2.5 : 1.9} />}
-        <Text style={[styles.tabLabel, selected && styles.tabLabelActive]}>{label}</Text>
+        {key !== 'camera' ? <Text style={[styles.tabLabel, selected && styles.tabLabelActive]}>{label}</Text> : null}
       </Pressable>;
     })}
   </View>;
@@ -178,9 +186,6 @@ export function MainExperience({ screen, navigate, user, onUserChange, onCategor
   const [projects, setProjects] = useState<UserProject[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState('');
-  const [updates, setUpdates] = useState<LocalUpdate[]>([]);
-  const [updatesLoading, setUpdatesLoading] = useState(true);
-  const [updatesError, setUpdatesError] = useState('');
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
 
   const loadGuides = useCallback(() => {
@@ -201,15 +206,10 @@ export function MainExperience({ screen, navigate, user, onUserChange, onCategor
     setProjectsLoading(true); setProjectsError('');
     listProjects().then(setProjects).catch((error) => setProjectsError(error instanceof Error ? error.message : 'Unable to load projects.')).finally(() => setProjectsLoading(false));
   }, []);
-
-  useEffect(() => {
-    getLocalUpdates().then(setUpdates).catch((error) => setUpdatesError(error instanceof Error ? error.message : 'Unable to load local updates.')).finally(() => setUpdatesLoading(false));
-  }, []);
-
   useEffect(() => { loadGuides(); loadRecords(); loadSaved(); loadProjects(); }, [loadGuides, loadRecords, loadSaved, loadProjects]);
   const ideas = useMemo(() => flattenIdeas(guides), [guides]);
   const saved = useMemo(() => savedIdeas(savedRecords, ideas), [savedRecords, ideas]);
-  const active = useMemo(() => activeProjectsSorted(projects), [projects]);
+  const active = activeProjectsSorted(projects);
   const tab: TabRoute = screen === 'learn' ? 'learn' : screen === 'waste' ? 'waste' : ['profile', 'projects', 'saved', 'settings', 'history'].includes(screen) ? 'profile' : 'home';
   const startSavedProject = async (predictionId: number) => {
     const { project } = await startProject(predictionId);
@@ -223,7 +223,7 @@ export function MainExperience({ screen, navigate, user, onUserChange, onCategor
   };
 
   return <View style={styles.appPage}>
-    {screen === 'home' ? <HomePage user={user} records={records} recordsLoading={recordsLoading} recordsError={recordsError} ideas={ideas} guidesLoading={guidesLoading} guidesError={guidesError} updates={updates} updatesLoading={updatesLoading} updatesError={updatesError} activeProjects={active} projectsLoading={projectsLoading} projectsError={projectsError} navigate={navigate} onOpenIdea={setSelectedIdea} /> : null}
+    {screen === 'home' ? <HomePage user={user} records={records} recordsLoading={recordsLoading} recordsError={recordsError} ideas={ideas} guidesLoading={guidesLoading} guidesError={guidesError} activeProjects={active} projectsLoading={projectsLoading} projectsError={projectsError} navigate={navigate} onOpenIdea={setSelectedIdea} /> : null}
     {screen === 'learn' ? <LearnPage navigate={navigate} /> : null}
     {screen === 'waste' ? <WastePage guides={guides} loading={guidesLoading} error={guidesError} retry={loadGuides} onCategory={onCategory} /> : null}
     {['profile', 'projects', 'saved'].includes(screen) ? <ProfilePage user={user} scanCount={scanCount} recordsLoading={recordsLoading} recordsError={recordsError} savedCount={saved.length} savedLoading={savedLoading} savedError={savedError} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} navigate={navigate} onUserChange={onUserChange} /> : null}
@@ -244,8 +244,24 @@ function LocalUpdates({ updates, loading, error }: { updates: LocalUpdate[]; loa
       : <EmptyCard icon={Info} title={loading ? 'Loading local updates…' : error ? 'Local updates unavailable' : 'No new local updates'} body="Verified announcements from the SNAPTURE administrator will appear here when available." />}</>;
 }
 
-function HomePage({ user, records, recordsLoading, recordsError, ideas, guidesLoading, guidesError, updates, updatesLoading, updatesError, activeProjects, projectsLoading, projectsError, navigate, onOpenIdea }: {
-  user: ApiUser | null; records: PredictionSummary[]; recordsLoading: boolean; recordsError: string; ideas: Idea[]; guidesLoading: boolean; guidesError: string; updates: LocalUpdate[]; updatesLoading: boolean; updatesError: string; activeProjects: UserProject[]; projectsLoading: boolean; projectsError: string; navigate: Navigate; onOpenIdea: (idea: Idea) => void;
+function HomeLocalUpdates() {
+  const [updates, setUpdates] = useState<LocalUpdate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    getLocalUpdates().then((items) => { if (mounted) setUpdates(items); })
+      .catch((reason) => { if (mounted) setError(reason instanceof Error ? reason.message : 'Unable to load local updates.'); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  return <LocalUpdates updates={updates} loading={loading} error={error} />;
+}
+
+function HomePage({ user, records, recordsLoading, recordsError, ideas, guidesLoading, guidesError, activeProjects, projectsLoading, projectsError, navigate, onOpenIdea }: {
+  user: ApiUser | null; records: PredictionSummary[]; recordsLoading: boolean; recordsError: string; ideas: Idea[]; guidesLoading: boolean; guidesError: string; activeProjects: UserProject[]; projectsLoading: boolean; projectsError: string; navigate: Navigate; onOpenIdea: (idea: Idea) => void;
 }) {
   const [query, setQuery] = useState('');
   const { width } = useWindowDimensions();
@@ -261,7 +277,7 @@ function HomePage({ user, records, recordsLoading, recordsError, ideas, guidesLo
     <Text style={styles.heroSub}>Discover what to do with one item at a time.</Text>
     <SearchField value={query} onChange={setQuery} placeholder="Search ideas and materials" />
     {query.trim() ? <View style={styles.searchResults}>{matches.length ? matches.map((idea) => <Pressable key={`${idea.guideLabel}-${idea.id}`} style={styles.searchResult} onPress={() => onOpenIdea(idea)}><Search size={15} color={COLORS.green} /><Text style={styles.searchResultText}>{idea.title} · {idea.material}</Text><ChevronRight size={16} color={COLORS.muted} /></Pressable>) : <Text style={styles.mutedSmall}>{guidesLoading ? 'Searching materials…' : 'No matching ideas yet.'}</Text>}</View> : null}
-    <LocalUpdates updates={updates} loading={updatesLoading} error={updatesError} />
+    <HomeLocalUpdates />
     <View style={[styles.homePair, width < 360 && styles.homePairStack]}>
       <View style={styles.homeMiniCard}><View style={styles.cardIconMint}><CalendarDays size={20} color={COLORS.green} /></View><Text style={styles.miniTitle}>Collection schedule</Text><Text style={styles.miniBody}>{user?.barangay ? `Barangay ${user.barangay}` : 'Choose your barangay in Profile'}</Text><Text style={styles.miniMuted}>No verified schedule available yet.</Text><Pressable onPress={() => navigate('calendar')} style={styles.miniLink}><Text style={styles.miniLinkText}>View calendar</Text><ChevronRight size={15} color={COLORS.green} /></Pressable></View>
       <View style={styles.homeMiniCard}><View style={styles.cardIconAmber}><FolderOpen size={20} color={COLORS.green} /></View><Text style={styles.miniTitle}>Ongoing projects</Text><Text style={styles.miniBody}>{topProject ? topProject.title : projectsLoading ? 'Loading projects…' : projectsError ? 'Projects unavailable' : 'No ongoing projects yet.'}</Text>{topProject ? <><Text style={styles.miniMuted}>{topProject.completed_count} of {topProject.total_steps} steps · {topProject.progress_percent}% complete</Text><View style={styles.homeProgressTrack}><View style={[styles.homeProgressFill, { width: `${topProject.progress_percent}%` }]} /></View></> : <Text style={styles.miniMuted}>{projectsError ? 'Reconnect to load projects.' : 'Start a saved idea to track its steps.'}</Text>}<Pressable onPress={() => navigate('projects')} style={styles.miniLink}><Text style={styles.miniLinkText}>View all</Text><ChevronRight size={15} color={COLORS.green} /></Pressable></View>
@@ -285,7 +301,7 @@ function LearnPage({ navigate }: { navigate: Navigate }) {
 function WastePage({ guides, loading, error, retry, onCategory }: { guides: MaterialGuide[]; loading: boolean; error: string; retry: () => void; onCategory: (label: string) => void }) {
   const [query, setQuery] = useState('');
   const visible = guides.filter((guide) => `${guide.title} ${guide.description}`.toLowerCase().includes(query.trim().toLowerCase()));
-  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"><BrandHeader /><PageIntro title="Waste materials" subtitle="Explore materials currently supported by SNAPTURE." /><SearchField value={query} onChange={setQuery} placeholder="Search supported materials" />{error ? <Text style={styles.errorText}>{error}</Text> : null}{loading && !guides.length ? <EmptyCard icon={Recycle} title="Loading materials…" body="Fetching the supported material guide." /> : null}{!loading && !guides.length ? <EmptyCard icon={Recycle} title="Materials unavailable" body="Connect to the backend to load the current supported categories." action="Try again" onAction={retry} /> : null}<View style={styles.wasteGrid}>{visible.map((guide, index) => <Pressable key={guide.label} style={styles.wasteCard} onPress={() => onCategory(guide.label)}><View style={[styles.wasteArtwork, { backgroundColor: ['#e8f4ec', '#e8f3fa', '#fff3e5', '#f1ecfa'][index % 4] }]}><Recycle size={29} color={COLORS.green} strokeWidth={1.7} /></View><Text style={styles.wasteTitle} numberOfLines={2}>{guide.short_title || guide.title}</Text><Text style={styles.wasteSub} numberOfLines={2}>{guide.description}</Text><View style={styles.wasteFoot}><Text style={styles.wasteFootText}>Open guide</Text><ChevronRight size={16} color={COLORS.green} /></View></Pressable>)}</View>{guides.length > 0 && visible.length === 0 ? <EmptyCard icon={Search} title="No match found" body="Try another supported material name." /> : null}</ScrollView>;
+  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"><BrandHeader /><PageIntro title="Waste materials" subtitle="Explore materials currently supported by SNAPTURE." /><SearchField value={query} onChange={setQuery} placeholder="Search supported materials" />{error ? <Text style={styles.errorText}>{error}</Text> : null}{loading && !guides.length ? <EmptyCard icon={Recycle} title="Loading materials…" body="Fetching the supported material guide." /> : null}{!loading && !guides.length ? <EmptyCard icon={Recycle} title="Materials unavailable" body="Connect to the backend to load the current supported categories." action="Try again" onAction={retry} /> : null}<View style={styles.wasteGrid}>{visible.map((guide, index) => { const categoryIcon = WASTE_CATEGORY_ICONS[guide.label]; return <Pressable key={guide.label} style={styles.wasteCard} onPress={() => onCategory(guide.label)}><View style={[styles.wasteArtwork, { backgroundColor: ['#e8f4ec', '#e8f3fa', '#fff3e5', '#f1ecfa'][index % 4] }]}>{categoryIcon ? <Image source={categoryIcon} resizeMode="contain" style={styles.wasteArtworkImage} /> : <Recycle size={29} color={COLORS.green} strokeWidth={1.7} />}</View><Text style={styles.wasteTitle} numberOfLines={2}>{guide.short_title || guide.title}</Text><Text style={styles.wasteSub} numberOfLines={2}>{guide.description}</Text><View style={styles.wasteFoot}><Text style={styles.wasteFootText}>Open guide</Text><ChevronRight size={16} color={COLORS.green} /></View></Pressable>; })}</View>{guides.length > 0 && visible.length === 0 ? <EmptyCard icon={Search} title="No match found" body="Try another supported material name." /> : null}</ScrollView>;
 }
 
 function CalendarPage({ user, navigate }: { user: ApiUser | null; navigate: Navigate }) {
@@ -464,6 +480,7 @@ const styles = StyleSheet.create({
   wasteGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 4 },
   wasteCard: { width: '48.5%', backgroundColor: COLORS.white, borderColor: COLORS.line, borderWidth: 1, borderRadius: 18, overflow: 'hidden', marginBottom: 12, minHeight: 195 },
   wasteArtwork: { height: 77, alignItems: 'center', justifyContent: 'center' },
+  wasteArtworkImage: { width: 58, height: 58 },
   wasteTitle: { color: COLORS.text, fontSize: 12, fontWeight: '900', marginHorizontal: 12, marginTop: 10 },
   wasteSub: { color: COLORS.muted, fontSize: 10, lineHeight: 14, marginHorizontal: 12, marginTop: 4, flex: 1 },
   wasteFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 12, marginVertical: 9 },
@@ -517,5 +534,6 @@ const styles = StyleSheet.create({
   tab: { flex: 1, minHeight: 65, alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
   tabLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '700', marginTop: 4 },
   tabLabelActive: { color: COLORS.green, fontWeight: '900' },
-  cameraTab: { width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.green, alignItems: 'center', justifyContent: 'center', marginTop: -21, borderWidth: 4, borderColor: COLORS.white, elevation: 5 },
+  cameraTab: { width: 70, height: 70, borderRadius: 35, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', marginTop: -27, elevation: 5 },
+  cameraTabLogo: { width: 70, height: 70 },
 });
