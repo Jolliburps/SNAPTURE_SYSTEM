@@ -1,15 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// This computer's current LAN address. Keep the phone and computer on the
-// same Wi-Fi network. For an Android emulator, use http://10.0.2.2:8000/api.
-// The previous address (192.168.1.103) is no longer assigned to this computer.
-export const API_BASE_URL = 'http://192.168.1.199:8000/api';
+// Android Emulator routes 10.0.2.2 to the development computer. For a
+// physical phone, use that computer's LAN IPv4 address on the same Wi-Fi.
+export const API_BASE_URL = 'http://10.0.2.2:8000/api';
 const TOKEN_KEY = 'snapture_api_token';
 
 export type ApiUser = {
   id: number;
   email: string;
   display_name: string;
+  barangay: string;
+  profile_picture_url: string | null;
   role: 'regular' | 'admin';
 };
 
@@ -20,6 +21,7 @@ export type PredictionSummary = {
   created_at: string;
   image_url: string | null;
   selected_recommendation: string;
+  recommendation_choices?: Recommendation[];
 };
 
 export type Recommendation = {
@@ -30,6 +32,25 @@ export type Recommendation = {
   steps: string[];
   quantity_note?: string;
   safety_note?: string;
+};
+
+export type UserProject = {
+  id: number;
+  source_prediction_id: number | null;
+  recommendation_id: string;
+  title: string;
+  material: string;
+  summary: string;
+  materials: string[];
+  steps: string[];
+  safety_note: string;
+  completed_steps: number[];
+  completed_count: number;
+  total_steps: number;
+  progress_percent: number;
+  status: 'active' | 'completed';
+  created_at: string;
+  updated_at: string;
 };
 
 export type MaterialGuide = {
@@ -109,11 +130,11 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
-export async function registerUser(email: string, password: string, displayName = '') {
+export async function registerUser(email: string, password: string, displayName = '', barangay = '') {
   const response = await fetch(`${API_BASE_URL}/auth/register/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, display_name: displayName }),
+    body: JSON.stringify({ email, password, display_name: displayName, barangay }),
   });
   const payload = await parseResponse<AuthResponse>(response);
   await AsyncStorage.setItem(TOKEN_KEY, payload.token);
@@ -178,6 +199,56 @@ export async function getCurrentUser() {
   return payload.user;
 }
 
+export async function updateMyProfile(fields: { display_name?: string; barangay?: string }) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in to update your profile.');
+  const response = await fetch(`${API_BASE_URL}/auth/me/`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  return parseResponse<{ user: ApiUser }>(response);
+}
+
+export async function uploadProfilePicture(uri: string, fileName = 'profile.jpg', mimeType = 'image/jpeg') {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in to update your picture.');
+  const body = new FormData();
+  body.append('image', { uri, name: fileName, type: mimeType } as unknown as Blob);
+  const response = await fetch(`${API_BASE_URL}/auth/me/photo/`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` }, body,
+  });
+  return parseResponse<{ user: ApiUser }>(response);
+}
+
+export async function listProjects() {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in to view projects.');
+  const response = await fetch(`${API_BASE_URL}/projects/`, { headers: { Authorization: `Bearer ${token}` } });
+  const payload = await parseResponse<{ projects: UserProject[] }>(response);
+  return payload.projects;
+}
+
+export async function startProject(predictionId: number) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in to start a project.');
+  const response = await fetch(`${API_BASE_URL}/projects/`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prediction_id: predictionId }),
+  });
+  return parseResponse<{ project: UserProject }>(response);
+}
+
+export async function setProjectStep(projectId: number, stepIndex: number, completed: boolean) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in to update a project.');
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/steps/${stepIndex}/`, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completed }),
+  });
+  return parseResponse<{ project: UserProject }>(response);
+}
+
 export async function getAdminOverview() {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in as an administrator.');
@@ -202,11 +273,23 @@ export async function getMaterials() {
 }
 
 export async function listPredictions() {
+  const payload = await getPredictionOverview();
+  return payload.predictions;
+}
+
+export async function getPredictionOverview() {
   const token = await getStoredToken();
-  if (!token) return [];
+  if (!token) return { predictions: [], total_count: 0 };
   const response = await fetch(`${API_BASE_URL}/predictions/`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  return parseResponse<{ predictions: PredictionSummary[]; total_count: number }>(response);
+}
+
+export async function listSavedPredictions() {
+  const token = await getStoredToken();
+  if (!token) return [];
+  const response = await fetch(`${API_BASE_URL}/predictions/saved/`, { headers: { Authorization: `Bearer ${token}` } });
   const payload = await parseResponse<{ predictions: PredictionSummary[] }>(response);
   return payload.predictions;
 }

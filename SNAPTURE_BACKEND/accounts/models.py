@@ -13,6 +13,8 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="regular")
     display_name = models.CharField(max_length=120, blank=True)
+    barangay = models.CharField(max_length=120, blank=True)
+    profile_picture = models.ImageField(upload_to="profile_pictures/%Y/%m/%d/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

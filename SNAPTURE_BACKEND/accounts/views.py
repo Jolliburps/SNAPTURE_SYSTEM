@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from PIL import Image, UnidentifiedImageError
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -41,46 +42,60 @@ def _json_body(request):
         return None
 
 
-def _serialize_user(user):
+def _serialize_user(user, request=None):
     profile, _ = Profile.objects.get_or_create(user=user)
     # Django superusers/staff members are administrators even if an older
     # database row was created before the Profile role was synchronized.
     role = "admin" if user.is_staff or user.is_superuser else profile.role
     if role == "admin" and profile.role != "admin":
         Profile.objects.filter(pk=profile.pk).update(role="admin")
-    return {"id": user.id, "email": user.email, "display_name": profile.display_name or user.get_username(), "role": role}
+    return {
+        "id": user.id,
+        "email": user.email,
+        "display_name": profile.display_name or user.get_username(),
+        "barangay": profile.barangay,
+        "profile_picture_url": request.build_absolute_uri(profile.profile_picture.url) if request and profile.profile_picture else None,
+        "role": role,
+    }
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def register(request):
     payload = _json_body(request)
-    if payload is None:
-        return JsonResponse({"detail": "Request body must be valid JSON."}, status=400)
+    if not isinstance(payload, dict):
+        return JsonResponse({"detail": "Request body must be a JSON object."}, status=400)
     email = str(payload.get("email", "")).strip().lower()
     password = str(payload.get("password", ""))
-    display_name = str(payload.get("display_name", "")).strip()
+    display_name_value = payload.get("display_name", "")
+    barangay_value = payload.get("barangay", "")
+    if not isinstance(display_name_value, str) or not isinstance(barangay_value, str):
+        return JsonResponse({"detail": "Name and barangay must be text."}, status=400)
+    display_name = display_name_value.strip()
+    barangay = barangay_value.strip()
     if not email or "@" not in email:
         return JsonResponse({"detail": "A valid email address is required."}, status=400)
     if len(password) < 8:
         return JsonResponse({"detail": "Password must contain at least 8 characters."}, status=400)
+    if len(display_name) > 120 or len(barangay) > 120:
+        return JsonResponse({"detail": "Name and barangay must be 120 characters or fewer."}, status=400)
     if User.objects.filter(username=email).exists():
         return JsonResponse({"detail": "An account with that email already exists."}, status=409)
     try:
         with transaction.atomic():
             user = User.objects.create_user(username=email, email=email, password=password)
-            Profile.objects.create(user=user, display_name=display_name)
+            Profile.objects.create(user=user, display_name=display_name, barangay=barangay)
     except IntegrityError:
         return JsonResponse({"detail": "Unable to create the account."}, status=409)
-    return JsonResponse({"user": _serialize_user(user), "token": issue_token(user)}, status=201)
+    return JsonResponse({"user": _serialize_user(user, request), "token": issue_token(user)}, status=201)
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def login(request):
     payload = _json_body(request)
-    if payload is None:
-        return JsonResponse({"detail": "Request body must be valid JSON."}, status=400)
+    if not isinstance(payload, dict):
+        return JsonResponse({"detail": "Request body must be a JSON object."}, status=400)
     identifier = str(payload.get("email", "")).strip().lower()
     password = str(payload.get("password", ""))
     # Regular accounts use their email as the username. The administrator
@@ -92,7 +107,7 @@ def login(request):
             user = authenticate(request, username=account.get_username(), password=password)
     if user is None:
         return JsonResponse({"detail": "Invalid email or password."}, status=401)
-    return JsonResponse({"user": _serialize_user(user), "token": issue_token(user)})
+    return JsonResponse({"user": _serialize_user(user, request), "token": issue_token(user)})
 
 
 @csrf_exempt
@@ -150,9 +165,53 @@ def logout(request):
     return JsonResponse({"logged_out": True})
 
 
+@csrf_exempt
 @require_api_user
+@require_http_methods(["GET", "PATCH"])
 def me(request):
-    return JsonResponse({"user": _serialize_user(request.api_user)})
+    if request.method == "PATCH":
+        payload = _json_body(request)
+        if not isinstance(payload, dict):
+            return JsonResponse({"detail": "Request body must be a JSON object."}, status=400)
+        profile, _ = Profile.objects.get_or_create(user=request.api_user)
+        changed = []
+        for field in ("display_name", "barangay"):
+            if field in payload:
+                value = payload[field]
+                if not isinstance(value, str) or len(value.strip()) > 120:
+                    return JsonResponse({"detail": f"{field} must be text of 120 characters or fewer."}, status=400)
+                if field == "display_name" and not value.strip():
+                    return JsonResponse({"detail": "display_name cannot be empty."}, status=400)
+                setattr(profile, field, value.strip())
+                changed.append(field)
+        if changed:
+            profile.save(update_fields=changed)
+    return JsonResponse({"user": _serialize_user(request.api_user, request)})
+
+
+@csrf_exempt
+@require_api_user
+@require_http_methods(["POST"])
+def profile_picture(request):
+    upload = request.FILES.get("image")
+    if upload is None or upload.size > 5 * 1024 * 1024:
+        return JsonResponse({"detail": "Choose an image smaller than 5 MB."}, status=400)
+    try:
+        with Image.open(upload) as image:
+            image.verify()
+            image_format = image.format
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        return JsonResponse({"detail": "Choose a valid JPEG, PNG, or WebP image."}, status=400)
+    if image_format not in {"JPEG", "PNG", "WEBP"}:
+        return JsonResponse({"detail": "Choose a JPEG, PNG, or WebP image."}, status=400)
+    upload.seek(0)
+    profile, _ = Profile.objects.get_or_create(user=request.api_user)
+    old_picture = profile.profile_picture
+    extension = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}[image_format]
+    profile.profile_picture.save(f"profile-{request.api_user.id}.{extension}", upload, save=True)
+    if old_picture and old_picture.name != profile.profile_picture.name:
+        old_picture.delete(save=False)
+    return JsonResponse({"user": _serialize_user(request.api_user, request)})
 
 
 @require_api_admin

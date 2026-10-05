@@ -1,10 +1,11 @@
-from django.test import TestCase, override_settings
-
-# Create your tests here.
 import json
+from io import BytesIO
+from tempfile import TemporaryDirectory
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from PIL import Image
 
 from core.auth import issue_token
 from predictions.models import PredictionRecord
@@ -113,3 +114,57 @@ class AuthenticationApiTests(TestCase):
             ).status_code,
             200,
         )
+
+    def test_barangay_is_optional_and_can_be_updated_without_changing_auth(self):
+        response = self.client.post(
+            "/api/auth/register/",
+            data=json.dumps({"email": "resident@example.com", "password": "pass12345", "display_name": "Resident", "barangay": "Sample Barangay"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["user"]["barangay"], "Sample Barangay")
+        token = response.json()["token"]
+
+        updated = self.client.patch(
+            "/api/auth/me/",
+            data=json.dumps({"barangay": "Updated Barangay"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["user"]["barangay"], "Updated Barangay")
+        self.assertEqual(updated.json()["user"]["display_name"], "Resident")
+        self.assertEqual(self.client.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {token}").json()["user"]["barangay"], "Updated Barangay")
+
+        invalid = self.client.patch(
+            "/api/auth/me/",
+            data=json.dumps({"barangay": "x" * 121}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+        )
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(Profile.objects.get(user__username="resident@example.com").barangay, "Updated Barangay")
+
+    def test_display_name_and_profile_photo_update_without_changing_login_identity(self):
+        user = User.objects.create_user(username="owner@example.com", email="owner@example.com", password="pass12345")
+        token = issue_token(user)
+        headers = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+        bad_name = self.client.patch("/api/auth/me/", data=json.dumps({"display_name": " "}), content_type="application/json", **headers)
+        self.assertEqual(bad_name.status_code, 400)
+        updated = self.client.patch("/api/auth/me/", data=json.dumps({"display_name": "New Name"}), content_type="application/json", **headers)
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["user"]["display_name"], "New Name")
+        user.refresh_from_db()
+        self.assertEqual(user.username, "owner@example.com")
+        self.assertEqual(user.email, "owner@example.com")
+
+        picture = BytesIO()
+        Image.new("RGB", (8, 8), "green").save(picture, format="PNG")
+        with TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):
+            upload = SimpleUploadedFile("avatar.png", picture.getvalue(), content_type="image/png")
+            response = self.client.post("/api/auth/me/photo/", data={"image": upload}, **headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("/media/profile_pictures/", response.json()["user"]["profile_picture_url"])
+            self.assertEqual(self.client.get("/api/auth/me/", **headers).json()["user"]["profile_picture_url"], response.json()["user"]["profile_picture_url"])
+            invalid = self.client.post("/api/auth/me/photo/", data={"image": SimpleUploadedFile("fake.png", b"not an image", content_type="image/png")}, **headers)
+            self.assertEqual(invalid.status_code, 400)

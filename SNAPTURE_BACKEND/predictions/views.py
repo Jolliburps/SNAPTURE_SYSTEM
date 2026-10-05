@@ -88,7 +88,14 @@ def _serialize(record):
 @require_api_user
 @require_http_methods(["GET"])
 def list_predictions(request):
-    records = PredictionRecord.objects.filter(user=request.api_user)[:50]
+    owned = PredictionRecord.objects.filter(user=request.api_user)
+    return JsonResponse({"predictions": [_serialize(record) for record in owned[:50]], "total_count": owned.count()})
+
+
+@require_api_user
+@require_http_methods(["GET"])
+def list_saved_predictions(request):
+    records = PredictionRecord.objects.filter(user=request.api_user).exclude(selected_recommendation="")
     return JsonResponse({"predictions": [_serialize(record) for record in records]})
 
 

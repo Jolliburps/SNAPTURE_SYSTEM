@@ -10,6 +10,18 @@ SNAPTURE_ANDROID/ios/build/
 SNAPTURE_ANDROID/.gradle/
 SNAPTURE_ANDROID/*.tsbuildinfo
 
+# Credentials and machine-specific configuration
+**/.env
+**/.env.*
+!**/.env.example
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key
+**/service-account*.json
+
 # Django local backend
 SNAPTURE_BACKEND/__pycache__/
 SNAPTURE_BACKEND/**/__pycache__/
@@ -33,6 +45,13 @@ SNAPTURE_ML/models/backup-*/
 **/.DS_Store
 **/__MACOSX/
 *.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.idea/
+**/.vscode/
+*.log
+*.tmp
 
 # Local run diagnostics
 .run-logs/

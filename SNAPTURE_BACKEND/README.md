@@ -49,8 +49,14 @@ POST /api/auth/password-reset/request/
 POST /api/auth/password-reset/confirm/
 POST /api/auth/logout/
 GET  /api/auth/me/
+PATCH /api/auth/me/                 optional display name and barangay
+POST /api/auth/me/photo/           authenticated multipart image, max 5 MB
+GET  /api/projects/                started projects for current user
+POST /api/projects/                start selected scan recommendation
+PATCH /api/projects/<id>/steps/<index>/  mark text step complete/incomplete
 GET  /api/auth/admin/overview/    administrator only
 GET  /api/predictions/
+GET  /api/predictions/saved/       all selected recommendations for current user
 POST /api/predictions/create/      multipart image; optional context fields
 GET  /api/predictions/<id>/
 PATCH /api/predictions/<id>/       optional context and recommendation refresh
@@ -87,3 +93,10 @@ ready for the seven scope categories, but a category must have verified images
 before a scope model is trained. Safety and reuse guidance is educational
 decision support; it is not a chemical, microbial, structural, or food-contact
 safety certification.
+
+Project records snapshot the selected recommendation's existing text steps
+when the user starts it. A saved scan alone is not an active project. Completion
+and percentage are derived from stored completed steps. There is no admin
+announcement API or finalized ML recommendation model yet.
+The prediction list includes a total_count alongside its latest 50 entries,
+so profile statistics show the actual scan count.
