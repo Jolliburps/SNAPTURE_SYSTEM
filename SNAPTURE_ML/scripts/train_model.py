@@ -295,10 +295,22 @@ def _dataset_from_records(
     dataset = tf.data.Dataset.from_tensor_slices((paths, labels))
 
     def load_image(path: tf.Tensor, label: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
-        image = tf.io.read_file(path)
-        image = tf.image.decode_image(image, channels=3, expand_animations=False)
-        image.set_shape([None, None, 3])
-        image = tf.image.resize(image, IMAGE_SIZE)
+        # The downloaded corpus contains images whose actual encoding does not
+        # match their filename suffix (including WebP/GIF/PNG data named .jpg).
+        # TensorFlow's generic decoder rejects some of those formats, so use
+        # Pillow to normalize every supported image to RGB before batching.
+        def decode_with_pillow(path_bytes: bytes) -> np.ndarray:
+            image_path = Path(path_bytes.decode("utf-8"))
+            with Image.open(image_path) as source:
+                source.seek(0)
+                image = source.convert("RGB")
+                image = image.resize(
+                    (IMAGE_SIZE[1], IMAGE_SIZE[0]), Image.Resampling.BILINEAR
+                )
+                return np.asarray(image, dtype=np.float32)
+
+        image = tf.numpy_function(decode_with_pillow, [path], tf.float32)
+        image.set_shape([IMAGE_SIZE[0], IMAGE_SIZE[1], 3])
         return image, label
 
     if shuffle:
@@ -417,7 +429,26 @@ def main() -> None:
         action="store_true",
         help="Explicitly allow a legacy dataset without the seven thesis labels.",
     )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Model output directory; defaults to the active models directory.",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=EPOCHS,
+        help=f"Maximum training epochs (default: {EPOCHS}).",
+    )
+    parser.add_argument(
+        "--unverified-candidate",
+        action="store_true",
+        help="Mark output as experimental when labels have not been reviewed image by image.",
+    )
     args = parser.parse_args()
+    if args.epochs < 1:
+        parser.error("--epochs must be at least 1")
     if args.data_dir is not None:
         os.environ["SNAPTURE_DATA_DIR"] = str(args.data_dir)
     if args.enforce_min_images:
@@ -429,6 +460,9 @@ def main() -> None:
     dataset_dir = find_dataset_root()
     class_names, image_counts, warnings = validate_images(dataset_dir)
     records = _records_for_dataset(dataset_dir, class_names)
+    model_dir = args.output_dir or MODEL_DIR
+    if not model_dir.is_absolute():
+        model_dir = PROJECT_DIR / model_dir
     split_counts = {
         split: {
             label: sum(
@@ -438,7 +472,7 @@ def main() -> None:
         }
         for split in SPLIT_NAMES
     }
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    model_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Dataset: {dataset_dir}")
     print(f"Classes: {class_names}")
@@ -459,7 +493,12 @@ def main() -> None:
     }
 
     model = build_model(len(class_names))
-    model_path = MODEL_DIR / "snapture_baseline.keras"
+    model_path = model_dir / "snapture_baseline.keras"
+    model_version = (
+        "snapture-mobilenetv2-scope-candidate-unverified-v1"
+        if args.unverified_candidate
+        else "snapture-mobilenetv2-scope-v1"
+    )
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
             monitor="val_accuracy", patience=5, restore_best_weights=True
@@ -475,7 +514,7 @@ def main() -> None:
     history = model.fit(
         train_ds,
         validation_data=validation_ds,
-        epochs=EPOCHS,
+        epochs=args.epochs,
         class_weight=class_weights,
         callbacks=callbacks,
     )
@@ -484,14 +523,14 @@ def main() -> None:
     validation_metrics = evaluate_predictions(model, validation_ds, class_names)
     test_metrics = evaluate_predictions(model, test_ds, class_names)
 
-    labels_path = MODEL_DIR / "labels.json"
+    labels_path = model_dir / "labels.json"
     labels_path.write_text(json.dumps(class_names, indent=2) + "\n", encoding="utf-8")
 
-    config_path = MODEL_DIR / "model_config.json"
+    config_path = model_dir / "model_config.json"
     config_path.write_text(
         json.dumps(
             {
-                "model_version": "snapture-mobilenetv2-scope-v1",
+                "model_version": model_version,
                 "image_size": list(IMAGE_SIZE),
                 "preprocessing": "mobilenet_v2_internal",
                 "confidence_threshold": CONFIDENCE_THRESHOLD,
@@ -501,7 +540,8 @@ def main() -> None:
                 ),
                 "split_ratios": SPLIT_RATIOS,
                 "classes": class_names,
-                "verified_classes": class_names,
+                "verified_classes": [] if args.unverified_candidate else class_names,
+                "training_data_verified": not args.unverified_candidate,
                 "needs_verification_below_threshold": True,
             },
             indent=2,
@@ -510,11 +550,11 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    summary_path = MODEL_DIR / "training_summary.json"
+    summary_path = model_dir / "training_summary.json"
     summary_path.write_text(
         json.dumps(
             {
-                "model_version": "snapture-mobilenetv2-scope-v1",
+                "model_version": model_version,
                 "dataset_path": _relative_path(dataset_dir),
                 "classes": class_names,
                 "image_counts": image_counts,
@@ -526,11 +566,12 @@ def main() -> None:
                 "validation": validation_metrics,
                 "test": test_metrics,
                 "has_separate_test_set": _split_roots(dataset_dir) is not None,
+                "training_data_verified": not args.unverified_candidate,
                 "training_notes": [
                     "Exact duplicate files are rejected before training.",
                     "Generic plastic images must be manually verified as PETE or HDPE.",
                     "Confidence is a rejection signal, not a safety certification.",
-                ],
+                ] + (["Images were not individually approved; do not promote this candidate until the labels are reviewed."] if args.unverified_candidate else []),
             },
             indent=2,
         )

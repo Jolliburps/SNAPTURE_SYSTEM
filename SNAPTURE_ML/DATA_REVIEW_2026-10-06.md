@@ -2,12 +2,14 @@
 
 ## Decision
 
-Do **not** train or replace the current model with this batch yet. The image
-files are readable, but several category labels are not dependable enough for
-supervised training. The current `verified_manifest.json` has zero approved
-records for all seven scope labels. Keep the imported images as review
-candidates until each image has an accepted label, source/permission record,
-and reviewer decision.
+Do **not** promote or replace the current model with this batch yet. In response
+to the request to train the seven categories, an explicitly unverified candidate
+was trained and evaluated; its checkpoint and metrics are saved separately from
+the live model. The image files are readable, but several category labels are
+not dependable enough for supervised training. The current
+`verified_manifest.json` has zero approved records for all seven scope labels.
+Keep the imported images as review candidates until each image has an accepted
+label, source/permission record, and reviewer decision.
 
 ## Inventory and integrity
 
@@ -42,6 +44,32 @@ duplicate groups were preserved for human review. Resolve these cross-label
 groups before making train/validation/test splits. The removal list and
 retained-path mapping are logged under `.run-logs/ml-dedupe-*`.
 
+## Face and conflicting-label quarantine
+
+An OpenCV YuNet face-detection pass flagged 464 distinct images. Contact sheets
+for the 215 high-confidence detections were visually reviewed; those images
+showed faces/people (some were printed on paper or fabric). These 215 files,
+plus both copies from the six cross-label exact-duplicate groups (12 files),
+were moved out of the active class folders into the ignored, recoverable
+`data/_audit_ml_2026-10-06/training_hold/` folder. The CSV restore map records
+each original path, quarantine path, reason, score, and SHA-256. The remaining
+249 lower-confidence face candidates were not moved; manually review them
+before treating the candidate model's metrics as reliable.
+
+| Candidate label | Active images after quarantine |
+| --- | ---: |
+| `pete_bottles` | 3,034 |
+| `hdpe_containers` | 606 |
+| `cardboard` | 2,619 |
+| `paper` | 3,636 |
+| `fabric_scraps` | 5,816 |
+| `coconut_shells` | 376 |
+| `dry_untreated_wood_scraps` | 832 |
+
+The trainer also excluded one unreadable image each from cardboard and paper;
+those two originals were added to the recoverable hold folder. The final
+training inventory therefore contains 16,919 readable images.
+
 ## Existing model and pipeline
 
 The current checkpoint is the legacy six-class TrashNet model
@@ -49,14 +77,40 @@ The current checkpoint is the legacy six-class TrashNet model
 validation accuracy is 0.6297 and it has no separate test set. It is not a
 seven-class SNAPTURE checkpoint and must not be described as one.
 
-The maintained trainer expects `data/scope_dataset/`; that directory is not
-present in this checkout. The imported Drive candidates are under `data/`
-class folders and must not be passed to the trainer as if every nested file
-were verified. The `SNAPTURE_ML/data/` ignore rule has been removed, so the
-dataset is eligible for Git tracking. The cleaned data still totals about 2.72
-GiB, and some labels and source/license details remain unreviewed; do not
-publish the batch to a public repository until those risks are resolved. The
-review-sheet folder remains ignored.
+The imported Drive candidates are under `data/` class folders. `data/labels.json`
+declares their seven-class order for the experimental run; it does **not** mean
+the images have been individually verified. The raw dataset remains local and
+must not be published to the public GitHub repository until privacy, source,
+license, and label review is complete. The audit sheets and restore map remain
+git-ignored.
+
+## Unverified seven-class candidate experiment
+
+The candidate checkpoint is stored in
+`models/candidates/snapture-7class-candidate-20261006/`; it does not overwrite
+`models/snapture_baseline.keras`, which remains the live legacy six-class model.
+The candidate was trained for 8 epochs with MobileNetV2 transfer learning on
+the seven folders above. Training/validation/test assignment was a deterministic
+random image split (70/15/15), not a split grouped by image source, physical
+object, or capture session. Its test score can therefore be inflated by similar
+images across splits and is not a trustworthy real-world accuracy estimate.
+
+| Category | Test precision | Test recall | Test F1 |
+| --- | ---: | ---: | ---: |
+| `pete_bottles` | 89.4% | 90.8% | 90.1% |
+| `hdpe_containers` | 57.3% | 90.1% | 70.1% |
+| `cardboard` | 76.9% | 67.9% | 72.2% |
+| `paper` | 82.4% | 74.5% | 78.2% |
+| `fabric_scraps` | 96.4% | 94.3% | 95.3% |
+| `coconut_shells` | 67.6% | 85.7% | 75.6% |
+| `dry_untreated_wood_scraps` | 63.7% | 85.6% | 73.0% |
+
+Overall validation accuracy was 85.42% and image-random test accuracy was
+84.55%. This does **not** meet the requested 80% per-category release goal:
+cardboard and paper recall are below 80%, and several categories have low
+precision. Treat the model as a research candidate, not an enabled user-facing
+classifier. Full metrics and confusion matrices are in the candidate's
+`training_summary.json`.
 
 ## Accuracy and recommendation quality gate
 
@@ -84,8 +138,8 @@ user feedback only as a signal for review—not as verified truth by itself.
    resin from a container's appearance or product category.
 3. Confirm source/license coverage, especially for PETE and fabric, and record
    reviewer, final label, source, and decision for each retained image.
-4. Export only approved images to the separate `data/scope_dataset/` layout,
-   split by physical object/source batch to prevent leakage, then train a
-   candidate checkpoint and evaluate it on a held-out test set.
+4. Export only approved images to a reviewed dataset layout, split by physical
+   object/source batch to prevent leakage, then train a new candidate.
 5. Compare the candidate's per-class precision/recall/F1 and confusion matrix
-   with the old checkpoint before promoting it.
+   with the old checkpoint on an untouched, source-separated test set before
+   promoting it.

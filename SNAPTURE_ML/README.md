@@ -140,27 +140,29 @@ command above without supplying a real `--source` directory. For new
 categories, upload and verify images in the Django dataset collector, then run
 the export command below.
 
-Do not train a seven-class model until each intended scope folder contains
+Do not promote a seven-class model until each intended scope folder contains
 enough verified images. Empty folders are intentional and identify categories
 missing from the current source dataset.
 
 ### Google Drive batch status (2026-10-06)
 
-A 9,626-item Google Drive batch is present locally under the seven
-`data/<class>/` folders, in addition to the legacy prepared data. It is a
-candidate collection, not a reviewed training set: the current
-`data/verified_manifest.json` has no approved records, and sample review found
-label/provenance issues in several categories. Do not point the trainer at the
-whole `data/` tree or copy these images into `data/scope_dataset/` until they
-have been reviewed image by image. The integrity findings, per-class counts,
-and next steps are recorded in
+A Google Drive batch is present locally under the seven `data/<class>/`
+folders. It is a candidate collection, not a reviewed training set: the
+current `data/verified_manifest.json` has no approved records, and sample
+review found label/provenance issues in several categories. An unverified
+seven-class experiment was trained on this batch and saved under
+`models/candidates/snapture-7class-candidate-20261006/`; this did not replace
+the default model. Its random image split reached 84.55% test accuracy overall,
+but misses the 80% per-category release goal and is not an independent
+source/object-separated evaluation. Do not present it as validated performance.
+The integrity findings, per-class results, and next steps are recorded in
 [`DATA_REVIEW_2026-10-06.md`](DATA_REVIEW_2026-10-06.md).
 
-The data ignore rule has been removed, so dataset files can be selected for
-Git tracking. The generated review contact sheets remain ignored. The legacy
-six-class checkpoint remains in `models/`; it is not a trained seven-class
-model. Review privacy, source permissions, and labels before publishing any
-raw images.
+The raw dataset is deliberately not published in this public repository. The
+generated review contact sheets and quarantine/restore map remain local and
+git-ignored. The legacy six-class checkpoint remains the default in `models/`;
+review privacy, source permissions, and labels before publishing any raw images
+or promoting the candidate.
 
 ### Capture verified images
 

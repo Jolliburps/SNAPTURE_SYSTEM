@@ -1,0 +1,289 @@
+{
+  "model_version": "snapture-mobilenetv2-scope-candidate-unverified-v1",
+  "dataset_path": "data",
+  "classes": [
+    "pete_bottles",
+    "hdpe_containers",
+    "cardboard",
+    "paper",
+    "fabric_scraps",
+    "coconut_shells",
+    "dry_untreated_wood_scraps"
+  ],
+  "image_counts": {
+    "pete_bottles": 3034,
+    "hdpe_containers": 606,
+    "cardboard": 2619,
+    "paper": 3636,
+    "fabric_scraps": 5816,
+    "coconut_shells": 376,
+    "dry_untreated_wood_scraps": 832
+  },
+  "split_counts": {
+    "train": {
+      "pete_bottles": 2124,
+      "hdpe_containers": 424,
+      "cardboard": 1833,
+      "paper": 2546,
+      "fabric_scraps": 4072,
+      "coconut_shells": 264,
+      "dry_untreated_wood_scraps": 582
+    },
+    "val": {
+      "pete_bottles": 455,
+      "hdpe_containers": 91,
+      "cardboard": 393,
+      "paper": 545,
+      "fabric_scraps": 872,
+      "coconut_shells": 56,
+      "dry_untreated_wood_scraps": 125
+    },
+    "test": {
+      "pete_bottles": 455,
+      "hdpe_containers": 91,
+      "cardboard": 393,
+      "paper": 545,
+      "fabric_scraps": 872,
+      "coconut_shells": 56,
+      "dry_untreated_wood_scraps": 125
+    }
+  },
+  "quality_warnings": [],
+  "epochs_completed": 8,
+  "validation_accuracy": 0.854158,
+  "test_accuracy": 0.845487,
+  "validation": {
+    "accuracy": 0.854158,
+    "samples": 2537,
+    "confusion_matrix": [
+      [
+        405,
+        19,
+        7,
+        11,
+        5,
+        0,
+        8
+      ],
+      [
+        6,
+        73,
+        4,
+        5,
+        1,
+        1,
+        1
+      ],
+      [
+        21,
+        10,
+        264,
+        64,
+        8,
+        8,
+        18
+      ],
+      [
+        19,
+        23,
+        50,
+        424,
+        8,
+        4,
+        17
+      ],
+      [
+        5,
+        1,
+        6,
+        12,
+        842,
+        2,
+        4
+      ],
+      [
+        2,
+        0,
+        0,
+        2,
+        0,
+        47,
+        5
+      ],
+      [
+        1,
+        3,
+        6,
+        2,
+        0,
+        1,
+        112
+      ]
+    ],
+    "per_class": {
+      "pete_bottles": {
+        "count": 455,
+        "precision": 0.882353,
+        "recall": 0.89011,
+        "f1": 0.886214
+      },
+      "hdpe_containers": {
+        "count": 91,
+        "precision": 0.565891,
+        "recall": 0.802198,
+        "f1": 0.663636
+      },
+      "cardboard": {
+        "count": 393,
+        "precision": 0.783383,
+        "recall": 0.671756,
+        "f1": 0.723288
+      },
+      "paper": {
+        "count": 545,
+        "precision": 0.815385,
+        "recall": 0.777982,
+        "f1": 0.796244
+      },
+      "fabric_scraps": {
+        "count": 872,
+        "precision": 0.974537,
+        "recall": 0.965596,
+        "f1": 0.970046
+      },
+      "coconut_shells": {
+        "count": 56,
+        "precision": 0.746032,
+        "recall": 0.839286,
+        "f1": 0.789916
+      },
+      "dry_untreated_wood_scraps": {
+        "count": 125,
+        "precision": 0.678788,
+        "recall": 0.896,
+        "f1": 0.772414
+      }
+    }
+  },
+  "test": {
+    "accuracy": 0.845487,
+    "samples": 2537,
+    "confusion_matrix": [
+      [
+        413,
+        16,
+        8,
+        7,
+        4,
+        3,
+        4
+      ],
+      [
+        2,
+        82,
+        3,
+        3,
+        0,
+        0,
+        1
+      ],
+      [
+        17,
+        12,
+        267,
+        59,
+        8,
+        7,
+        23
+      ],
+      [
+        16,
+        27,
+        52,
+        406,
+        18,
+        5,
+        21
+      ],
+      [
+        12,
+        1,
+        7,
+        15,
+        822,
+        6,
+        9
+      ],
+      [
+        1,
+        2,
+        1,
+        0,
+        1,
+        48,
+        3
+      ],
+      [
+        1,
+        3,
+        9,
+        3,
+        0,
+        2,
+        107
+      ]
+    ],
+    "per_class": {
+      "pete_bottles": {
+        "count": 455,
+        "precision": 0.893939,
+        "recall": 0.907692,
+        "f1": 0.900763
+      },
+      "hdpe_containers": {
+        "count": 91,
+        "precision": 0.573427,
+        "recall": 0.901099,
+        "f1": 0.700855
+      },
+      "cardboard": {
+        "count": 393,
+        "precision": 0.769452,
+        "recall": 0.679389,
+        "f1": 0.721622
+      },
+      "paper": {
+        "count": 545,
+        "precision": 0.823529,
+        "recall": 0.744954,
+        "f1": 0.782274
+      },
+      "fabric_scraps": {
+        "count": 872,
+        "precision": 0.963658,
+        "recall": 0.942661,
+        "f1": 0.953043
+      },
+      "coconut_shells": {
+        "count": 56,
+        "precision": 0.676056,
+        "recall": 0.857143,
+        "f1": 0.755906
+      },
+      "dry_untreated_wood_scraps": {
+        "count": 125,
+        "precision": 0.636905,
+        "recall": 0.856,
+        "f1": 0.730375
+      }
+    }
+  },
+  "has_separate_test_set": false,
+  "training_data_verified": false,
+  "training_notes": [
+    "Exact duplicate files are rejected before training.",
+    "Generic plastic images must be manually verified as PETE or HDPE.",
+    "Confidence is a rejection signal, not a safety certification.",
+    "Images were not individually approved; do not promote this candidate until the labels are reviewed."
+  ]
+}

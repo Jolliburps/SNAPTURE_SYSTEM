@@ -1,0 +1,28 @@
+{
+  "model_version": "snapture-mobilenetv2-scope-candidate-unverified-v1",
+  "image_size": [
+    224,
+    224
+  ],
+  "preprocessing": "mobilenet_v2_internal",
+  "confidence_threshold": 0.6,
+  "dataset_path": "data",
+  "dataset_layout": "stratified_70_15_15",
+  "split_ratios": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15
+  },
+  "classes": [
+    "pete_bottles",
+    "hdpe_containers",
+    "cardboard",
+    "paper",
+    "fabric_scraps",
+    "coconut_shells",
+    "dry_untreated_wood_scraps"
+  ],
+  "verified_classes": [],
+  "training_data_verified": false,
+  "needs_verification_below_threshold": true
+}
