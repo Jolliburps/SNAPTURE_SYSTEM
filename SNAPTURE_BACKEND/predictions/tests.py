@@ -78,6 +78,19 @@ class PredictionQuestionnaireTests(TestCase):
         self.assertEqual(payload["title"], "Unidentified or unsupported object")
         self.assertTrue(payload["needs_verification"])
 
+    def test_candidate_scan_is_labeled_as_a_prototype_result(self):
+        self.record.model_version = "snapture-mobilenetv2-scope-candidate-unverified-v1"
+        self.record.save(update_fields=["model_version"])
+        response = self.client.get(
+            f"/api/predictions/{self.record.id}/",
+            HTTP_AUTHORIZATION=f"Bearer {self.token}",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()["prediction"]
+        self.assertEqual(payload["decision"], "paper")
+        self.assertEqual(payload["title"], "Paper (prototype result)")
+        self.assertTrue(payload["experimental_model"])
+
     def test_user_can_delete_only_their_own_history(self):
         other = User.objects.create_user(username="other@example.com", email="other@example.com", password="pass12345")
         Profile.objects.create(user=other)

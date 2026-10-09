@@ -96,6 +96,12 @@ android {
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
+        prototype {
+            // Keep the phone's existing SNAPTURE install and local data intact.
+            initWith release
+            applicationIdSuffix ".prototype"
+            matchingFallbacks = ["release"]
+        }
     }
 }
 

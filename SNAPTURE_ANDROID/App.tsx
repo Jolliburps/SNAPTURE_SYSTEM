@@ -88,8 +88,10 @@ function isSupportedPrediction(prediction: Prediction | null): boolean {
   return Boolean(
     prediction
       && SUPPORTED_DECISIONS.has(prediction.decision)
-      && !prediction.needs_verification
-      && prediction.confidence >= prediction.threshold,
+      && (
+        prediction.answers?.user_confirmed_material === prediction.decision
+        || (!prediction.needs_verification && prediction.confidence >= prediction.threshold)
+      ),
   );
 }
 
@@ -108,35 +110,23 @@ type FollowUpPrompt = {
   title: string;
   description: string;
   options: string[];
-  kind: 'verification' | 'wood_safety';
+  kind: 'resin_code' | 'wood_safety';
 };
 
 function followUpPromptFor(prediction: Prediction | null): FollowUpPrompt | null {
   if (!prediction) return null;
-  if (!isSupportedPrediction(prediction)) return null;
   const modelClass = (prediction.raw_model_class || prediction.model_class).toLowerCase();
-  const needsVerification = Boolean(
-    prediction.needs_verification
-      || prediction.decision === 'unknown_unsupported'
-      || ['plastic', 'metal'].includes(modelClass)
-      || prediction.confidence < prediction.threshold,
-  );
-
-  if (needsVerification) {
-    const genericPlastic = ['plastic', 'metal'].includes(modelClass);
+  if (!isSupportedPrediction(prediction)) {
+    if (prediction.decision !== 'unknown_unsupported' || !['pete_bottles', 'hdpe_containers', 'plastic'].includes(modelClass)) return null;
     return {
-      title: 'One quick confirmation',
-      description: genericPlastic
-        ? 'The photo looks like a general plastic item. If you can see a recycling code, choose it below. You can also skip this if you are unsure.'
-        : 'The model is not certain enough to assign a supported material. Confirm only if the material is obvious to you.',
+      title: 'Check the recycling code',
+      description: 'Look for the recycling triangle on the bottle base or label. Choose code 1 or 2 only if you can read it. The photo alone cannot confirm the plastic type.',
       /*
       options: genericPlastic
         ? ['PET/PETE · code 1', 'HDPE · code 2', 'Not sure'],
       */
-      options: genericPlastic
-        ? ['PET/PETE code 1', 'HDPE code 2', 'Not sure']
-        : ['I can confirm the material', 'Not sure'],
-      kind: 'verification',
+      options: ['PET/PETE code 1', 'HDPE code 2', 'Not sure'],
+      kind: 'resin_code',
     };
   }
 
@@ -181,6 +171,9 @@ function App() {
   const [analysisBusy, setAnalysisBusy] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
   const navigate = (next: Screen) => setScreen(next);
+  useEffect(() => {
+    console.log('[SNAPTURE] screen:view', screen);
+  }, [screen]);
   const openCategory = (label: string) => {
     setCategoryReturn(screen === 'home' || screen === 'ideas' ? 'home' : 'waste');
     setSelectedCategory(label);
@@ -319,13 +312,13 @@ function App() {
 
   const continueFromResult = async () => {
     if (!prediction) return;
-    if (!isSupportedPrediction(prediction)) {
-      startAnotherScan();
-      return;
-    }
     if (followUpPromptFor(prediction)) {
       setFollowUpAnswer('');
       navigate('questions');
+      return;
+    }
+    if (!isSupportedPrediction(prediction)) {
+      startAnotherScan();
       return;
     }
     if (await saveQuestionnaire()) navigate('recommendations');
@@ -768,12 +761,12 @@ function LiveResultScreen({ photoUri, prediction, error, onBack, onContinue }: {
   const needsVerification = Boolean(prediction && !isSupportedPrediction(prediction));
   const resultTitle = prediction ? displayPredictionTitle(prediction) : 'Identification unavailable';
   const followUp = followUpPromptFor(prediction);
-  const unsupported = Boolean(prediction && !isSupportedPrediction(prediction));
+  const unsupported = Boolean(prediction && !isSupportedPrediction(prediction) && !followUp);
   return <SimplePage title="Identification result" onBack={onBack}>
     <View style={styles.resultCard}>{photoUri ? <Image source={{ uri: toImageUri(photoUri) }} style={styles.photoSmall} resizeMode="cover" /> : <View style={styles.photoSmall}><Text style={styles.photoBottle}>Photo</Text></View>}<View style={styles.resultCopy}><Text style={styles.resultName}>{resultTitle}</Text><Text style={styles.resultConfidence}>{confidence}</Text>{prediction ? <Text style={[styles.supportedTag, needsVerification && styles.verificationTag]}>{needsVerification ? 'Needs verification' : 'Educational result'}</Text> : null}</View></View>
     {error ? <Text style={styles.authError}>{error}</Text> : null}
-    {unsupported ? <InfoCard title="Try another item" items={['This object is outside the supported SNAPTURE categories or the image is not certain enough.', 'Take one clear photo of a single supported material to receive reuse and recycling guidance.']} /> : <InfoCard title="Next step" items={[prediction ? (followUp ? 'We need one quick confirmation before tailoring the ideas.' : 'Your recommendations are ready. No extra questions are required for this result.') : 'Retake the photo and analyze again.']} />}
-    {prediction ? <PrimaryButton label={unsupported ? 'Try another item' : followUp ? 'One quick check' : 'See recommendations'} onPress={onContinue} /> : <SecondaryButton label="Retake photo" onPress={onBack} />}
+    {unsupported ? <InfoCard title="Try another item" items={['This object is outside the supported SNAPTURE categories or the image is not certain enough.', 'Take one clear photo of a single supported material to receive reuse and recycling guidance.']} /> : <InfoCard title="Next step" items={[prediction ? (followUp?.kind === 'resin_code' ? 'Check the recycling code on the bottle base or label to verify its plastic type.' : followUp ? 'We need one quick confirmation before tailoring the ideas.' : 'Your recommendations are ready. No extra questions are required for this result.') : 'Retake the photo and analyze again.']} />}
+    {prediction ? <PrimaryButton label={unsupported ? 'Try another item' : followUp?.kind === 'resin_code' ? 'Check recycling code' : followUp ? 'One quick check' : 'See recommendations'} onPress={onContinue} /> : <SecondaryButton label="Retake photo" onPress={onBack} />}
   </SimplePage>;
 }
 

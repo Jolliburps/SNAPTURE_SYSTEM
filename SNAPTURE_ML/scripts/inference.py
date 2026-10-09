@@ -94,14 +94,21 @@ class ModelPredictor:
         labels_path: Path | None = None,
         config_path: Path | None = None,
     ) -> None:
+        configured_dir = os.getenv("SNAPTURE_MODEL_DIR")
+        selected_dir = Path(configured_dir) if configured_dir else None
+        if selected_dir is not None and not selected_dir.is_absolute():
+            selected_dir = PROJECT_DIR / selected_dir
+        default_model = selected_dir / "snapture_baseline.keras" if selected_dir else os.getenv("SNAPTURE_MODEL_PATH") or DEFAULT_MODEL_PATH
+        default_labels = selected_dir / "labels.json" if selected_dir else os.getenv("SNAPTURE_LABELS_PATH") or DEFAULT_LABELS_PATH
+        default_config = selected_dir / "model_config.json" if selected_dir else os.getenv("SNAPTURE_CONFIG_PATH") or DEFAULT_CONFIG_PATH
         self.model_path = Path(
-            model_path or os.getenv("SNAPTURE_MODEL_PATH", DEFAULT_MODEL_PATH)
+            model_path or default_model
         )
         self.labels_path = Path(
-            labels_path or os.getenv("SNAPTURE_LABELS_PATH", DEFAULT_LABELS_PATH)
+            labels_path or default_labels
         )
         self.config_path = Path(
-            config_path or os.getenv("SNAPTURE_CONFIG_PATH", DEFAULT_CONFIG_PATH)
+            config_path or default_config
         )
 
         if not self.model_path.is_file():
@@ -128,6 +135,15 @@ class ModelPredictor:
                 )
             ),
         )
+        configured_class_thresholds = self.config.get("class_confidence_thresholds", {})
+        if not isinstance(configured_class_thresholds, dict):
+            raise ValueError("class_confidence_thresholds must be an object.")
+        self.class_confidence_thresholds = {
+            _normalise_label(label): float(value)
+            for label, value in configured_class_thresholds.items()
+        }
+        if any(not 0.0 <= value <= 1.0 for value in self.class_confidence_thresholds.values()):
+            raise ValueError("Class confidence thresholds must be between 0 and 1.")
         self.unsupported_classes = {
             _normalise_label(label) for label in _unsupported_classes(self.labels)
         }
@@ -143,6 +159,7 @@ class ModelPredictor:
             else DEFAULT_GENERIC_CLASSES
         )
         self.model_version = str(self.config.get("model_version", "local"))
+        self.experimental_model = self.config.get("training_data_verified") is False
 
         # The training script places MobileNetV2 preprocessing inside the model.
         # Therefore inference must pass raw RGB pixels in the 0-255 range.
@@ -183,9 +200,13 @@ class ModelPredictor:
         confidence = float(scores[best_index])
         normalized_class = _normalise_label(best_class)
         in_scope = normalized_class in self.scope_classes
+        threshold = max(
+            self.confidence_threshold,
+            self.class_confidence_thresholds.get(normalized_class, 0.0),
+        )
 
         verification_reasons: list[str] = []
-        if confidence < self.confidence_threshold:
+        if confidence < threshold:
             verification_reasons.append("confidence_below_threshold")
         if not in_scope:
             # Any class outside the seven thesis categories (including glass,
@@ -217,12 +238,13 @@ class ModelPredictor:
             "class": best_class,
             "confidence": round(confidence, 6),
             "decision": decision,
-            "threshold": self.confidence_threshold,
+            "threshold": threshold,
             "unsupported_class": not in_scope or normalized_class in self.unsupported_classes,
             "needs_verification": bool(verification_reasons),
             "verification_reasons": verification_reasons,
             "alternatives": alternatives,
             "model_version": self.model_version,
+            "experimental_model": self.experimental_model,
         }
 
     def predict_bytes(self, image_bytes: bytes) -> dict[str, Any]:

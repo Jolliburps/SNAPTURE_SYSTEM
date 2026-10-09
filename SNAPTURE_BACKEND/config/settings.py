@@ -51,6 +51,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.ActivityLogMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -168,9 +169,14 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
-        'django.server': {
+        'snapture.activity': {
             'handlers': ['snapture_console'],
             'level': 'INFO',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['snapture_console'],
+            'level': 'WARNING',
             'propagate': False,
         },
     },

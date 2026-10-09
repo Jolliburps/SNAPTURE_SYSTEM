@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Development address for the USB-connected phone on the current Wi-Fi.
-// Replace this if the computer's LAN IPv4 address changes. Use 10.0.2.2 for
-// the Android emulator instead.
-export const API_BASE_URL = 'http://192.168.1.217:8000/api';
+// The physical-phone prototype reaches the computer through `adb reverse`.
+// Run `adb reverse tcp:8000 tcp:8000` while the USB debugging cable is attached.
+// Use 10.0.2.2 instead when running on the Android emulator.
+export const API_BASE_URL = 'http://127.0.0.1:8000/api';
 const TOKEN_KEY = 'snapture_api_token';
 
 export type ApiUser = {
@@ -20,7 +20,7 @@ export type PredictionSummary = {
   title: string;
   confidence: number;
   created_at: string;
-  image_url: string | null;
+  image_url: string | null; 
   selected_recommendation: string;
   recommendation_choices?: Recommendation[];
 };
@@ -74,6 +74,7 @@ export type Prediction = PredictionSummary & {
   label: string;
   threshold: number;
   model_version: string;
+  experimental_model?: boolean;
   quantity: number | null;
   condition: string;
   previous_contents: string;

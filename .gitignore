@@ -40,6 +40,20 @@ SNAPTURE_ML/.env*.local
 SNAPTURE_ML/dataset-resized/
 SNAPTURE_ML/models/backup-*/
 
+# Local, unverified Drive image candidates and source inventory.
+SNAPTURE_ML/data/pete_bottles/
+SNAPTURE_ML/data/hdpe_containers/
+SNAPTURE_ML/data/cardboard/
+SNAPTURE_ML/data/paper/
+SNAPTURE_ML/data/fabric_scraps/
+SNAPTURE_ML/data/coconut_shells/
+SNAPTURE_ML/data/dry_untreated_wood_scraps/
+SNAPTURE_ML/data/_source_manifest.json
+SNAPTURE_ML/data/_import_map.json
+SNAPTURE_ML/data/_download_failures.json
+SNAPTURE_ML/data/candidates/
+SNAPTURE_ML/models/candidates/snapture-drive-20261006/
+
 # Local visual review artifacts; the dataset and manifests themselves may be tracked.
 SNAPTURE_ML/data/_audit_ml_2026-10-06/
 

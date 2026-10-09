@@ -146,8 +146,23 @@ missing from the current source dataset.
 
 ### Google Drive batch status (2026-10-06)
 
-A Google Drive batch is present locally under the seven `data/<class>/`
-folders. It is a candidate collection, not a reviewed training set: the
+The linked Google Drive batch can be downloaded locally under the seven
+`data/<class>/` folders. From `SNAPTURE_ML`, run:
+
+```powershell
+& .\.venv\Scripts\python.exe .\scripts\import_drive_dataset.py --refresh-index --workers 24
+```
+
+The import is resumable. Run the same command again after an interruption; the
+cached listing, `data/_source_manifest.json`, avoids repeating the folder
+inventory step, so omit `--refresh-index` on later runs. The importer preserves
+the source subfolders, maps the seven Drive root names to project labels,
+checks JPEG readability, and reports failed items in
+`data/_download_failures.json`. Its source-to-local path record is
+`data/_import_map.json`. The source inventory has 9,626 items, including 9,613
+JPEGs and 13 CSV files; compare the final counts with that inventory.
+
+This is a candidate collection, not a reviewed training set: the
 current `data/verified_manifest.json` has no approved records, and sample
 review found label/provenance issues in several categories. An unverified
 seven-class experiment was trained on this batch and saved under
@@ -163,6 +178,33 @@ generated review contact sheets and quarantine/restore map remain local and
 git-ignored. The legacy six-class checkpoint remains the default in `models/`;
 review privacy, source permissions, and labels before publishing any raw images
 or promoting the candidate.
+
+To build a local experimental training view from this exact Drive import, run:
+
+```powershell
+& .\.venv\Scripts\python.exe .\scripts\prepare_drive_candidate.py
+& .\.venv\Scripts\python.exe .\scripts\train_model.py --data-dir data/candidates/drive_20261006 --output-dir models/candidates/snapture-drive-20261006 --unverified-candidate
+```
+
+The preparation step hard-links one copy of each unique image into
+`data/candidates/drive_20261006`, excluding exact images that have conflicting
+labels across classes. The originals stay in `data/<class>/`. The preparation
+manifest records every inclusion and exclusion. The output model is explicitly
+marked unverified and stays separate from the active model.
+
+For a local phone prototype after reviewing the candidate metrics, start the
+backend from the repository root with:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SNAPTURE_BACKEND\run_phone_prototype.ps1
+```
+
+This selects the
+candidate model for that server process. Scan results from the candidate are
+labeled **prototype result** in the app; they are still tentative material
+identifications because the source labels have not been individually verified.
+The current batch's training and test results are in
+[`DRIVE_PROTOTYPE_EVALUATION_2026-10-06.md`](DRIVE_PROTOTYPE_EVALUATION_2026-10-06.md).
 
 ### Capture verified images
 

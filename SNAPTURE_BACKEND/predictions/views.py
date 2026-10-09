@@ -51,6 +51,8 @@ def _serialize(record):
         safe_title = material_info(safe_decision)["title"]
         if "user confirmed" in str(record.title).lower():
             safe_title = f"{safe_title} (user confirmed)"
+        if "candidate-unverified" in str(record.model_version):
+            safe_title = f"{safe_title} (prototype result)"
     requires_verification = (
         safe_decision == "unknown_unsupported"
         or str(record.model_class).lower() in {"plastic", "metal", "glass", "trash"}
@@ -69,6 +71,7 @@ def _serialize(record):
         "confidence": record.confidence,
         "threshold": record.threshold,
         "model_version": record.model_version,
+        "experimental_model": "candidate-unverified" in str(record.model_version),
         "quantity": record.quantity,
         "condition": record.condition,
         "previous_contents": record.previous_contents,

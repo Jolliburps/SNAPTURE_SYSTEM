@@ -23,6 +23,22 @@ Create an administrator for the Django admin site:
 Open `http://127.0.0.1:8000/admin/` on the computer. A phone on the same
 Wi-Fi uses the computer's LAN IPv4 address instead of `127.0.0.1`.
 
+## Live activity in the terminal
+
+The backend terminal prints one `snapture.activity` line for each phone API
+action, such as sign-in, browsing materials, scanning an object, saving a
+recommendation, or updating a project step. For example:
+
+```text
+INFO snapture.activity: user_id=3 action=object_scanned outcome=success status=201 duration_ms=812
+```
+
+It records an internal user ID, action, outcome, HTTP status, and elapsed time.
+It does not print passwords, tokens, image data, request bodies, or query
+strings. Health checks and CORS preflight requests are omitted. In a debug
+Android build connected to Metro, its terminal also prints `screen:view` when
+the user changes screens.
+
 ## Switch to MySQL
 
 SQLite is still the default until a MySQL server is installed and configured.

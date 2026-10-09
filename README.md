@@ -72,6 +72,10 @@ Get-Content .\SNAPTURE_BACKEND\.env | ForEach-Object {
 ```
 
 The API uses the tracked model in `SNAPTURE_ML/models/` by default. The SQLite database and uploaded media are local files and are not committed.
+For the seven-category Drive phone prototype, stop the default backend and run
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SNAPTURE_BACKEND\run_phone_prototype.ps1`.
+Its results are explicitly labeled as prototype output; see
+[`SNAPTURE_ML/DRIVE_PROTOTYPE_EVALUATION_2026-10-06.md`](SNAPTURE_ML/DRIVE_PROTOTYPE_EVALUATION_2026-10-06.md).
 
 ## Run the application
 

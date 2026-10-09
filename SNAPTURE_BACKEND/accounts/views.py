@@ -87,6 +87,7 @@ def register(request):
             Profile.objects.create(user=user, display_name=display_name, barangay=barangay)
     except IntegrityError:
         return JsonResponse({"detail": "Unable to create the account."}, status=409)
+    request.activity_user_id = user.id
     return JsonResponse({"user": _serialize_user(user, request), "token": issue_token(user)}, status=201)
 
 
@@ -107,6 +108,7 @@ def login(request):
             user = authenticate(request, username=account.get_username(), password=password)
     if user is None:
         return JsonResponse({"detail": "Invalid email or password."}, status=401)
+    request.activity_user_id = user.id
     return JsonResponse({"user": _serialize_user(user, request), "token": issue_token(user)})
 
 
@@ -160,6 +162,7 @@ def logout(request):
     header = request.headers.get("Authorization", "")
     user = user_from_request(request)
     if header.startswith("Bearer ") and user is not None:
+        request.activity_user_id = user.id
         raw_token = header.removeprefix("Bearer ").strip()
         ApiToken.objects.filter(token_hash=ApiToken.hash_token(raw_token)).delete()
     return JsonResponse({"logged_out": True})

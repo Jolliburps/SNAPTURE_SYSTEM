@@ -37,7 +37,9 @@ def model_status() -> dict[str, object]:
         "loaded": True,
         "classes": predictor.labels,
         "threshold": predictor.confidence_threshold,
+        "class_confidence_thresholds": predictor.class_confidence_thresholds,
         "model_version": predictor.model_version,
+        "experimental_model": predictor.experimental_model,
         "generic_classes_need_verification": sorted(predictor.generic_classes),
     }
 
