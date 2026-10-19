@@ -103,10 +103,17 @@ not expose reset tokens in API responses.
 
 ## Current limitation
 
-The existing trained model is still the six-class TrashNet baseline. Generic
-`plastic` and `metal` outputs are marked **Needs verification**. The backend is
-ready for the seven scope categories, but a category must have verified images
-before a scope model is trained. Safety and reuse guidance is educational
+The active model selection in `SNAPTURE_ML/models/active_model.json` now loads
+the experimental seven-category checkpoint for local camera testing. It uses
+a 0.80 confidence rejection threshold; confidence is not measured accuracy.
+The checkpoint was trained on the earlier category corpus and has not been
+retrained after subsequent dataset cleanup. Uncertain results are rejected,
+and PET/PETE and HDPE require a readable resin-code confirmation. The legacy
+six-class baseline remains on disk and can be selected explicitly with
+`SNAPTURE_MODEL_DIR` pointing to `SNAPTURE_ML/models`. Model/label/config file
+environment overrides also take priority over the active selection manifest.
+Finish label review and source-grouped evaluation before deployment or claims
+of per-category accuracy. Safety and reuse guidance is educational
 decision support; it is not a chemical, microbial, structural, or food-contact
 safety certification.
 

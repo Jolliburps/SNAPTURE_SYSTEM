@@ -6,6 +6,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const API_BASE_URL = 'http://127.0.0.1:8000/api';
 const TOKEN_KEY = 'snapture_api_token';
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch {
+    throw new Error('The service could not be reached or timed out. No completed assessment was received. Check the backend connection and try again.');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export type ApiUser = {
   id: number;
   email: string;
@@ -16,6 +28,7 @@ export type ApiUser = {
 };
 
 export type PredictionSummary = {
+  input_method?: 'camera' | 'manual';
   id: number;
   title: string;
   confidence: number;
@@ -68,6 +81,9 @@ export type MaterialGuide = {
 };
 
 export type Prediction = PredictionSummary & {
+  image_quality?: ImageQuality;
+  input_method?: 'camera' | 'manual';
+  assessment?: Assessment;
   model_class: string;
   raw_model_class?: string;
   decision: string;
@@ -84,6 +100,74 @@ export type Prediction = PredictionSummary & {
   verification_reasons?: string[];
   alternatives?: Array<{ class: string; confidence: number }>;
 };
+
+export type AssessmentQuestion = { id: string; label: string; options: string[]; required: boolean };
+export type ImageQuality = { flags: { code: string; message: string }[]; limitations: string };
+export type CaptureFrame = { aspect: number; x: number; y: number; width: number; height: number };
+export type SceneItem = { id: number; box: number[]; name: string; score: number; prediction: Prediction; route: { key: string; label: string; reason: string }; suggested_group?: string; display_box?: boolean; display_group?: string; low_confidence?: boolean; background?: boolean; review_reason?: string };
+export type ScanScene = { id: number; image_url: string; width: number; height: number; frame: number[]; status: string; error: string; quality: ImageQuality; items: SceneItem[]; truncated: boolean; detector: string; limitations: string; background_objects?: { name: string; count: number }[] };
+export const imageUrl = (uri: string) => uri.startsWith('/') ? `${API_BASE_URL.replace(/\/api$/, '')}${uri}` : uri;
+
+export async function createScene(uri: string, requestId: string, frame?: CaptureFrame) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in before analyzing.');
+  const data = new FormData();
+  data.append('image', { uri: /^(file|content):/.test(uri) ? uri : `file://${uri}`, name: 'capture.jpg', type: 'image/jpeg' } as unknown as Blob);
+  data.append('request_id', requestId);
+  if (frame) data.append('frame', JSON.stringify(frame));
+  const response = await fetchWithTimeout(`${API_BASE_URL}/scenes/`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: data }, 180000);
+  return parseResponse<{ scene: ScanScene }>(response);
+}
+
+export async function getScene(id: number) {
+  const token = await getStoredToken();
+  return parseResponse<{ scene: ScanScene }>(await fetchWithTimeout(`${API_BASE_URL}/scenes/${id}/`, { headers: { Authorization: `Bearer ${token}` } }));
+}
+
+export async function listScenes() {
+  const token = await getStoredToken();
+  return parseResponse<{ scenes: ScanScene[] }>(await fetchWithTimeout(`${API_BASE_URL}/scenes/`, { headers: { Authorization: `Bearer ${token}` } }));
+}
+
+export async function deleteScene(id: number) {
+  const token = await getStoredToken();
+  return parseResponse<{ deleted: boolean }>(await fetchWithTimeout(`${API_BASE_URL}/scenes/${id}/`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }));
+}
+export type LearningEntry = { key: string; version: number; title: string; category: string; summary: string; instructions: string[]; warnings: string; source: string; review_note: string; review_level: string };
+
+export async function getLearningInformation() {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/learning/`);
+  return parseResponse<{ entries: LearningEntry[] }>(response);
+}
+export type CollectionEntry = { date: string; barangay: string; title: string; status: string; description?: string; source: string };
+
+export async function getCollectionNotices(month: string) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in to view collection information.');
+  const response = await fetchWithTimeout(`${API_BASE_URL}/collection/?month=${encodeURIComponent(month)}`, { headers: { Authorization: `Bearer ${token}` } });
+  return parseResponse<{ entries: CollectionEntry[]; status: string }>(response);
+}
+export type GuidanceSource = { key: string; version: number; source: string; review_level: string; review_note: string };
+export type Assessment = {
+  version: string;
+  material: { label: string; title: string; status: string; explanation: string; input_method: string };
+  questions: AssessmentQuestion[];
+  missing_information: string[];
+  segregation: { status: string; category: string | null; instructions: string[]; explanation: string; sources: GuidanceSource[] };
+  upcycling: { status: string; explanation: string; recommendations: Recommendation[] };
+  context: Record<string, unknown>;
+  safety?: { title: string; explanation: string; instructions: string[]; sources: GuidanceSource[] } | null;
+};
+
+export async function createManualPrediction(label: string) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in before assessing an item.');
+  const response = await fetchWithTimeout(`${API_BASE_URL}/predictions/manual/`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label }),
+  });
+  return parseResponse<{ prediction: Prediction }>(response);
+}
 
 export type AdminPredictionSummary = {
   id: number;
@@ -251,6 +335,12 @@ export async function setProjectStep(projectId: number, stepIndex: number, compl
   return parseResponse<{ project: UserProject }>(response);
 }
 
+export async function restartProject(projectId: number) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in to restart a project.');
+  return parseResponse<{ project: UserProject }>(await fetchWithTimeout(`${API_BASE_URL}/projects/${projectId}/restart/`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }));
+}
+
 export async function getAdminOverview() {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in as an administrator.');
@@ -323,7 +413,7 @@ export async function createPrediction(uri: string, fields: Record<string, strin
   const uploadUri = uri.startsWith('file://') || uri.startsWith('content://') ? uri : `file://${uri}`;
   formData.append('image', { uri: uploadUri, name: 'capture.jpg', type: 'image/jpeg' } as unknown as Blob);
   Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
-  const response = await fetch(`${API_BASE_URL}/predictions/create/`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/predictions/create/`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -334,7 +424,7 @@ export async function createPrediction(uri: string, fields: Record<string, strin
 export async function updatePrediction(predictionId: number, fields: Record<string, unknown>) {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in before updating a prediction.');
-  const response = await fetch(`${API_BASE_URL}/predictions/${predictionId}/`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/predictions/${predictionId}/`, {
     method: 'PATCH',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -348,7 +438,7 @@ export async function updatePrediction(predictionId: number, fields: Record<stri
 export async function selectRecommendation(predictionId: number, recommendationId: string) {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in before selecting a recommendation.');
-  const response = await fetch(`${API_BASE_URL}/predictions/${predictionId}/recommendation/`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/predictions/${predictionId}/recommendation/`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,

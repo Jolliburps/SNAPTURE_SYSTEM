@@ -1,6 +1,6 @@
-"""Train and audit the SNAPTURE seven-class image classifier.
+"""Train and audit the SNAPTURE six-material image classifier.
 
-The trainer is deliberately conservative. It only trains the seven thesis
+The trainer is deliberately conservative. It only trains the six active
 classes when their labels are explicitly declared, checks image files before
 TensorFlow sees them, prevents exact duplicate leakage between splits, and
 reports independent validation and test metrics. The existing six-class
@@ -15,12 +15,17 @@ import hashlib
 import json
 import os
 import random
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 import tensorflow as tf
 from PIL import Image, UnidentifiedImageError
+try:
+    from scripts.reviewed_dataset import validate_prepared
+except ModuleNotFoundError:
+    from reviewed_dataset import validate_prepared
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -33,7 +38,6 @@ SCOPE_LABELS = [
     "cardboard",
     "paper",
     "fabric_scraps",
-    "coconut_shells",
     "dry_untreated_wood_scraps",
 ]
 
@@ -157,7 +161,7 @@ def validate_images(
     if declared_classes is None:
         if not _env_bool("SNAPTURE_ALLOW_NON_SCOPE_DATASET"):
             raise ValueError(
-                "This trainer expects data/scope_dataset/labels.json with the seven "
+                "This trainer expects labels.json with the six active "
                 "thesis labels. Set SNAPTURE_ALLOW_NON_SCOPE_DATASET=1 only for a "
                 "deliberate legacy experiment."
             )
@@ -174,7 +178,7 @@ def validate_images(
             missing = sorted(set(SCOPE_LABELS) - set(class_names))
             extra = sorted(set(class_names) - set(SCOPE_LABELS))
             raise ValueError(
-                "labels.json must contain exactly the seven thesis classes. "
+                "labels.json must contain exactly the six active classes. "
                 f"Missing: {missing or 'none'}; extra: {extra or 'none'}."
             )
 
@@ -458,9 +462,12 @@ def main() -> None:
 
     tf.keras.utils.set_random_seed(SEED)
     dataset_dir = find_dataset_root()
+    reviewed = not args.unverified_candidate
+    if reviewed:
+        validate_prepared(dataset_dir)
     class_names, image_counts, warnings = validate_images(dataset_dir)
     records = _records_for_dataset(dataset_dir, class_names)
-    model_dir = args.output_dir or MODEL_DIR
+    model_dir = args.output_dir or (MODEL_DIR / "candidates" / datetime.now(timezone.utc).strftime("six-material-%Y%m%d-%H%M%S"))
     if not model_dir.is_absolute():
         model_dir = PROJECT_DIR / model_dir
     split_counts = {
@@ -472,6 +479,8 @@ def main() -> None:
         }
         for split in SPLIT_NAMES
     }
+    if model_dir.exists() and any(model_dir.iterdir()):
+        raise ValueError("Use a new output directory; do not overwrite an active or evaluated model.")
     model_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Dataset: {dataset_dir}")
@@ -495,9 +504,9 @@ def main() -> None:
     model = build_model(len(class_names))
     model_path = model_dir / "snapture_baseline.keras"
     model_version = (
-        "snapture-mobilenetv2-scope-candidate-unverified-v1"
+        "snapture-mobilenetv2-six-material-candidate-unverified-v1"
         if args.unverified_candidate
-        else "snapture-mobilenetv2-scope-v1"
+        else "snapture-mobilenetv2-six-material-reviewed-data-v1"
     )
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
@@ -542,6 +551,7 @@ def main() -> None:
                 "classes": class_names,
                 "verified_classes": [] if args.unverified_candidate else class_names,
                 "training_data_verified": not args.unverified_candidate,
+                "physical_item_grouped_splits_verified": reviewed,
                 "needs_verification_below_threshold": True,
             },
             indent=2,

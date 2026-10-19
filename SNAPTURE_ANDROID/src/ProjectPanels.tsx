@@ -2,19 +2,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import Bookmark from 'lucide-react-native/icons/bookmark';
-import Check from 'lucide-react-native/icons/check';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
-import ClipboardList from 'lucide-react-native/icons/clipboard-list';
 import FolderOpen from 'lucide-react-native/icons/folder-open';
 import Lightbulb from 'lucide-react-native/icons/lightbulb';
 import Search from 'lucide-react-native/icons/search';
 import X from 'lucide-react-native/icons/x';
 
 import type { UserProject } from './api';
+import ProjectGuide from './ProjectGuide';
 import { activeProjectsSorted, type SavedEntry } from './projectData';
 
 type Props = {
   section: 'projects' | 'saved';
+  initialFilter?: 'all' | 'active' | 'completed';
   projects: UserProject[];
   projectsLoading: boolean;
   projectsError: string;
@@ -24,6 +24,8 @@ type Props = {
   onClose: () => void;
   onStart: (predictionId: number) => Promise<UserProject>;
   onStep: (projectId: number, stepIndex: number, completed: boolean) => Promise<UserProject>;
+  onRestart: (projectId: number) => Promise<UserProject>;
+  onShowProjects: () => void;
 };
 
 const GREEN = '#176b45';
@@ -51,16 +53,15 @@ function BlankState({ title, body }: { title: string; body: string }) {
   return <View style={styles.empty}><FolderOpen size={28} color={GREEN} /><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.muted}>{body}</Text></View>;
 }
 
-export default function ProjectPanels({ section, projects, projectsLoading, projectsError, saved, savedLoading, savedError, onClose, onStart, onStep }: Props) {
+export default function ProjectPanels({ section, initialFilter = 'all', projects, projectsLoading, projectsError, saved, savedLoading, savedError, onClose, onStart, onStep, onRestart, onShowProjects }: Props) {
   const [detail, setDetail] = useState<SavedEntry | null>(null);
   const [guideId, setGuideId] = useState<number | null>(null);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>(initialFilter);
   const [search, setSearch] = useState('');
   const [materialFilter, setMaterialFilter] = useState('All');
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
-  useEffect(() => { setDetail(null); setGuideId(null); setFilter('all'); setSearch(''); setMaterialFilter('All'); setActionError(''); }, [section]);
+  useEffect(() => { setDetail(null); setGuideId(null); setFilter(initialFilter); setSearch(''); setMaterialFilter('All'); setActionError(''); }, [section, initialFilter]);
 
   const active = useMemo(() => activeProjectsSorted(projects), [projects]);
   const completed = useMemo(() => projects.filter((project) => project.status === 'completed').slice().sort((a, b) => b.updated_at.localeCompare(a.updated_at)), [projects]);
@@ -75,8 +76,6 @@ export default function ProjectPanels({ section, projects, projectsLoading, proj
 
   const openGuide = (item: UserProject) => {
     setGuideId(item.id);
-    setStepIndex(item.steps.findIndex((_, index) => !item.completed_steps.includes(index)) >= 0
-      ? item.steps.findIndex((_, index) => !item.completed_steps.includes(index)) : 0);
     setActionError('');
   };
   const back = () => {
@@ -91,13 +90,7 @@ export default function ProjectPanels({ section, projects, projectsLoading, proj
     catch (error) { setActionError(error instanceof Error ? error.message : 'Unable to start project.'); }
     finally { setBusy(false); }
   };
-  const toggleStep = async () => {
-    if (!project) return;
-    setBusy(true); setActionError('');
-    try { await onStep(project.id, stepIndex, !project.completed_steps.includes(stepIndex)); }
-    catch (error) { setActionError(error instanceof Error ? error.message : 'Unable to update step.'); }
-    finally { setBusy(false); }
-  };
+
 
   const title = project ? 'Step-by-Step Guide' : detail ? 'Saved idea' : section === 'projects' ? 'My projects' : 'Saved ideas';
   return <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={back}>
@@ -111,23 +104,7 @@ export default function ProjectPanels({ section, projects, projectsLoading, proj
           <Pressable onPress={onClose} accessibilityLabel="Close" hitSlop={10}><X size={22} color={TEXT} /></Pressable>
         </View>
 
-        {project ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <View style={styles.projectIntro}><View style={styles.artLarge}><ClipboardList size={30} color={GREEN} /></View><View style={styles.cardCopy}><Text style={styles.detailTitle}>{project.title}</Text><Text style={styles.muted}>From {project.material}</Text><Text style={styles.smallGreen}>{project.status === 'completed' ? 'Completed project' : 'In progress'}</Text></View></View>
-          <Text style={styles.sectionTitle}>{project.progress_percent}% complete</Text>
-          <ProgressBar percent={project.progress_percent} />
-          <Text style={styles.muted}>{project.completed_count} completed · {project.total_steps - project.completed_count} remaining · {project.total_steps} total steps</Text>
-          {project.safety_note ? <View style={styles.note}><Text style={styles.noteText}>{project.safety_note}</Text></View> : null}
-          <Text style={styles.sectionTitle}>Steps</Text>
-          {project.steps.map((step, index) => <Pressable key={`${project.id}-${index}`} style={[styles.stepRow, stepIndex === index && styles.stepRowActive]} onPress={() => setStepIndex(index)}>
-            <View style={[styles.stepNumber, project.completed_steps.includes(index) && styles.stepDone]}>{project.completed_steps.includes(index) ? <Check size={15} color="#fff" /> : <Text style={styles.stepNumberText}>{index + 1}</Text>}</View>
-            <View style={styles.cardCopy}><Text style={styles.stepTitle}>Step {index + 1}</Text><Text style={styles.muted} numberOfLines={stepIndex === index ? undefined : 1}>{step}</Text></View>
-          </Pressable>)}
-          <View style={styles.instruction}><Text style={styles.sectionTitle}>Step {stepIndex + 1} of {project.total_steps}</Text><Text style={styles.instructionText}>{project.steps[stepIndex]}</Text></View>
-          {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
-          <Pressable style={styles.primaryButton} onPress={toggleStep} disabled={busy}><Check size={18} color="#fff" /><Text style={styles.primaryText}>{busy ? 'Saving…' : project.completed_steps.includes(stepIndex) ? 'Mark as not done' : 'Mark step as done'}</Text></Pressable>
-          <View style={styles.stepActions}><Pressable style={styles.secondaryButton} onPress={() => setStepIndex(Math.max(0, stepIndex - 1))} disabled={stepIndex === 0}><Text style={styles.secondaryText}>Previous</Text></Pressable><Pressable style={styles.secondaryButton} onPress={() => setStepIndex(Math.min(project.total_steps - 1, stepIndex + 1))} disabled={stepIndex >= project.total_steps - 1}><Text style={styles.secondaryText}>Next</Text></Pressable></View>
-          <Text style={styles.footnote}>Text guide only. Video instructions are not available yet.</Text>
-        </ScrollView> : detail ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {project ? <ProjectGuide key={project.id} project={project} onStep={onStep} onRestart={onRestart} onDone={() => { setGuideId(null); setDetail(null); setFilter('completed'); if (section !== 'projects') onShowProjects(); }} /> : detail ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           <View style={styles.detailArtwork}><Lightbulb size={45} color={GREEN} /></View>
           <Text style={styles.detailTitle}>{detail.idea?.title || 'Saved recommendation'}</Text>
           <Text style={styles.smallGreen}>From {detail.record.title}</Text>

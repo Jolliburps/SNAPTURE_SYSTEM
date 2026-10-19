@@ -2,8 +2,20 @@
 
 This directory contains an experimental MobileNetV2 checkpoint trained on
 the seven local SNAPTURE category folders on 2026-10-06. It is deliberately
-stored separately from `models/snapture_baseline.keras`; the backend continues
-to use that existing six-class TrashNet baseline by default.
+stored separately from `models/snapture_baseline.keras`. On 2026-10-14,
+`models/active_model.json` selected this checkpoint for local camera testing.
+The six-class TrashNet baseline is preserved for rollback. This activation
+does not mark the candidate as verified or approved for deployment.
+
+The confidence rejection threshold is now 0.80 for prototype testing.
+An 80% model confidence is not an 80% accuracy guarantee. PET/PETE and HDPE
+suggestions require a readable resin-code confirmation before project guidance.
+Wood still requires the existing surface and treatment check.
+
+The training counts below describe the 2026-10-06 corpus, not the current
+15,252 image files remaining after later cleanup. Activating this saved model
+does not retrain it on those subsequent changes. A reviewed, source-grouped
+training and test split is still required before reporting field performance.
 
 The image-random split produced 85.42% validation accuracy and 84.55% test
 accuracy. These are preliminary scores, not verified real-world performance:

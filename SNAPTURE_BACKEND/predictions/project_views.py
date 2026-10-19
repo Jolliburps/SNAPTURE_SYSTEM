@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from core.auth import require_api_user
+from core.assessment import refresh
 
 from .models import PredictionRecord, UserProject
 
@@ -62,6 +63,7 @@ def projects(request):
     if record is None:
         return JsonResponse({"detail": "Saved scan not found."}, status=404)
     selected = record.selected_recommendation
+    refresh(record)
     choice = next(
         (item for item in record.recommendation_choices if isinstance(item, dict) and item.get("id") == selected),
         None,
@@ -91,8 +93,9 @@ def projects(request):
 @csrf_exempt
 @require_api_user
 @require_http_methods(["PATCH"])
+@transaction.atomic
 def project_step(request, project_id, step_index):
-    project = UserProject.objects.filter(user=request.api_user, pk=project_id).first()
+    project = UserProject.objects.select_for_update().filter(user=request.api_user, pk=project_id).first()
     if project is None:
         return JsonResponse({"detail": "Project not found."}, status=404)
     payload = _body(request)
@@ -108,3 +111,24 @@ def project_step(request, project_id, step_index):
     project.completed_steps = sorted(completed)
     project.save(update_fields=["completed_steps", "updated_at"])
     return JsonResponse({"project": _serialize(project)})
+
+
+@csrf_exempt
+@require_api_user
+@require_http_methods(['POST'])
+@transaction.atomic
+def restart_project(request, project_id):
+    project = UserProject.objects.select_for_update().filter(user=request.api_user,pk=project_id).first()
+    if project is None:
+        return JsonResponse({'detail':'Project not found.'},status=404)
+    if _serialize(project)['status'] != 'completed':
+        return JsonResponse({'detail':'Only a completed project can be restarted.'},status=409)
+    record = PredictionRecord.objects.filter(user=request.api_user,pk=project.source_prediction_id).first()
+    if record is None:
+        return JsonResponse({'detail':'Assess a suitable item again before starting another project.'},status=400)
+    refresh(record)
+    if not any(choice['id']==project.recommendation_id for choice in record.recommendation_choices):
+        return JsonResponse({'detail':'This project no longer matches current guidance. Assess the material again.'},status=400)
+    project.completed_steps = []
+    project.save(update_fields=['completed_steps','updated_at'])
+    return JsonResponse({'project':_serialize(project)})

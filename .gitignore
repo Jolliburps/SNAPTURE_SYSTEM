@@ -71,7 +71,11 @@ SNAPTURE_ML/data/_audit_ml_2026-10-06/
 
 # Local run diagnostics
 .run-logs/
+SNAPTURE_ML/data/review_manifest*.json
+SNAPTURE_ML/data/prepared_*/
+SNAPTURE_ML/data/*training_bundle*.zip
 
 # Optional local Android/JDK tool cache
 .tools/
+SNAPTURE_ML/models/owlvit-base-patch32/
 

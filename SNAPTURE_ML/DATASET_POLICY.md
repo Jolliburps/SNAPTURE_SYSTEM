@@ -1,6 +1,6 @@
 # SNAPTURE dataset collection and training policy
 
-This policy keeps the machine-learning dataset aligned with the seven thesis
+This policy keeps the machine-learning dataset aligned with the six active
 categories and prevents the model from presenting guesses as material facts.
 
 ## Approved labels
@@ -13,9 +13,12 @@ hdpe_containers
 cardboard
 paper
 fabric_scraps
-coconut_shells
 dry_untreated_wood_scraps
 ```
+
+Scope updated 2026-10-18: coconut shells are excluded, but old images and
+checkpoint class orders are retained for provenance. Follow FREE_TRAINING.md
+for reviewed physical-item groups and non-overwriting candidate training.
 
 Each image must contain one primary material. If the material cannot be
 verified from the image, place it in a review folder instead of guessing.
@@ -35,7 +38,10 @@ Generic `plastic` images must not be renamed to PETE or HDPE automatically.
 
 ## Review and splitting
 
-The maintained trainer checks that every image opens correctly, flags tiny
+The maintained trainer requires a reviewed split manifest for non-experimental
+runs. Group all images/variants of one physical item or session in a single
+partition before exporting explicit train/val/test folders. It checks that
+every image opens correctly, flags tiny
 images, and rejects exact duplicate files. It creates a deterministic
 70/15/15 train/validation/test split for the flat collection layout, or reads
 explicit `train`, `val`, and `test` folders when those are supplied.
@@ -65,5 +71,5 @@ SNAPTURE_ML/data/scope_dataset/
 ```
 
 The original TrashNet files remain under `data/raw/trashnet/` as reference
-data only. The seven-class model must not be trained until all seven scope
+data only. The six-material model must not be trained until all six scope
 folders contain verified images.

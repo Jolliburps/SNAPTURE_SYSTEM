@@ -20,6 +20,9 @@ class PredictionRecord(models.Model):
     answers = models.JSONField(default=dict, blank=True)
     recommendation_choices = models.JSONField(default=list, blank=True)
     selected_recommendation = models.CharField(max_length=160, blank=True)
+    assessment = models.JSONField(default=dict, blank=True)
+    input_method = models.CharField(max_length=20, default="camera")
+    image_quality = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -27,6 +30,32 @@ class PredictionRecord(models.Model):
 
     def __str__(self):
         return f"{self.user.username} · {self.title} · {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class ScanScene(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scan_scenes')
+    request_id = models.CharField(max_length=80)
+    image = models.ImageField(upload_to='scenes/%Y/%m/%d/')
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    frame = models.JSONField(default=list)
+    quality = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, default='processing')
+    error = models.TextField(blank=True)
+    truncated = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(fields=['user','request_id'],name='unique_scene_request')]
+
+
+class SceneItem(models.Model):
+    scene = models.ForeignKey(ScanScene, on_delete=models.CASCADE, related_name='items')
+    box = models.JSONField()
+    name = models.CharField(max_length=120)
+    score = models.FloatField()
+    prediction = models.OneToOneField(PredictionRecord, null=True, on_delete=models.SET_NULL, related_name='scene_item')
 
 
 class UserProject(models.Model):

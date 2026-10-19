@@ -1,0 +1,15 @@
+{
+  "source": "SNAPTURE_BACKEND datasets.DatasetImage",
+  "verified_only": true,
+  "counts": {
+    "pete_bottles": 0,
+    "hdpe_containers": 0,
+    "cardboard": 0,
+    "paper": 0,
+    "fabric_scraps": 0,
+    "coconut_shells": 0,
+    "dry_untreated_wood_scraps": 0
+  },
+  "skipped": 0,
+  "records": []
+}

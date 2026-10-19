@@ -18,8 +18,12 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
+from predictions import scene_views
 
 urlpatterns = [
+    path('api/scenes/', scene_views.scenes),
+    path('api/scenes/capabilities/', scene_views.capabilities),
+    path('api/scenes/<int:scene_id>/', scene_views.scene_detail),
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
     path('api/auth/', include('accounts.urls')),

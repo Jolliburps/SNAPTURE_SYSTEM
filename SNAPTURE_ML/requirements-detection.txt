@@ -1,0 +1,5 @@
+# Optional local mixed-item prototype. CPU wheels can be installed from
+# https://download.pytorch.org/whl/cpu . No paid API or external image upload.
+torch>=2.8,<3
+transformers>=4.57,<5
+safetensors>=0.4

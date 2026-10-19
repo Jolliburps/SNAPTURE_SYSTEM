@@ -8,7 +8,6 @@ SCOPE_LABELS = (
     "cardboard",
     "paper",
     "fabric_scraps",
-    "coconut_shells",
     "dry_untreated_wood_scraps",
 )
 
@@ -127,19 +126,22 @@ def material_info(label: str) -> dict:
 
 
 def public_materials() -> list[dict]:
-    # Import lazily to avoid the recommendations -> materials import cycle.
-    from .recommendations import CATALOG
+    from .content import published_guidance
 
     return [
         {
             "label": label,
             **MATERIALS[label],
-            "upcycling": CATALOG.get(label, []),
-            "model_status": (
-                "Available for educational guidance; training data is still being collected."
-                if label not in {"cardboard", "paper"}
-                else "Educational guidance is available; verify model results before acting."
-            ),
+            "preparation": ["Check item details in the assessment before acting on general reference information."],
+            "recycling": "Use the item assessment for source-based preparation guidance. Acceptance by a Bacoor collection service has not been confirmed.",
+            "disposal": "Item-specific local disposal guidance is not yet published. Ask your barangay or CESD; do not infer a bin from a photo alone.",
+            "upcycling": [
+                {"id": f"{entry.key}:v{entry.version}", "title": entry.title,
+                 "summary": entry.summary, "materials": entry.materials, "steps": entry.instructions,
+                 "safety_note": entry.warnings}
+                for entry in published_guidance(label) if entry.kind == "project"
+            ],
+            "model_status": "General educational reference, not CESD approval. Confirm item details in the assessment before selecting a project.",
         }
         for label in SCOPE_LABELS
     ]

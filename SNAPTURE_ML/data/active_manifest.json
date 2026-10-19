@@ -1,0 +1,23 @@
+{
+  "scope": "SNAPTURE household objects",
+  "labels": [
+    "pete_bottles",
+    "hdpe_containers",
+    "cardboard",
+    "paper",
+    "fabric_scraps",
+    "coconut_shells",
+    "dry_untreated_wood_scraps"
+  ],
+  "counts": {
+    "pete_bottles": 0,
+    "hdpe_containers": 0,
+    "cardboard": 1325,
+    "paper": 1594,
+    "fabric_scraps": 0,
+    "coconut_shells": 0,
+    "dry_untreated_wood_scraps": 175
+  },
+  "policy": "Only the seven class directories are active. Unverified or contaminated candidates are in _quarantine_2026-10-02 and are excluded from training.",
+  "updated": "2026-10-02"
+}

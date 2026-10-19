@@ -8,6 +8,9 @@ import UserRound from 'lucide-react-native/icons/user-round';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 
 import { updateMyProfile, uploadProfilePicture, type ApiUser } from './api';
+import { useSuccessAlert } from './SuccessAlertDialog';
+import BarangayPickerModal from './BarangayPickerModal';
+import useBarangayEditor from './useBarangayEditor';
 
 type Props = { user: ApiUser | null; onUserChange: (user: ApiUser) => void; onBack: () => void; onLogout: () => void };
 
@@ -17,27 +20,27 @@ const MUTED = '#708178';
 const LINE = '#dce9df';
 
 export default function SettingsPage({ user, onUserChange, onBack, onLogout }: Props) {
+  const { showSuccess, successDialog } = useSuccessAlert();
+  const barangay = useBarangayEditor(user, onUserChange, showSuccess);
   const [name, setName] = useState(user?.display_name && user.display_name !== user.email ? user.display_name : '');
   const [nameBusy, setNameBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [pendingPhoto, setPendingPhoto] = useState<Asset | null>(null);
-  const [nameMessage, setNameMessage] = useState('');
-  const [photoMessage, setPhotoMessage] = useState('');
   const [nameError, setNameError] = useState('');
   const [photoError, setPhotoError] = useState('');
   useEffect(() => { setName(user?.display_name && user.display_name !== user.email ? user.display_name : ''); }, [user?.display_name, user?.email]);
 
   const saveName = async () => {
     const trimmed = name.trim();
-    setNameError(''); setNameMessage('');
+    setNameError('');
     if (!trimmed || trimmed.length > 120) { setNameError('Enter a name of 1 to 120 characters.'); return; }
     setNameBusy(true);
-    try { const response = await updateMyProfile({ display_name: trimmed }); onUserChange(response.user); setNameMessage('Name updated.'); }
+    try { const response = await updateMyProfile({ display_name: trimmed }); onUserChange(response.user); showSuccess('Your display name has been updated.'); }
     catch (error) { setNameError(error instanceof Error ? error.message : 'Unable to update name.'); }
     finally { setNameBusy(false); }
   };
   const choosePhoto = async () => {
-    setPhotoError(''); setPhotoMessage('');
+    setPhotoError('');
     try {
       const response = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1, maxWidth: 1024, maxHeight: 1024, quality: 0.8 });
       if (response.didCancel) return;
@@ -48,10 +51,10 @@ export default function SettingsPage({ user, onUserChange, onBack, onLogout }: P
   };
   const savePhoto = async () => {
     if (!pendingPhoto?.uri) return;
-    setPhotoBusy(true); setPhotoError(''); setPhotoMessage('');
+    setPhotoBusy(true); setPhotoError('');
     try {
       const response = await uploadProfilePicture(pendingPhoto.uri, pendingPhoto.fileName || 'profile.jpg', pendingPhoto.type || 'image/jpeg');
-      onUserChange(response.user); setPendingPhoto(null); setPhotoMessage('Profile picture updated.');
+      onUserChange(response.user); setPendingPhoto(null); showSuccess('Your profile picture has been updated.');
     } catch (error) { setPhotoError(error instanceof Error ? error.message : 'Unable to save picture.'); }
     finally { setPhotoBusy(false); }
   };
@@ -66,16 +69,21 @@ export default function SettingsPage({ user, onUserChange, onBack, onLogout }: P
       <Pressable style={styles.secondaryButton} onPress={choosePhoto}><Camera size={17} color={GREEN} /><Text style={styles.secondaryText}>{avatarUri ? 'Change photo' : 'Choose photo'}</Text></Pressable>
       {pendingPhoto ? <Pressable style={styles.primaryButton} onPress={savePhoto} disabled={photoBusy}><Text style={styles.primaryText}>{photoBusy ? 'Uploading…' : 'Save picture'}</Text><ChevronRight size={17} color="#fff" /></Pressable> : null}
       {pendingPhoto ? <Pressable onPress={() => setPendingPhoto(null)}><Text style={styles.cancel}>Cancel selection</Text></Pressable> : null}
-      {photoError ? <Text style={styles.error}>{photoError}</Text> : null}{photoMessage ? <Text style={styles.success}>{photoMessage}</Text> : null}
+      {photoError ? <Text style={styles.error}>{photoError}</Text> : null}
     </View>
     <View style={styles.card}>
       <Text style={styles.heading}>Display name</Text><Text style={styles.muted}>This is shown in SNAPTURE. Your email and sign-in identity stay the same.</Text>
       <TextInput value={name} onChangeText={setName} maxLength={120} autoCapitalize="words" placeholder="Enter your name" placeholderTextColor={MUTED} style={styles.input} />
       <Pressable style={styles.primaryButton} onPress={saveName} disabled={nameBusy}><Text style={styles.primaryText}>{nameBusy ? 'Saving…' : 'Save name'}</Text></Pressable>
-      {nameError ? <Text style={styles.error}>{nameError}</Text> : null}{nameMessage ? <Text style={styles.success}>{nameMessage}</Text> : null}
+      {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Account information</Text><Text style={styles.label}>Email</Text><Text style={styles.muted}>{user?.email || 'Unavailable'}</Text><Text style={[styles.label, styles.spaced]}>Barangay</Text><Text style={styles.muted}>{user?.barangay || 'Not set — edit from Profile'}</Text></View>
+    <View style={styles.card}><Text style={styles.heading}>Account information</Text><Text style={styles.label}>Email</Text><Text style={styles.muted}>{user?.email || 'Unavailable'}</Text><Text style={[styles.label, styles.spaced]}>Barangay</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Choose barangay" disabled={!user || barangay.saving} onPress={barangay.open} style={styles.barangayField}><Text style={styles.muted}>{(barangay.editing ? barangay.draft : barangay.saved) || 'Not set'}</Text><ChevronRight size={17} color={GREEN} /></Pressable>
+      {barangay.editing ? <><Text style={styles.muted}>Only your barangay is needed. Do not enter a street address.</Text>{barangay.error ? <Text style={styles.error}>{barangay.error}</Text> : null}<Pressable style={styles.primaryButton} disabled={!barangay.canSave} onPress={barangay.save}><Text style={styles.primaryText}>{barangay.saving ? 'Saving…' : 'Save barangay'}</Text></Pressable><Pressable disabled={barangay.saving} onPress={barangay.cancel}><Text style={styles.cancel}>Cancel</Text></Pressable></> : null}
+    </View>
     <Pressable style={styles.logout} onPress={onLogout}><LogOut size={18} color="#a73c30" /><Text style={styles.logoutText}>Log out</Text></Pressable>
+    <BarangayPickerModal visible={barangay.pickerOpen} selected={barangay.draft} onSelect={barangay.select} onClose={barangay.closePicker} />
+    {successDialog}
   </ScrollView>;
 }
 
@@ -93,6 +101,7 @@ const styles = StyleSheet.create({
   photoCopy: { flex: 1, marginLeft: 13 },
   label: { color: TEXT, fontSize: 12, fontWeight: '800', marginBottom: 4 },
   spaced: { marginTop: 16 },
+  barangayField: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   muted: { color: MUTED, fontSize: 11, lineHeight: 17 },
   secondaryButton: { borderColor: GREEN, borderWidth: 1, borderRadius: 12, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 },
   secondaryText: { color: GREEN, fontWeight: '900', fontSize: 12 },
@@ -101,7 +110,6 @@ const styles = StyleSheet.create({
   input: { borderColor: LINE, borderWidth: 1, borderRadius: 12, minHeight: 45, paddingHorizontal: 12, color: TEXT, marginTop: 13 },
   cancel: { textAlign: 'center', color: MUTED, fontSize: 11, padding: 10 },
   error: { color: '#a12622', fontSize: 11, marginTop: 8 },
-  success: { color: GREEN, fontSize: 11, marginTop: 8 },
   logout: { minHeight: 50, borderColor: '#eed8d4', borderWidth: 1, borderRadius: 14, flexDirection: 'row', gap: 9, alignItems: 'center', justifyContent: 'center', marginTop: 7 },
   logoutText: { color: '#a73c30', fontSize: 13, fontWeight: '900' },
 });

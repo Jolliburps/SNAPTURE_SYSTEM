@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "model": "candidates/snapture-7class-candidate-20261006/snapture_7class_candidate_unverified.keras",
+  "labels": "candidates/snapture-7class-candidate-20261006/labels.json",
+  "config": "candidates/snapture-7class-candidate-20261006/model_config.json",
+  "usage": "Experimental local camera testing only; dataset labels and field performance still need review."
+}

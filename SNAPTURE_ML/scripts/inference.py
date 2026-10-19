@@ -10,7 +10,9 @@ from typing import Any
 
 import numpy as np
 import tensorflow as tf
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
+
+from scripts.model_selection import resolve_model_paths
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -23,7 +25,7 @@ DEFAULT_UNSUPPORTED_CLASSES = {"glass", "trash"}
 DEFAULT_GENERIC_CLASSES = {"plastic", "metal"}
 
 # These are the only labels that may be shown as a final identification in
-# SNAPTURE.  The current baseline model still contains generic labels such as
+# SNAPTURE.  The preserved legacy baseline contains generic labels such as
 # ``glass`` and ``plastic``; those labels are useful for diagnostics, but they
 # are outside the thesis scope and must never be presented as a supported
 # material to a user.
@@ -34,7 +36,6 @@ SCOPE_CLASSES = frozenset(
         "cardboard",
         "paper",
         "fabric_scraps",
-        "coconut_shells",
         "dry_untreated_wood_scraps",
     }
 )
@@ -94,13 +95,7 @@ class ModelPredictor:
         labels_path: Path | None = None,
         config_path: Path | None = None,
     ) -> None:
-        configured_dir = os.getenv("SNAPTURE_MODEL_DIR")
-        selected_dir = Path(configured_dir) if configured_dir else None
-        if selected_dir is not None and not selected_dir.is_absolute():
-            selected_dir = PROJECT_DIR / selected_dir
-        default_model = selected_dir / "snapture_baseline.keras" if selected_dir else os.getenv("SNAPTURE_MODEL_PATH") or DEFAULT_MODEL_PATH
-        default_labels = selected_dir / "labels.json" if selected_dir else os.getenv("SNAPTURE_LABELS_PATH") or DEFAULT_LABELS_PATH
-        default_config = selected_dir / "model_config.json" if selected_dir else os.getenv("SNAPTURE_CONFIG_PATH") or DEFAULT_CONFIG_PATH
+        default_model, default_labels, default_config = resolve_model_paths(PROJECT_DIR / "models", os.environ)
         self.model_path = Path(
             model_path or default_model
         )
@@ -164,6 +159,8 @@ class ModelPredictor:
         # The training script places MobileNetV2 preprocessing inside the model.
         # Therefore inference must pass raw RGB pixels in the 0-255 range.
         self.model = tf.keras.models.load_model(self.model_path)
+        if self.model.output_shape[-1] != len(self.labels):
+            raise ValueError("Model output count does not match labels.json.")
 
     def _load_config(self) -> dict[str, Any]:
         if not self.config_path.is_file():
@@ -185,7 +182,7 @@ class ModelPredictor:
         return int(configured[0]), int(configured[1])
 
     def _prepare_image(self, image: Image.Image) -> np.ndarray:
-        resized = image.convert("RGB").resize(
+        resized = ImageOps.exif_transpose(image).convert("RGB").resize(
             (self.image_size[1], self.image_size[0])
         )
         image_array = np.asarray(resized, dtype=np.float32)

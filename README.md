@@ -1,6 +1,6 @@
 # SNAPTURE System
 
-SNAPTURE combines a React Native Android app, a Django API, and a TensorFlow image classifier. The app sends scans to Django; Django uses the shared ML code and stores accounts, projects, and scan history. The active model remains a six-class TrashNet baseline. A separate experimental seven-class candidate is available under `SNAPTURE_ML/models/candidates/`, but its labels and evaluation are not yet reliable enough for user-facing use. See [the dataset policy](SNAPTURE_ML/DATASET_POLICY.md) before collecting or training images.
+SNAPTURE combines a React Native Android app, a Django API, and a TensorFlow image classifier. Its assessment separates material identity, segregation guidance and project eligibility. The active scope is six materials, excluding coconut shells. The existing seven-output experimental checkpoint is preserved with its coconut output rejected; it is not a newly trained six-material model or validated accuracy claim. See [implementation and content provenance](FEASIBILITY_IMPLEMENTATION.md) and [reviewed-data/free training workflow](SNAPTURE_ML/FREE_TRAINING.md).
 
 ## Project structure
 
