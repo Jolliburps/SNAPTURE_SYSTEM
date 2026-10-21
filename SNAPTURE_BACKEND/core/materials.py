@@ -127,6 +127,7 @@ def material_info(label: str) -> dict:
 
 def public_materials() -> list[dict]:
     from .content import published_guidance
+    from .idea_references import idea_references
 
     return [
         {
@@ -139,9 +140,10 @@ def public_materials() -> list[dict]:
                 {"id": f"{entry.key}:v{entry.version}", "title": entry.title,
                  "summary": entry.summary, "materials": entry.materials, "steps": entry.instructions,
                  "safety_note": entry.warnings}
-                for entry in published_guidance(label) if entry.kind == "project"
+                for entry in published_guidance(label) if entry.kind == "project" and entry.review_level == 'expert_reviewed' and entry.reviewed_by_id
             ],
             "model_status": "General educational reference, not CESD approval. Confirm item details in the assessment before selecting a project.",
+            "idea_references": idea_references(label),
         }
         for label in SCOPE_LABELS
     ]

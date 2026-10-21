@@ -11,6 +11,10 @@ PROMPTS = [
     ('glass bottle or glass jar', 'unknown_unsupported'), ('metal can', 'unknown_unsupported'),
     ('food scraps or fruit peel', 'unknown_unsupported'), ('dry leaf', 'unknown_unsupported'),
     ('plastic bag or plastic wrapper', 'unknown_unsupported'), ('battery', 'unknown_unsupported'),
+    ('plastic sachet', 'unknown_unsupported'), ('disposable diaper', 'unknown_unsupported'),
+    ('cigarette butt', 'unknown_unsupported'), ('fluorescent light bulb', 'unknown_unsupported'),
+    ('syringe', 'unknown_unsupported'), ('paint can', 'unknown_unsupported'),
+    ('electronic waste', 'unknown_unsupported'), ('unfamiliar discarded object', 'unknown_unsupported'),
     ('computer keyboard', None), ('computer monitor', None), ('wristwatch', None),
     ('computer mouse', None), ('laptop computer', None), ('mobile phone', None),
 ]
@@ -47,8 +51,6 @@ def clean_detections(rows, limit=30):
         if len(box)!=4 or not all(math.isfinite(float(v)) for v in [*box,row['score']]):
             continue
         box = [min(1.,max(0.,float(v))) for v in box]
-        if len(rows)>1 and area(box)>.85 and not row.get('user_confirmed'):
-            continue
         if row['score'] < MIN_PROPOSAL_SCORE or box[2]-box[0] < .015 or box[3]-box[1] < .015:
             continue
         valid.append({**row,'box':box})
@@ -78,7 +80,7 @@ def clean_detections(rows, limit=30):
 def detect(image, tiled=True):
     global _model, _processor
     if not available():
-        raise RuntimeError('Mixed-item detector is not installed. Use single-item mode or install the optional local detector.')
+        raise RuntimeError('The local detector is not installed. Choose a material manually or ask the administrator to install it.')
     import os
     os.environ.setdefault('USE_TF','0')
     import torch
@@ -109,4 +111,12 @@ def detect(image, tiled=True):
             if (left>0 and box[0]<2) or (top>0 and box[1]<2) or (right<image.width and box[2]>region.width-2) or (bottom<image.height and box[3]>region.height-2):
                 continue
             rows.append({'name':name, 'material':material or 'unknown_unsupported', 'score':float(score), 'box':[(left+box[0])/image.width,(top+box[1])/image.height,(left+box[2])/image.width,(top+box[3])/image.height]})
-    return clean_detections(rows)
+    cleaned, truncated = clean_detections(rows)
+    for row in cleaned:
+        # Actual overlapping query outputs only; never fabricate three alternatives.
+        alternatives = {}
+        for candidate in rows:
+            if iou(row['box'], candidate['box']) >= .5:
+                alternatives[candidate['name']] = max(alternatives.get(candidate['name'], 0), candidate['score'])
+        row['alternatives'] = [{'label': name, 'score': score} for name, score in sorted(alternatives.items(), key=lambda pair: pair[1], reverse=True)[:3]]
+    return cleaned, truncated

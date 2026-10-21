@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "prepared": "2026-10-21",
+  "publication_policy": "Research drafts only. None of these adaptations has been expert-validated; do not display to residents. Existing versioned Guidance review/publication remains authoritative.",
+  "ideas": [
+    {
+      "id": "draft-pete-seed-container", "target_material": "pete_bottles", "title": "Beverage bottle seed container",
+      "description": "Candidate adaptation of extension seed-container advice; the source does not validate PET-specific durability or Bacoor growing conditions.",
+      "required_condition": ["Confirmed code 1 beverage container", "Clean and dry", "Known non-hazardous contents"],
+      "pre_handling_steps": ["Confirm the resin mark and contents; reject unknown history.", "Use the cleaning procedure accepted by the reviewer and dry fully."],
+      "materials_and_tools": ["One beverage bottle", "Seed-starting medium", "Seeds", "Drainage tray", "Adult-operated cutting and drainage tools, pending review"],
+      "safety_notes_and_PPE": ["Cutting/puncturing: adult operator, stable support, eye protection and suitable hand protection; no hot tool, flame or melting.", "No food/drink storage; wash hands after handling growing medium."],
+      "step_by_step": ["1. Reviewer must first specify a safe cutting and drainage method for the actual bottle; do not begin while this is missing.", "2. Once approved, place the prepared container on a drainage tray and add seed-starting medium.", "3. Sow according to the seed packet, label, and monitor moisture without leaving standing water."],
+      "expected_result": "A small seed container, not a food container.", "difficulty": "Requires adult tool use", "time_required": null, "estimated_cost": null,
+      "do_not_use_if": ["Unknown resin or contents", "Chemical contact", "Brittle, cracked, moldy or contaminated", "No approved cutting method"],
+      "end_of_life": "Remove growing medium; ask the collector whether the modified bottle is accepted.",
+      "sources": [{"name":"University of Vermont Extension, Seed-Starting Basics","url":"https://www.uvm.edu/extension/news/seed-starting-basics","date":"2022-04-01","section":"Containers paragraph: drainage and a saucer; seed-starting medium and sowing guidance","scope":"General horticulture; not validation of this PET-specific adaptation"}],
+      "verification_status":"UNVERIFIED", "reviewer":null, "last_reviewed":null,
+      "verification_gap":"Exact tool procedure, container stability, local plant suitability, timing and cost need qualified review and a supervised pilot."
+    },
+    {
+      "id":"draft-hdpe-watering-jug", "target_material":"hdpe_containers", "title":"Unmodified milk jug for watering ornamental plants",
+      "description":"Low-complexity reuse proposal; not permission to reuse detergent or chemical containers.",
+      "required_condition":["Confirmed code 2", "Originally held milk or another confirmed non-hazardous beverage", "Clean, dry, intact"],
+      "pre_handling_steps":["Check the mark and original label; reject unknown history.", "Wash away beverage residue and dry."],
+      "materials_and_tools":["One intact handled milk jug", "Water"],
+      "safety_notes_and_PPE":["No cutting, heat or added chemicals. Do not return it to food/drink use. Stop if it leaks or is brittle."],
+      "step_by_step":["1. Fill partly with water so it remains easy to hold.", "2. Pour slowly onto the soil of an ornamental plant.", "3. Empty and store dry, clearly identified for garden use."],
+      "expected_result":"A reused pouring container.", "difficulty":"Easy", "time_required":null, "estimated_cost":null,
+      "do_not_use_if":["Chemical or unknown contents", "Cracks, mold or persistent residue"],
+      "end_of_life":"Confirm local HDPE acceptance before collection.",
+      "sources":[{"name":"US EPA, Consumer's Handbook for Reducing Solid Waste, EPA 530-K-96-003","url":"https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P100047Q.TXT","date":"1996-09","section":"Introduction: milk-jug watering example; Reuse bags, containers, and other items, printed page 13","scope":"General reuse principle and chemical-container exclusion, not a safety certification"}],
+      "verification_status":"UNVERIFIED", "reviewer":null, "last_reviewed":null, "verification_gap":"HDPE-specific adaptation and item history require reviewer approval; no measured time or cost."
+    },
+    {
+      "id":"draft-cardboard-gift-box", "target_material":"cardboard", "title":"Reuse an intact box for a non-food gift",
+      "description":"Reuse without a cutting or structural construction task.",
+      "required_condition":["Dry, plain and intact", "No grease, mold, chemicals or personal information"],
+      "pre_handling_steps":["Remove personal address labels without damaging the box."],
+      "materials_and_tools":["One intact box", "Existing clean packing paper", "Reusable tie"],
+      "safety_notes_and_PPE":["Avoid staples and sharp edges; no cutting, adhesives or load-bearing use in this draft."],
+      "step_by_step":["1. Check that the gift fits without forcing the box.", "2. Place the non-food gift inside with clean reused packing material.", "3. Close using an existing flap or reusable tie and retain the box for reuse."],
+      "expected_result":"A reused gift box.", "difficulty":"Easy", "time_required":null, "estimated_cost":null,
+      "do_not_use_if":["Wet, greasy, moldy, coated with unknown chemicals or weakened"],
+      "end_of_life":"Remove non-paper attachments and confirm local acceptance.",
+      "sources":[{"name":"US EPA, Consumer's Handbook for Reducing Solid Waste","url":"https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P100047Q.TXT","date":"1996-09","section":"Reuse bags, containers, and other items, printed page 13: reuse gift boxes","scope":"Idea-level reference; exact adapted procedure still needs expert review"}],
+      "verification_status":"UNVERIFIED", "reviewer":null, "last_reviewed":null, "verification_gap":"Packaging suitability and exact local instructions have not been validated."
+    },
+    {
+      "id":"draft-paper-gift-wrap", "target_material":"paper", "title":"Paper wrapping for a non-food gift",
+      "description":"Reuse a whole sheet instead of making pulp or using heat.",
+      "required_condition":["Plain, clean, dry paper", "No personal details, thermal coating, grease or mold"],
+      "pre_handling_steps":["Select a sheet already large enough; do not cut it in this draft."],
+      "materials_and_tools":["One sheet", "Reusable string"],
+      "safety_notes_and_PPE":["Avoid paper cuts. Keep string away from small children and pets. No food-contact use."],
+      "step_by_step":["1. Put the non-food gift in the center of the sheet.", "2. Fold the sheet around the gift.", "3. Secure with the reusable string and save the paper after opening."],
+      "expected_result":"Reusable gift wrapping.", "difficulty":"Easy", "time_required":null, "estimated_cost":null,
+      "do_not_use_if":["Wet, contaminated, coated, moldy or contains private information"],
+      "end_of_life":"Keep dry; ask the local collector about acceptance.",
+      "sources":[{"name":"NC State Extension, Before You Recycle, Choose to Reuse","url":"https://content.ces.ncsu.edu/before-you-recycle-choose-to-reuse","date":"1998-02-01","section":"Reuse Strategies for Individual and Households: wrapping-paper suggestions; revised 2019-09-18","scope":"Supports the reuse idea, not testing of the adapted steps"}],
+      "verification_status":"UNVERIFIED", "reviewer":null, "last_reviewed":null, "verification_gap":"Adapted procedure has no qualified reviewer yet."
+    },
+    {
+      "id":"draft-fabric-dusting", "target_material":"fabric_scraps", "title":"Use an existing fabric offcut for dry dusting",
+      "description":"Repurpose fabric without sewing or cutting.",
+      "required_condition":["Clean, washable, dry fabric", "No sharp attachments, chemical stains, mold or mildew"],
+      "pre_handling_steps":["Check for pins and attachments.", "Launder according to the fabric care instructions and dry."],
+      "materials_and_tools":["One fabric offcut"],
+      "safety_notes_and_PPE":["Not for chemical spills, biological waste, food-contact cleaning or electrical equipment. No cutting or adhesives."],
+      "step_by_step":["1. Fold the offcut into a hand-sized pad.", "2. Wipe an ordinary non-food, non-electrical dusty surface.", "3. Launder according to its care instructions; keep dry for later use."],
+      "expected_result":"A reused dusting cloth.", "difficulty":"Easy", "time_required":null, "estimated_cost":null,
+      "do_not_use_if":["Chemical or oil staining", "Unknown contamination", "Mold, mildew or embedded sharp pieces"],
+      "end_of_life":"Ask about textile recovery; do not assume synthetic fabric is compostable.",
+      "sources":[{"name":"NC State Extension, Before You Recycle, Choose to Reuse","url":"https://content.ces.ncsu.edu/before-you-recycle-choose-to-reuse","date":"1998-02-01","section":"Reuse Strategies for Individual and Households: dust cloths from old towels and sheets; revised 2019-09-18","scope":"Reuse principle; exact dusting instructions are a conservative adaptation"}],
+      "verification_status":"UNVERIFIED", "reviewer":null, "last_reviewed":null, "verification_gap":"Fabric suitability and laundering restrictions need qualified review."
+    },
+    {
+      "id":"draft-wood-compost-frame", "target_material":"dry_untreated_wood_scraps", "title":"Compost-bin framing (blocked research candidate)",
+      "description":"Idea-level reference only. No build instructions are authorized.",
+      "required_condition":["Documented untreated origin", "Dry and sound", "No hardware, coatings, rot, insect damage or mold"],
+      "pre_handling_steps":["Have a qualified reviewer inspect the wood history and condition; do not sand unknown treated wood."],
+      "materials_and_tools":[],
+      "safety_notes_and_PPE":["Sawing, nails, splinters and dust need a reviewed design, trained adult operator, eye and suitable respiratory/hand protection. No burning. Do not start construction."],
+      "step_by_step":[], "expected_result":null, "difficulty":"Not specified until design review", "time_required":null, "estimated_cost":null,
+      "do_not_use_if":["Treatment history unknown", "Painted, varnished, stained or pressure-treated", "Rot, mold, hardware or insect damage"],
+      "end_of_life":"Ask CESD about wood recovery; never infer safe burning from a photo.",
+      "sources":[{"name":"US EPA, Consumer's Handbook for Reducing Solid Waste","url":"https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P100047Q.TXT","date":"1996-09","section":"Composting Is Easy!, printed page 23: scrap-wood bin example","scope":"Does not provide a validated joinery plan or dimensions"}],
+      "verification_status":"UNVERIFIED", "reviewer":null, "last_reviewed":null,
+      "verification_gap":"No authoritative complete construction procedure, dimensions, fasteners, load/stability check or PPE assessment verified; deliberately no invented steps."
+    }
+  ]
+}

@@ -20,6 +20,8 @@ class AssessmentTests(TestCase):
         self.user = User.objects.create_user("assessment@example.com", password="test-pass-123")
         self.auth = {"HTTP_AUTHORIZATION": f"Bearer {issue_token(self.user)}"}
         call_command("seed_reference_guidance", verbosity=0)
+        from .test_support import expert_project_fixtures
+        expert_project_fixtures()
         self.record = PredictionRecord.objects.create(user=self.user, model_class="paper", decision="paper", title="Paper", confidence=0.91, threshold=0.8)
 
     def patch(self, payload):
@@ -27,7 +29,7 @@ class AssessmentTests(TestCase):
 
     def complete(self, **changes):
         payload = {"quantity": 1, "condition": "Clean and dry", "previous_contents": "No chemical contact known",
-                   "answers": {"paper_surface": "Plain uncoated material without personal details"}}
+                   "answers": {"material_confirmation": "paper", "paper_surface": "Plain uncoated material without personal details", "contamination": "None known", "moisture": "Dry"}}
         payload.update(changes)
         return self.patch(payload).json()["prediction"]
 
@@ -40,10 +42,10 @@ class AssessmentTests(TestCase):
         self.record.model_version = "snapture-candidate-unverified-v1"
         self.record.confidence = 0.99
         self.record.save()
-        value = self.complete()
+        value = self.complete(answers={"paper_surface":"Plain uncoated material without personal details", "contamination":"None known", "moisture":"Dry"})
         self.assertTrue(value["needs_verification"])
         self.assertEqual(value["recommendation_choices"], [])
-        value = self.complete(answers={"material_confirmation": "paper", "paper_surface": "Plain uncoated material without personal details"})
+        value = self.complete(answers={"material_confirmation": "paper", "paper_surface": "Plain uncoated material without personal details", "contamination": "None known", "moisture": "Dry"})
         self.assertEqual(value["assessment"]["material"]["status"], "user_selected")
         self.assertEqual(len(value["recommendation_choices"]), 1)
 
@@ -54,7 +56,7 @@ class AssessmentTests(TestCase):
         self.assertIn("not cesd", value["segregation"]["sources"][0]["review_note"].lower())
         self.assertEqual(value["segregation"]["sources"][0]["review_level"], "source_checked")
         self.record.refresh_from_db()
-        self.assertEqual(self.record.assessment["version"], "assessment-v1")
+        self.assertEqual(self.record.assessment["version"], "assessment-v3")
 
     def test_chemicals_mold_damage_and_unknown_history_withhold_project(self):
         for changes in ({"previous_contents": "Chemical or cleaning product"}, {"condition": "Moldy or contaminated"},

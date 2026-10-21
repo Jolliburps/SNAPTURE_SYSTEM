@@ -40,7 +40,7 @@ class Guidance(models.Model):
 
     def clean(self):
         super().clean()
-        allowed_fields = {"condition", "previous_contents", "wood_treatment", "resin_mark", "paper_surface"}
+        allowed_fields = {"condition", "previous_contents", "wood_treatment", "resin_mark", "paper_surface", "contamination", "moisture"}
         if self.kind != "information" and self.material not in SCOPE_LABELS:
             raise ValidationError("Choose an active supported material.")
         if not isinstance(self.requirements, dict) or any(

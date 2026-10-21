@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  BackHandler,
   Modal,
   Image,
   Pressable,
@@ -50,13 +51,15 @@ import {
 import { getLocalUpdates, type LocalUpdate } from './localUpdates';
 import ProjectPanels from './ProjectPanels';
 import SettingsPage from './SettingsPage';
+import useProfileSettingsNavigation from './useProfileSettingsNavigation';
 import CESDLearning from './CESDLearning';
+import IdeaDetails, { ideaStatus } from './IdeaDetails';
 import { useSuccessAlert } from './SuccessAlertDialog';
 import BarangayPickerModal from './BarangayPickerModal';
 import useBarangayEditor from './useBarangayEditor';
 import { activeProjectsSorted, savedIdeas, type Idea } from './projectData';
 
-export type MainRoute = 'home' | 'learn' | 'camera' | 'assessment' | 'waste' | 'profile' | 'calendar' | 'ideas' | 'projects' | 'saved' | 'settings' | 'history' | 'scene-history';
+export type MainRoute = 'home' | 'learn' | 'references' | 'camera' | 'assessment' | 'waste' | 'profile' | 'calendar' | 'ideas' | 'projects' | 'saved' | 'settings' | 'history';
 type TabRoute = 'home' | 'learn' | 'camera' | 'waste' | 'profile';
 type Navigate = (route: MainRoute) => void;
 
@@ -158,14 +161,14 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 function flattenIdeas(guides: MaterialGuide[]) {
-  return guides.flatMap((guide) => guide.upcycling.map((idea) => ({ ...idea, material: guide.short_title || guide.title, guideLabel: guide.label })));
+  return guides.flatMap((guide) => [...guide.upcycling,...(guide.idea_references || [])].map((idea) => ({ ...idea, material: guide.short_title || guide.title, guideLabel: guide.label })));
 }
 
 function IdeaCard({ idea, onPress, compact = false }: { idea: Idea; onPress: () => void; compact?: boolean }) {
   return <Pressable style={[styles.ideaCard, compact && styles.ideaCardCompact]} onPress={onPress}>
     <View style={styles.ideaArtwork}><Lightbulb size={31} color={COLORS.green} strokeWidth={1.7} /></View>
     <View style={styles.ideaCopy}><Text style={styles.ideaMaterial}>{idea.material}</Text><Text style={styles.ideaTitle} numberOfLines={2}>{idea.title}</Text><Text style={styles.ideaSummary} numberOfLines={compact ? 2 : 3}>{idea.summary}</Text></View>
-    <View style={styles.ideaFoot}><Text style={styles.ideaFootText}>{idea.steps.length} steps</Text><ChevronRight size={17} color={COLORS.green} /></View>
+    <View style={styles.ideaFoot}><Text style={styles.ideaFootText}>{ideaStatus(idea)}</Text><ChevronRight size={17} color={COLORS.green} /></View>
   </Pressable>;
 }
 
@@ -192,7 +195,14 @@ export function MainExperience({ screen, navigate: navigateRoute, user, onUserCh
   const [projectsError, setProjectsError] = useState('');
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [projectOrigin, setProjectOrigin] = useState<'home' | 'profile'>('profile');
+  const {openProfileSettings,closeProfileSettings,backLabel}=useProfileSettingsNavigation(screen,navigateRoute);
+  useEffect(()=>{
+    if(screen!=='references')return;
+    const subscription=BackHandler.addEventListener('hardwareBackPress',()=>{navigateRoute('home');return true;});
+    return ()=>subscription.remove();
+  },[screen,navigateRoute]);
   const navigate: Navigate = (route) => {
+    if(route==='settings'){openProfileSettings();return;}
     if (route === 'projects' || route === 'saved') {
       setProjectOrigin(screen === 'home' ? 'home' : 'profile');
     }
@@ -242,15 +252,16 @@ export function MainExperience({ screen, navigate: navigateRoute, user, onUserCh
   return <View style={styles.appPage}>
     {backgroundScreen === 'home' ? <HomePage user={user} records={records} recordsLoading={recordsLoading} recordsError={recordsError} ideas={ideas} guidesLoading={guidesLoading} guidesError={guidesError} activeProjects={active} projectsLoading={projectsLoading} projectsError={projectsError} navigate={navigate} onOpenIdea={setSelectedIdea} /> : null}
     {screen === 'learn' ? <LearnPage navigate={navigate} /> : null}
-    {screen === 'waste' ? <WastePage guides={guides} loading={guidesLoading} error={guidesError} retry={loadGuides} onCategory={onCategory} onHistory={() => navigate('scene-history')} /> : null}
-    {backgroundScreen === 'profile' ? <ProfilePage user={user} scanCount={scanCount} recordsLoading={recordsLoading} recordsError={recordsError} savedCount={saved.length} savedLoading={savedLoading} savedError={savedError} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} navigate={navigate} onUserChange={onUserChange} /> : null}
+    {screen === 'references' ? <ScrollView contentContainerStyle={styles.scrollContent}><BackHeader title="Home" onBack={()=>navigate('home')}/><CESDLearning/></ScrollView> : null}
+    {screen === 'waste' ? <WastePage guides={guides} loading={guidesLoading} error={guidesError} retry={loadGuides} onCategory={onCategory} /> : null}
+    {backgroundScreen === 'profile' ? <ProfilePage user={user} scanCount={scanCount} recordsLoading={recordsLoading} recordsError={recordsError} savedCount={saved.length} savedLoading={savedLoading} savedError={savedError} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} navigate={navigate} onOpenSettings={openProfileSettings} onUserChange={onUserChange} /> : null}
     {screen === 'calendar' ? <CalendarPage user={user} navigate={navigate} /> : null}
     {screen === 'ideas' ? <IdeasPage ideas={ideas} loading={guidesLoading} error={guidesError} retry={loadGuides} navigate={navigate} onOpen={setSelectedIdea} /> : null}
-    {screen === 'settings' ? <SettingsPage user={user} onUserChange={onUserChange} onBack={() => navigate('profile')} onLogout={onLogout} /> : null}
+    {screen === 'settings' ? <SettingsPage user={user} onUserChange={onUserChange} onBack={closeProfileSettings} backLabel={backLabel} onLogout={onLogout} /> : null}
     <BottomNavigation active={tab} navigate={navigate} />
     {screen === 'projects' || screen === 'saved' ? <ProjectPanels section={screen} initialFilter={projectOrigin === 'home' ? 'active' : 'all'} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} saved={saved} savedLoading={savedLoading} savedError={savedError} onClose={() => navigate(projectOrigin)} onStart={startSavedProject} onStep={updateStep} onRestart={restartSavedProject} onShowProjects={() => navigate('projects')} /> : null}
     <Modal visible={selectedIdea !== null} animationType="slide" transparent onRequestClose={() => setSelectedIdea(null)}>
-      <View style={styles.modalShade}><View style={styles.ideaModal}><BackHeader title="Project idea" onBack={() => setSelectedIdea(null)} />{selectedIdea ? <ScrollView showsVerticalScrollIndicator={false}><Text style={styles.pageTitle}>{selectedIdea.title}</Text><Text style={styles.pageSubtitle}>{selectedIdea.summary}</Text><Text style={styles.detailLabel}>Materials</Text>{selectedIdea.materials.map((item, index) => <Text key={`${index}-${item}`} style={styles.detailText}>• {item}</Text>)}<Text style={styles.detailLabel}>Steps</Text>{selectedIdea.steps.map((step, index) => <Text key={`${index}-${step}`} style={styles.detailText}>{index + 1}. {step}</Text>)}{selectedIdea.safety_note ? <Text style={styles.detailWarning}>{selectedIdea.safety_note}</Text> : null}<Text style={styles.placeholderNote}>Select a recommendation after scanning to save it. Start it from Profile when you are ready to track steps.</Text></ScrollView> : null}</View></View>
+      <View style={styles.modalShade}><View style={styles.ideaModal}><BackHeader title="Project idea" onBack={() => setSelectedIdea(null)} />{selectedIdea ? <ScrollView showsVerticalScrollIndicator={false}><IdeaDetails idea={selectedIdea}/></ScrollView> : null}</View></View>
     </Modal>
   </View>;
 }
@@ -305,20 +316,22 @@ function HomePage({ user, records, recordsLoading, recordsError, ideas, guidesLo
     <SectionHeading title="Recent scan" action="Scan history" onAction={() => navigate('history')} />
     {recordsError ? <Text style={styles.errorText}>{recordsError}</Text> : null}
     {recent ? <Pressable style={styles.recentCard} onPress={() => navigate('history')}><View style={styles.cardIconMint}><Recycle size={21} color={COLORS.green} /></View><View style={styles.recentCopy}><Text style={styles.recentTitle}>{recent.title}</Text><Text style={styles.mutedSmall}>{new Date(recent.created_at).toLocaleDateString()} · {recent.input_method === 'manual' ? 'User-selected material' : `${Math.round(recent.confidence * 100)}% model confidence`}</Text></View><ChevronRight size={18} color={COLORS.green} /></Pressable> : <EmptyCard icon={Camera} title={recordsLoading ? 'Loading scans…' : recordsError ? 'Scans unavailable' : 'No scans yet'} body={recordsError ? 'Reconnect and open your history to try again.' : 'Your completed scans will appear here.'} action={!recordsError ? 'Start scanning' : undefined} onAction={() => navigate('camera')} />}
+    <SectionHeading title="Resources" />
+    <Pressable accessibilityRole="button" accessibilityLabel="Open CESD reference library" style={styles.profileLinkCard} onPress={()=>navigate('references')}><View style={styles.cardIconMint}><BookOpen size={22} color={COLORS.green}/></View><View style={styles.recentCopy}><Text style={styles.recentTitle}>CESD reference library</Text><Text style={styles.mutedSmall}>Read source summaries and local waste-management references</Text></View><ChevronRight size={18} color={COLORS.green}/></Pressable>
   </ScrollView>;
 }
 
 function LearnPage({ navigate }: { navigate: Navigate }) {
   const [selected, setSelected] = useState<LearnTopic | null>(null);
   return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-    {!selected ? <><BrandHeader /><CESDLearning /></> : null}
-    {selected ? <><BackHeader title="Learn" onBack={() => setSelected(null)} /><View style={[styles.topicIconLarge, { backgroundColor: selected.tint }]}><selected.icon size={30} color={COLORS.green} /></View><PageIntro title={selected.title} subtitle={selected.subtitle} /><View style={styles.guidanceCard}><Text style={styles.guidanceLabel}>{selected.sourceStatus}</Text><Text style={styles.guidanceBody}>{selected.content}</Text></View>{['disposal', 'segregation'].includes(selected.id) ? <Pressable style={styles.fullButton} onPress={() => navigate('waste')}><Text style={styles.fullButtonText}>Open Waste materials</Text><ChevronRight size={18} color={COLORS.white} /></Pressable> : null}</> : <><PageIntro title="Learn" subtitle="Guides and information for thoughtful waste management." /><View style={styles.noticeCard}><Info size={19} color={COLORS.green} /><Text style={styles.noticeText}>CESD source summaries are listed above. Confirm current local services with your barangay; general tips below are not item-specific disposal approval.</Text></View>{LEARN_TOPICS.map((topic) => { const Icon = topic.icon; return <Pressable key={topic.id} style={styles.learnCard} onPress={() => setSelected(topic)}><View style={[styles.learnIcon, { backgroundColor: topic.tint }]}><Icon size={24} color={COLORS.green} /></View><View style={styles.learnCopy}><Text style={styles.learnTitle}>{topic.title}</Text><Text style={styles.learnSub}>{topic.subtitle}</Text><Text style={styles.learnStatus}>{topic.sourceStatus}</Text></View><ChevronRight size={18} color={COLORS.muted} /></Pressable>; })}</>}
+    {!selected ? <BrandHeader /> : null}
+    {selected ? <><BackHeader title="Learn" onBack={() => setSelected(null)} /><View style={[styles.topicIconLarge, { backgroundColor: selected.tint }]}><selected.icon size={30} color={COLORS.green} /></View><PageIntro title={selected.title} subtitle={selected.subtitle} /><View style={styles.guidanceCard}><Text style={styles.guidanceLabel}>{selected.sourceStatus}</Text><Text style={styles.guidanceBody}>{selected.content}</Text></View>{['disposal', 'segregation'].includes(selected.id) ? <Pressable style={styles.fullButton} onPress={() => navigate('waste')}><Text style={styles.fullButtonText}>Open Waste materials</Text><ChevronRight size={18} color={COLORS.white} /></Pressable> : null}</> : <><PageIntro title="Learn" subtitle="Guides and information for thoughtful waste management." /><View style={styles.noticeCard}><Info size={19} color={COLORS.green} /><Text style={styles.noticeText}>General learning tips are not item-specific disposal approval. For source summaries, open the CESD reference library on Home. Confirm current local services with your barangay.</Text></View>{LEARN_TOPICS.map((topic) => { const Icon = topic.icon; return <Pressable key={topic.id} style={styles.learnCard} onPress={() => setSelected(topic)}><View style={[styles.learnIcon, { backgroundColor: topic.tint }]}><Icon size={24} color={COLORS.green} /></View><View style={styles.learnCopy}><Text style={styles.learnTitle}>{topic.title}</Text><Text style={styles.learnSub}>{topic.subtitle}</Text><Text style={styles.learnStatus}>{topic.sourceStatus}</Text></View><ChevronRight size={18} color={COLORS.muted} /></Pressable>; })}</>}
   </ScrollView>;
 }
 
-function WastePage({ guides, loading, error, retry, onCategory, onHistory }: { guides: MaterialGuide[]; loading: boolean; error: string; retry: () => void; onCategory: (label: string) => void; onHistory: () => void }) {
+function WastePage({ guides, loading, error, retry, onCategory }: { guides: MaterialGuide[]; loading: boolean; error: string; retry: () => void; onCategory: (label: string) => void }) {
   const visible = guides;
-  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"><BrandHeader /><PageIntro title="Waste materials" subtitle="Explore materials currently supported by SNAPTURE." /><Pressable accessibilityRole="button" onPress={onHistory} style={styles.historyLink}><Text style={styles.miniLinkText}>Photo scan history</Text><ChevronRight size={17} color={COLORS.green} /></Pressable>{error ? <Text style={styles.errorText}>{error}</Text> : null}{loading && !guides.length ? <EmptyCard icon={Recycle} title="Loading materials…" body="Fetching the supported material guide." /> : null}{!loading && !guides.length ? <EmptyCard icon={Recycle} title="Materials unavailable" body="Connect to the backend to load the current supported categories." action="Try again" onAction={retry} /> : null}<View style={styles.wasteGrid}>{visible.map((guide, index) => { const categoryIcon = WASTE_CATEGORY_ICONS[guide.label]; return <Pressable key={guide.label} style={styles.wasteCard} onPress={() => onCategory(guide.label)}><View style={[styles.wasteArtwork, { backgroundColor: ['#e8f4ec', '#e8f3fa', '#fff3e5', '#f1ecfa'][index % 4] }]}>{categoryIcon ? <Image source={categoryIcon} resizeMode="contain" style={styles.wasteArtworkImage} /> : <Recycle size={29} color={COLORS.green} strokeWidth={1.7} />}</View><Text style={styles.wasteTitle} numberOfLines={2}>{guide.short_title || guide.title}</Text><Text style={styles.wasteSub} numberOfLines={2}>{guide.description}</Text><View style={styles.wasteFoot}><Text style={styles.wasteFootText}>Open guide</Text><ChevronRight size={16} color={COLORS.green} /></View></Pressable>; })}</View>{guides.length > 0 && visible.length === 0 ? <EmptyCard icon={Search} title="No match found" body="Try another supported material name." /> : null}</ScrollView>;
+  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"><BrandHeader /><PageIntro title="Waste materials" subtitle="Explore materials currently supported by SNAPTURE." />{error ? <Text style={styles.errorText}>{error}</Text> : null}{loading && !guides.length ? <EmptyCard icon={Recycle} title="Loading materials…" body="Fetching the supported material guide." /> : null}{!loading && !guides.length ? <EmptyCard icon={Recycle} title="Materials unavailable" body="Connect to the backend to load the current supported categories." action="Try again" onAction={retry} /> : null}<View style={styles.wasteGrid}>{visible.map((guide, index) => { const categoryIcon = WASTE_CATEGORY_ICONS[guide.label]; return <Pressable key={guide.label} style={styles.wasteCard} onPress={() => onCategory(guide.label)}><View style={[styles.wasteArtwork, { backgroundColor: ['#e8f4ec', '#e8f3fa', '#fff3e5', '#f1ecfa'][index % 4] }]}>{categoryIcon ? <Image source={categoryIcon} resizeMode="contain" style={styles.wasteArtworkImage} /> : <Recycle size={29} color={COLORS.green} strokeWidth={1.7} />}</View><Text style={styles.wasteTitle} numberOfLines={2}>{guide.short_title || guide.title}</Text><Text style={styles.wasteSub} numberOfLines={2}>{guide.description}</Text><View style={styles.wasteFoot}><Text style={styles.wasteFootText}>Open guide</Text><ChevronRight size={16} color={COLORS.green} /></View></Pressable>; })}</View>{guides.length > 0 && visible.length === 0 ? <EmptyCard icon={Search} title="No match found" body="Try another supported material name." /> : null}</ScrollView>;
 }
 
 function CalendarPage({ user, navigate }: { user: ApiUser | null; navigate: Navigate }) {
@@ -346,18 +359,28 @@ function CalendarPage({ user, navigate }: { user: ApiUser | null; navigate: Navi
 }
 
 function IdeasPage({ ideas, loading, error, retry, navigate, onOpen }: { ideas: Idea[]; loading: boolean; error: string; retry: () => void; navigate: Navigate; onOpen: (idea: Idea) => void }) {
-  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}><BackHeader title="Home" onBack={() => navigate('home')} /><PageIntro title="Ideas & recommendations" subtitle="Projects from the supported material guides." />{error ? <Text style={styles.errorText}>{error}</Text> : null}{ideas.length ? ideas.map((idea) => <IdeaCard key={`${idea.guideLabel}-${idea.id}`} idea={idea} onPress={() => onOpen(idea)} />) : <EmptyCard icon={Lightbulb} title={loading ? 'Loading ideas…' : 'No recommendations available'} body="Ideas will appear when the material guides are available." action={!loading ? 'Try again' : undefined} onAction={retry} />}</ScrollView>;
+  const [filter,setFilter]=useState('all');
+  const materials=[...new Map(ideas.map(idea=>[idea.guideLabel,idea.material])).entries()];
+  const visible=filter==='all'?ideas:ideas.filter(idea=>idea.guideLabel===filter);
+  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <BackHeader title="Home" onBack={()=>navigate('home')}/>
+    <PageIntro title="Reuse & upcycling ideas" subtitle="Explore by material. General references are not approval for your scanned item."/>
+    {error?<Text style={styles.errorText}>{error}</Text>:null}
+    <View style={styles.ideaFilters}>{[['all','All materials'],...materials].map(([key,title])=><Pressable key={key} accessibilityRole="button" accessibilityLabel={`Filter ideas: ${title}`} accessibilityState={{selected:filter===key}} onPress={()=>setFilter(key)} style={[styles.ideaFilter,filter===key && styles.ideaFilterSelected]}><Text style={styles.ideaFilterText}>{title}</Text></Pressable>)}</View>
+    {visible.map(idea=><IdeaCard key={`${idea.guideLabel}-${idea.id}`} idea={idea} onPress={()=>onOpen(idea)}/>)}
+    {!visible.length?<EmptyCard icon={Lightbulb} title={loading?'Loading ideas…':'No published ideas available'} body="Ideas and their review status appear when the material library is available." action={!loading?'Try again':undefined} onAction={retry}/>:null}
+  </ScrollView>;
 }
 
-function ProfilePage({ user, scanCount, recordsLoading, recordsError, savedCount, savedLoading, savedError, projects, projectsLoading, projectsError, navigate, onUserChange }: { user: ApiUser | null; scanCount: number; recordsLoading: boolean; recordsError: string; savedCount: number; savedLoading: boolean; savedError: string; projects: UserProject[]; projectsLoading: boolean; projectsError: string; navigate: Navigate; onUserChange: (user: ApiUser) => void }) {
+function ProfilePage({ user, scanCount, recordsLoading, recordsError, savedCount, savedLoading, savedError, projects, projectsLoading, projectsError, navigate, onOpenSettings, onUserChange }: { user: ApiUser | null; scanCount: number; recordsLoading: boolean; recordsError: string; savedCount: number; savedLoading: boolean; savedError: string; projects: UserProject[]; projectsLoading: boolean; projectsError: string; navigate: Navigate; onOpenSettings:()=>void; onUserChange: (user: ApiUser) => void }) {
   const { showSuccess, successDialog } = useSuccessAlert();
   const barangay = useBarangayEditor(user, onUserChange, showSuccess);
   const completedCount = projects.filter((project) => project.status === 'completed').length;
   const ongoingCount = projects.filter((project) => project.status === 'active').length;
   return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-    <BrandHeader right={<Pressable onPress={() => navigate('settings')} accessibilityLabel="Open settings" hitSlop={12}><Settings size={22} color={COLORS.deep} /></Pressable>} />
+    <BrandHeader right={<Pressable onPress={onOpenSettings} accessibilityRole="button" accessibilityLabel="Open settings" hitSlop={12}><Settings size={22} color={COLORS.deep} /></Pressable>} />
     <PageIntro title="My profile" subtitle="Your activity and account settings." />
-    <Pressable style={styles.profileHero} onPress={() => navigate('settings')} accessibilityLabel="Open profile settings">
+    <View style={styles.profileHero}>
       <View style={styles.profileAvatar}>
         {user?.profile_picture_url ? <Image source={{ uri: user.profile_picture_url }} style={styles.profileImage} /> : <Text style={styles.profileInitial}>{(user?.display_name || user?.email || 'S').charAt(0).toUpperCase()}</Text>}
       </View>
@@ -365,8 +388,7 @@ function ProfilePage({ user, scanCount, recordsLoading, recordsError, savedCount
         <Text style={styles.profileName}>{user?.display_name && user.display_name !== user.email ? user.display_name : 'SNAPTURE user'}</Text>
         <Text style={styles.profileEmail}>{user?.email || 'Email unavailable'}</Text>
       </View>
-      <ChevronRight size={17} color={COLORS.green} />
-    </Pressable>
+    </View>
     <View style={styles.statsRow}>
       <View style={styles.statCard}><Camera size={20} color={COLORS.green} /><Text style={styles.statValue}>{recordsError ? '—' : recordsLoading ? '…' : scanCount}</Text><Text style={styles.statLabel}>Items scanned</Text></View>
       <View style={styles.statCard}><FolderOpen size={20} color={COLORS.green} /><Text style={styles.statValue}>{projectsError ? '—' : projectsLoading ? '…' : completedCount}</Text><Text style={styles.statLabel}>Projects completed</Text></View>
@@ -387,7 +409,7 @@ function ProfilePage({ user, scanCount, recordsLoading, recordsError, savedCount
     <SectionHeading title="Scan history" action="View all" onAction={() => navigate('history')} />
     <Pressable style={styles.profileLinkCard} onPress={() => navigate('history')}>
       <View style={styles.cardIconMint}><ClipboardList size={20} color={COLORS.green} /></View>
-      <View style={styles.recentCopy}><Text style={styles.recentTitle}>My scans</Text><Text style={styles.mutedSmall}>{recordsLoading ? 'Loading scans…' : recordsError ? 'Scans unavailable' : scanCount ? String(scanCount) + ' saved scan' + (scanCount === 1 ? '' : 's') : 'No scans yet'}</Text></View>
+      <View style={styles.recentCopy}><Text style={styles.recentTitle}>My scans</Text><Text style={styles.mutedSmall}>{recordsLoading ? 'Loading scans…' : recordsError ? 'Scans unavailable' : scanCount ? 'Saved photos and item results' : 'No scans yet'}</Text></View>
       <ChevronRight size={18} color={COLORS.green} />
     </Pressable>
     <SectionHeading title="Collection location" />
@@ -405,18 +427,13 @@ function ProfilePage({ user, scanCount, recordsLoading, recordsError, savedCount
         <Pressable disabled={!user} onPress={barangay.open} style={styles.inlineAction}><Text style={styles.inlineActionText}>{user?.barangay ? 'Change barangay' : 'Set barangay'}</Text><ChevronRight size={15} color={COLORS.green} /></Pressable>
       </>}
     </View>
-    <SectionHeading title="Account" />
-    <Pressable style={styles.profileLinkCard} onPress={() => navigate('settings')}>
-      <View style={styles.cardIconMint}><Settings size={20} color={COLORS.green} /></View>
-      <View style={styles.recentCopy}><Text style={styles.recentTitle}>Settings</Text><Text style={styles.mutedSmall}>Name, profile picture, and account information</Text></View>
-      <ChevronRight size={18} color={COLORS.green} />
-    </Pressable>
     <BarangayPickerModal visible={barangay.pickerOpen} selected={barangay.draft} onSelect={barangay.select} onClose={barangay.closePicker} />
     {successDialog}
   </ScrollView>;
 }
 
 const styles = StyleSheet.create({
+  ideaFilters:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:14},ideaFilter:{minHeight:44,paddingHorizontal:12,paddingVertical:10,borderWidth:1,borderColor:COLORS.line,borderRadius:20,justifyContent:'center'},ideaFilterSelected:{backgroundColor:COLORS.mint,borderColor:COLORS.green},ideaFilterText:{fontSize:13,lineHeight:20,color:COLORS.green,fontWeight:'700'},
   appPage: { flex: 1, backgroundColor: COLORS.pale },
   barangaySelector: { borderWidth: 1, borderColor: COLORS.line, borderRadius: 12, minHeight: 45, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 116 },
@@ -455,7 +472,6 @@ const styles = StyleSheet.create({
   homeProgressTrack: { height: 6, backgroundColor: '#e5ebe6', borderRadius: 6, overflow: 'hidden', marginTop: 9 },
   homeProgressFill: { height: '100%', backgroundColor: '#219653', borderRadius: 6 },
   miniLink: { flexDirection: 'row', alignItems: 'center', marginTop: 10, minHeight: 30 },
-  historyLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 46, marginBottom: 14 },
   miniLinkText: { color: COLORS.green, fontSize: 11, fontWeight: '800' },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 24, marginBottom: 12 },
   sectionTitle: { color: COLORS.text, fontSize: 16, fontWeight: '900', flexShrink: 1 },

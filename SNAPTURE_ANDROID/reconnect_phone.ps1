@@ -1,4 +1,4 @@
-param([string]$Serial)
+param([string]$Serial, [switch]$DebugBuild)
 $ErrorActionPreference = 'Stop'
 
 # Reconnecting USB resets adb forwarding. Restore it without clearing app data.
@@ -22,22 +22,27 @@ if (-not $Serial) {
 if ($Serial -notin $readyPhones) { throw 'The selected phone is not authorized or connected. Unlock it and allow USB debugging.' }
 
 try {
-    $health = Invoke-RestMethod 'http://127.0.0.1:8000/api/health/' -TimeoutSec 15
-    if ($health.status -ne 'ok' -or -not $health.model.loaded) { throw 'The model is not ready.' }
+    # A connection check must not wait for a classifier to load.
+    $connectionTest = Invoke-WebRequest 'http://127.0.0.1:8000/api/materials/' -UseBasicParsing -TimeoutSec 10
+    if ($connectionTest.StatusCode -ne 200) { throw 'The backend did not respond correctly.' }
 } catch {
     throw 'Start the Django backend on port 8000, then run this helper again.'
 }
-try {
-    $metro = Invoke-WebRequest 'http://127.0.0.1:8081/status' -UseBasicParsing -TimeoutSec 10
-    if ($metro.StatusCode -ne 200) { throw 'Metro is not ready.' }
-} catch {
-    throw 'Start Metro with npm.cmd start in SNAPTURE_ANDROID, then run this helper again.'
+if ($DebugBuild) {
+    try {
+        $metro = Invoke-WebRequest 'http://127.0.0.1:8081/status' -UseBasicParsing -TimeoutSec 10
+        if ($metro.StatusCode -ne 200) { throw 'Metro is not ready.' }
+    } catch {
+        throw 'Start Metro with npm.cmd start for a debug build, or omit -DebugBuild for the installed release app.'
+    }
 }
 
-foreach ($port in @(8000, 8081)) {
+$ports = @(8000)
+if ($DebugBuild) { $ports += 8081 }
+foreach ($port in $ports) {
     & $adb -s $Serial reverse "tcp:$port" "tcp:$port"
     if ($LASTEXITCODE -ne 0) { throw "Could not restore the phone connection on port $port." }
 }
 & $adb -s $Serial shell am start -n com.snapture_android/.MainActivity
 if ($LASTEXITCODE -ne 0) { throw 'Could not open SNAPTURE. Build and install the Android app first.' }
-Write-Output "SNAPTURE opened. Backend has $($health.model.classes.Count) categories. Keep USB connected."
+Write-Output 'SNAPTURE opened. The USB backend connection is restored. Keep USB connected; reconnecting the cable resets this mapping.'

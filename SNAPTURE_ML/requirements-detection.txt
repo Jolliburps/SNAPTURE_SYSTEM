@@ -3,3 +3,4 @@
 torch>=2.8,<3
 transformers>=4.57,<5
 safetensors>=0.4
+opencv-python==4.11.0.86

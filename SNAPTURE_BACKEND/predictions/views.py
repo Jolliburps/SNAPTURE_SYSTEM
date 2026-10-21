@@ -13,10 +13,12 @@ from django.views.decorators.http import require_http_methods
 from core.auth import require_api_user
 from core.materials import SCOPE_LABELS, material_info
 from core.ml_service import predict_image
-from core.assessment import assess, confirm_material, refresh, question_schema as assessment_questions
+from core.assessment import assess, confirm_material, refresh
+from django.utils import timezone
 
 from .models import PredictionRecord
 from .image_quality import oriented_image, quality_report
+from .photo_privacy import privacy_copy, jpeg_bytes
 
 
 SUPPORTED_DECISIONS = set(SCOPE_LABELS)
@@ -42,7 +44,7 @@ def _parse_list(value):
     return []
 
 
-def _serialize(record):
+def _serialize(record, saved=False):
     # Older records may have been created by the generic baseline model and
     # contain labels such as ``glass`` or ``plastic``.  Keep those raw values
     # for model diagnostics, but never expose them as a supported result.
@@ -66,10 +68,35 @@ def _serialize(record):
         or (safe_decision in PLASTIC_DECISIONS and not plastic_confirmed)
         or (str(record.model_class).lower() in {"plastic", "metal", "glass", "trash"} and not plastic_confirmed)
     )
-    assessment = assess(record)
+    # History reads the last explicitly saved assessment, never recomputes it.
+    snapshot = record.assessment
+    has_snapshot = (
+        isinstance(snapshot, dict)
+        and all(isinstance(snapshot.get(key), dict) for key in ('material', 'segregation', 'upcycling'))
+        and {'label', 'status'}.issubset(snapshot['material'])
+        and {'status', 'category', 'instructions'}.issubset(snapshot['segregation'])
+        and {'status', 'recommendations'}.issubset(snapshot['upcycling'])
+        and isinstance(snapshot.get('missing_information'), list)
+    )
+    assessment = (snapshot if has_snapshot else None) if saved else assess(record)
+    if saved and assessment and 'management_guidance' not in assessment:
+        # Legacy supplement uses only this item's saved snapshot, never a newer
+        # scan or current catalogue. Do not rewrite historical records on GET.
+        from core.management_guidance import management_guidance
+        assessment = {**assessment, 'management_guidance': {
+            **management_guidance(assessment, record.model_class),
+            'legacy_supplement': True,
+        }}
+    recommendations = assessment.get('upcycling', {}).get('recommendations', []) if assessment else []
+    scene_item = getattr(record, 'scene_item', None)
+    scene = scene_item.scene if scene_item and scene_item.scene.user_id == record.user_id else None
+    from core.waste_taxonomy import identity
     return {
         "id": record.id,
         "image_url": record.image.url if record.image else None,
+        "scene_id": scene.id if scene else None,
+        "original_image_url": scene.image.url if scene and scene.image else (record.image.url if record.image else None),
+        "saved_assessment_available": has_snapshot,
         # Keep the raw class in a separate diagnostic field.  The public
         # model_class is always scope-safe so clients cannot mistake a
         # generic baseline label for a thesis category.
@@ -86,9 +113,11 @@ def _serialize(record):
         "condition": record.condition,
         "previous_contents": record.previous_contents,
         "answers": record.answers,
-        "recommendation_choices": assessment["upcycling"]["recommendations"],
-        "selected_recommendation": record.selected_recommendation if record.selected_recommendation in {item["id"] for item in assessment["upcycling"]["recommendations"]} else "",
+        "recommendation_choices": recommendations,
+        "selected_recommendation": record.selected_recommendation if record.selected_recommendation in {item["id"] for item in recommendations} else "",
         "assessment": assessment,
+        "waste_identifier": identity(record, assessment) if assessment else None,
+        "review_contribution": record.identification_review.status if hasattr(record, 'identification_review') else None,
         "input_method": record.input_method,
         "image_quality": record.image_quality,
         "needs_verification": requires_verification,
@@ -104,7 +133,24 @@ def _serialize(record):
 @require_api_user
 @require_http_methods(["GET"])
 def list_predictions(request):
-    owned = PredictionRecord.objects.filter(user=request.api_user)
+    owned = PredictionRecord.objects.filter(user=request.api_user).select_related('scene_item__scene')
+    if request.GET.get('grouped') == '1':
+        from django.db.models import Max, Q, Subquery
+        from .models import SceneItem
+        representatives = (SceneItem.objects.filter(scene__user=request.api_user, prediction__user=request.api_user)
+                           .values('scene_id').annotate(record_id=Max('prediction_id')).values('record_id'))
+        # Group before applying the page limit so a photo with many objects
+        # cannot fill the entire history page. Standalone/manual entries stay separate.
+        grouped = owned.filter(Q(scene_item__isnull=True) | Q(pk__in=Subquery(representatives)))
+        entries = []
+        for record in grouped[:50]:
+            entry = _serialize(record)
+            scene_item = getattr(record, 'scene_item', None)
+            if scene_item:
+                scene = scene_item.scene
+                entry.update(title='Photo scan', item_count=scene.items.filter(prediction__user=request.api_user).count(), created_at=scene.created_at.isoformat())
+            entries.append(entry)
+        return JsonResponse({'predictions': entries, 'total_count': grouped.count()})
     return JsonResponse({"predictions": [_serialize(record) for record in owned[:50]], "total_count": owned.count()})
 
 
@@ -193,7 +239,10 @@ def create_prediction(request):
     )
     refresh(record)
     filename = getattr(uploaded, "name", "capture.jpg")
-    record.image.save(filename, ContentFile(image_bytes), save=False)
+    protected, privacy = privacy_copy(oriented_image(image_bytes))
+    record.image_quality['photo_privacy'] = privacy
+    if protected is not None:
+        record.image.save(filename, ContentFile(jpeg_bytes(protected)), save=False)
     record.save()
     logger.info(
         "scan_created id=%s user_id=%s model=%s decision=%s confidence=%.3f threshold=%.3f recommendations=%s",
@@ -253,21 +302,26 @@ def prediction_detail(request, prediction_id):
         answers = payload.get("answers", {})
         if not isinstance(answers, dict):
             return JsonResponse({"detail": "answers must be a JSON object."}, status=400)
-        allowed_keys = {"material_confirmation", "resin_mark", "wood_treatment", "follow_up", "paper_surface"}
+        allowed_keys = {"material_confirmation", "resin_mark", "wood_treatment", "follow_up", "paper_surface", "contamination", "moisture", "other_material", "reported_category"}
         incoming = {key: value for key, value in answers.items() if key in allowed_keys}
         if any(not isinstance(value, str) for value in incoming.values()):
             return JsonResponse({"detail": "Confirmation answers must be strings."}, status=400)
         if incoming.get("material_confirmation") not in set(SCOPE_LABELS) | {None, "Not sure"}:
             return JsonResponse({"detail": "Unsupported catalog material."}, status=400)
+        from core.waste_taxonomy import CATEGORY_NAMES, OTHER_MATERIALS, CONTAMINATION, MOISTURE
+        for key, options in {'reported_category': CATEGORY_NAMES, 'other_material': OTHER_MATERIALS, 'contamination': CONTAMINATION, 'moisture': MOISTURE}.items():
+            if key in incoming and incoming[key] not in options:
+                return JsonResponse({'detail': 'Choose a listed assessment answer.'}, status=400)
         merged = {**record.answers, **incoming}
         merged.pop("user_confirmed_material", None)
         old_decision = record.decision
-        confirm_material(record, merged)
+        confirm_material(record, merged, provided_keys=set(incoming))
         material_changed = record.decision != old_decision
         record.quantity = quantity if "quantity" in payload or not material_changed else None
         record.condition = condition if "condition" in payload or not material_changed else ""
         record.previous_contents = previous_contents if "previous_contents" in payload or not material_changed else ""
         record.available_materials = available_materials
+        record.answers['assessment_checked_at'] = timezone.now().isoformat()
         refresh(record)
         record.save(update_fields=[
             "model_class",
@@ -291,6 +345,12 @@ def prediction_detail(request, prediction_id):
             record.condition or "<empty>",
             len(record.recommendation_choices),
         )
+    if request.method == 'GET' and request.GET.get('history') == '1':
+        prediction = _serialize(record, saved=True)
+        from .scene_views import serialize_scene
+        scene_item = getattr(record, 'scene_item', None)
+        scene = scene_item.scene if scene_item and scene_item.scene.user_id == request.api_user.id else None
+        return JsonResponse({'prediction': prediction, 'scene': serialize_scene(scene, saved=True) if scene else None})
     return JsonResponse({"prediction": _serialize(record), "recommendations": record.recommendation_choices})
 
 
@@ -347,4 +407,6 @@ def select_recommendation(request, prediction_id):
 @require_http_methods(["GET"])
 def material_questions(request, label):
     info = material_info(label)
-    return JsonResponse({"label": label, "title": info["title"], "questions": assessment_questions(label)})
+    preview = PredictionRecord(decision=label, confidence=0, threshold=1, answers={})
+    value = assess(preview)
+    return JsonResponse({"label": label, "title": info["title"], "questions": value['questions'], 'quick_check':value['quick_check']})

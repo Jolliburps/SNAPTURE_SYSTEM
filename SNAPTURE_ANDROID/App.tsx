@@ -20,13 +20,19 @@ import { confirmPasswordReset, deleteAllPredictions, deletePrediction, getAdminO
 import { BottomNavigation, MainExperience, type MainRoute } from './src/MainExperience';
 import AssessmentScreen from './src/AssessmentScreen';
 import GalleryThumbnail from './src/GalleryThumbnail';
-import SceneResults, { QualityFeedback, SceneHistory } from './src/SceneResults';
+import SceneResults, { QualityFeedback } from './src/SceneResults';
+import { imageUrl } from './src/api';
+import SavedScanReview from './src/SavedScanReview';
+import PasswordField from './src/PasswordField';
+import PrivatePhotoPreview from './src/PrivatePhotoPreview';
+import MaterialIdeaReferences from './src/MaterialIdeaReferences';
 import ProjectGuide from './src/ProjectGuide';
+import AdminScorecards from './src/AdminScorecards';
 import { useSuccessAlert } from './src/SuccessAlertDialog';
 import SwitchCamera from 'lucide-react-native/icons/switch-camera';
 import Zap from 'lucide-react-native/icons/zap';
 import ZapOff from 'lucide-react-native/icons/zap-off';
-import { createScene, startProject, setProjectStep, restartProject, type UserProject, type CaptureFrame, type ScanScene } from './src/api';
+import { createScene, deleteScene, startProject, setProjectStep, restartProject, type UserProject, type CaptureFrame, type ScanScene } from './src/api';
 
 type Screen =
   | 'login'
@@ -36,6 +42,7 @@ type Screen =
   | 'admin-dashboard'
   | 'home'
   | 'learn'
+  | 'references'
   | 'waste'
   | 'profile'
   | 'calendar'
@@ -44,7 +51,7 @@ type Screen =
   | 'camera'
   | 'project-guide'
   | 'scene-result'
-  | 'scene-history'
+  | 'scan-review'
   | 'quality'
   | 'result'
   | 'assessment'
@@ -169,6 +176,7 @@ function App() {
   const [followUpAnswer, setFollowUpAnswer] = useState('');
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [scene, setScene] = useState<ScanScene | null>(null);
+  const [savedScanId,setSavedScanId]=useState<number|null>(null);
   const [guideProject, setGuideProject] = useState<UserProject | null>(null);
   const [captureFrame, setCaptureFrame] = useState<CaptureFrame | undefined>();
   const requestIdRef = useRef('');
@@ -358,14 +366,14 @@ function App() {
         {screen === 'forgot-password' && <ForgotPasswordScreen email={email} setEmail={setEmail} onBack={() => navigate('login')} />}
         {screen === 'admin-login' && <AdminLoginScreen identifier={adminIdentifier} password={adminPassword} setIdentifier={setAdminIdentifier} setPassword={setAdminPassword} onSubmit={submitAdminAuth} onBack={() => navigate('login')} error={adminError} busy={adminBusy} />}
         {screen === 'admin-dashboard' && <AdminDashboardScreen user={currentUser} onLogout={signOut} />}
-        {['home', 'learn', 'waste', 'profile', 'calendar', 'ideas', 'history', 'projects', 'saved', 'settings'].includes(screen) && <MainShell screen={screen} navigate={navigate} user={currentUser} onUserChange={setCurrentUser} onLogout={signOut} onCategory={openCategory} />}
+        {['home', 'learn', 'references', 'waste', 'profile', 'calendar', 'ideas', 'history', 'projects', 'saved', 'settings'].includes(screen) && <MainShell screen={screen} navigate={navigate} user={currentUser} onUserChange={setCurrentUser} onLogout={signOut} onCategory={openCategory} onOpenScan={id=>{setSavedScanId(id);setScreen('scan-review');}} />}
+        {screen==='scan-review' && savedScanId!==null && <SavedScanReview key={savedScanId} id={savedScanId} onBack={()=>navigate('history')} onRetry={startAnotherScan} onBrowseIdeas={()=>navigate('ideas')}/>}
         {screen === 'material-detail' && selectedCategory && <MaterialDetailScreen label={selectedCategory} navigate={navigate} onBack={() => navigate(categoryReturn)} />}
         {screen === 'camera' && <NativeCameraScreen onManual={() => { setScene(null); navigate('assessment'); }} onBack={() => navigate('home')} onCaptured={(uri, frame) => { setCapturedUri(uri); setCaptureFrame(frame); requestIdRef.current = 'scan_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2); setScene(null); setPrediction(null); setAnalysisError(''); navigate('quality'); }} />}
-        {screen === 'quality' && <LiveQualityScreen photoUri={capturedUri} error={analysisError} analyzing={analysisBusy} onBack={() => { if (!analysisBusy) navigate('camera'); }} onContinue={async () => { if (await analyzeCapturedPhoto()) navigate('scene-result'); }} />}
-        {screen === 'scene-result' && scene && <SceneResults initial={scene} onBack={() => navigate('scene-history')} onReview={(value) => { setPrediction(value); setScreen('assessment'); }} onRetry={startAnotherScan} onOpenGuide={async (value, ideaId) => { await selectRecommendation(value.id, ideaId); const response = await startProject(value.id); setGuideProject(response.project); setScreen('project-guide'); }} />}
+        {screen === 'quality' && <LiveQualityScreen key={capturedUri || 'empty'} photoUri={capturedUri} error={analysisError} analyzing={analysisBusy} onBack={() => { if (!analysisBusy) navigate('camera'); }} onContinue={async () => { if (await analyzeCapturedPhoto()) navigate('scene-result'); }} />}
+        {screen === 'scene-result' && scene && <SceneResults key={scene.id} initial={scene} onBack={() => navigate('history')} onReview={(value) => { setPrediction(value); setScreen('assessment'); }} onRetry={startAnotherScan} onBrowseIdeas={()=>navigate('ideas')} onOpenGuide={async (value, ideaId) => { await selectRecommendation(value.id, ideaId); const response = await startProject(value.id); setGuideProject(response.project); setScreen('project-guide'); }} />}
         {screen === 'project-guide' && guideProject && <View style={styles.guidePage}><Pressable accessibilityRole="button" onPress={() => navigate('scene-result')}><Text style={styles.innerTitle}>Back to scan</Text></Pressable><ProjectGuide key={guideProject.id} project={guideProject} onDone={() => navigate('projects')} onStep={async (id, index, completed) => { const response = await setProjectStep(id, index, completed); setGuideProject(response.project); return response.project; }} onRestart={async id => { const response = await restartProject(id); setGuideProject(response.project); return response.project; }} /></View>}
-        {screen === 'scene-history' && <SceneHistory onBack={() => navigate('waste')} onOpen={(value) => { setScene(value); setScreen('scene-result'); }} />}
-        {screen === 'result' && <LiveResultScreen photoUri={capturedUri} prediction={prediction} error={analysisError} onBack={() => navigate('quality')} onContinue={continueFromResult} />}
+        {screen === 'result' && <LiveResultScreen photoUri={prediction?.image_url?imageUrl(prediction.image_url):null} prediction={prediction} error={analysisError} onBack={() => navigate('quality')} onContinue={continueFromResult} />}
         {screen === 'assessment' && <AssessmentScreen prediction={prediction} onChange={setPrediction} onBack={() => navigate(scene ? 'scene-result' : prediction?.input_method === 'camera' ? 'result' : 'home')} onSaved={() => navigate('saved')} onRetry={startAnotherScan} onManualReset={() => { setPrediction(null); setScene(null); }} />}
         {screen === 'questions' && <LiveQuestionsScreen quantity={quantity} setQuantity={setQuantity} condition={condition} setCondition={setCondition} previousContents={previousContents} setPreviousContents={setPreviousContents} availableMaterials={availableMaterials} setAvailableMaterials={setAvailableMaterials} prompt={followUpPromptFor(prediction)} answer={followUpAnswer} setAnswer={setFollowUpAnswer} error={analysisError} busy={analysisBusy} onBack={() => navigate('result')} onContinue={async () => { if (await saveQuestionnaire()) navigate('safety'); }} />}
         {screen === 'safety' && <LiveSafetyScreen prediction={prediction} error={analysisError} onBack={() => navigate('questions')} onContinue={() => navigate('recommendations')} onRetry={startAnotherScan} />}
@@ -402,10 +410,10 @@ function AuthScreen({ mode, email, password, confirmPassword, displayName, baran
       <Text style={styles.inputLabel}>Email address</Text>
       <TextInput value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor="#9aa9a0" autoCapitalize="none" keyboardType="email-address" style={styles.input} />
       <Text style={styles.inputLabel}>Password</Text>
-      <TextInput value={password} onChangeText={setPassword} placeholder="Enter your password" placeholderTextColor="#9aa9a0" secureTextEntry style={styles.input} />
+      <PasswordField key={`${mode}-password`} label="Password" value={password} onChangeText={setPassword} placeholder="Enter your password" newPassword={!isLogin} style={styles.input} />
       {isLogin ? <Pressable onPress={onForgot} style={styles.forgotButton}><Text style={styles.forgotText}>Forgot password?</Text></Pressable> : <>
         <Text style={styles.inputLabel}>Confirm password</Text>
-        <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Re-enter your password" placeholderTextColor="#9aa9a0" secureTextEntry style={styles.input} />
+        <PasswordField label="Confirm password" value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Re-enter your password" newPassword style={styles.input} />
       </>}
       {!isLogin ? <>
         <Text style={styles.inputLabel}>Your name (optional)</Text>
@@ -560,6 +568,7 @@ function AdminDashboardScreen({ user, onLogout }: { user: ApiUser | null; onLogo
   return <View style={styles.appPage}><ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
     <View style={styles.adminHeader}><View><Text style={styles.adminEyebrow}>SNAPTURE CONTROL CENTER</Text><Text style={styles.pageTitle}>Administrator dashboard</Text><Text style={styles.pageSubtitle}>Signed in as {user?.email || 'administrator'}.</Text></View><Pressable onPress={onLogout} style={styles.adminLogout}><Text style={styles.adminLogoutText}>Log out</Text></Pressable></View>
     <View style={styles.privacyNotice}><Text style={styles.privacyNoticeTitle}>Privacy-first view</Text><Text style={styles.privacyNoticeText}>Activity is anonymized here. Open a record only when you need to evaluate a model result.</Text></View>
+    <AdminScorecards />
     {error ? <View style={styles.adminErrorCard}><Text style={styles.authError}>{error}</Text><SecondaryButton label="Try again" onPress={loadOverview} disabled={loading} /></View> : null}
     {loading && !overview ? <View style={styles.emptyState}><Text style={styles.emptyTitle}>Loading dashboard...</Text><Text style={styles.emptyText}>Fetching privacy-safe system statistics.</Text></View> : null}
     {overview ? <>
@@ -578,8 +587,8 @@ function AdminDashboardScreen({ user, onLogout }: { user: ApiUser | null; onLogo
   </ScrollView></View>;
 }
 
-function MainShell({ screen, navigate, user, onUserChange, onLogout, onCategory }: { screen: Screen; navigate: (next: Screen) => void; user: ApiUser | null; onUserChange: (user: ApiUser) => void; onLogout: () => void; onCategory: (label: string) => void }) {
-  if (screen === 'history') return <HistoryScreen navigate={navigate} />;
+function MainShell({ screen, navigate, user, onUserChange, onLogout, onCategory, onOpenScan }: { screen: Screen; navigate: (next: Screen) => void; user: ApiUser | null; onUserChange: (user: ApiUser) => void; onLogout: () => void; onCategory: (label: string) => void; onOpenScan:(id:number)=>void }) {
+  if (screen === 'history') return <HistoryScreen navigate={navigate} onOpenScan={onOpenScan} />;
   return <MainExperience screen={screen as MainRoute} navigate={navigate} user={user} onUserChange={onUserChange} onLogout={onLogout} onCategory={onCategory} />;
 }
 
@@ -607,8 +616,9 @@ function MaterialDetailScreen({ label, navigate, onBack }: { label: string; navi
       <InfoCard title="Common examples" items={guide.examples.length ? guide.examples : ['Examples are not available yet.']} />
       <InfoCard title="Preparation" items={guide.preparation} />
       <View style={styles.infoCard}><Text style={styles.infoTitle}>Recycling guidance</Text><Text style={styles.infoText}>{guide.recycling}</Text><Text style={[styles.infoTitle, styles.infoTitleSpacing]}>Disposal guidance</Text><Text style={styles.infoText}>{guide.disposal}</Text></View>
-      <Text style={[styles.sectionTitle, styles.guideSectionTitle]}>Upcycling ideas</Text>
+      <Text style={[styles.sectionTitle, styles.guideSectionTitle]}>Reuse &amp; upcycling ideas</Text>
       {guide.upcycling.map((recommendation) => <View key={recommendation.id} style={styles.recommendationCard}><View style={styles.projectIcon}><Text style={styles.projectIconText}>Idea</Text></View><View style={styles.projectCopy}><Text style={styles.projectTitle}>{recommendation.title}</Text><Text style={styles.projectDescription}>{recommendation.summary}</Text><Text style={styles.projectMaterials}>{recommendation.materials.join(' • ')}</Text></View></View>)}
+      <MaterialIdeaReferences ideas={guide.idea_references || []} material={guide.title} label={guide.label}/>
       <PrimaryButton label="Scan this material" onPress={() => navigate('camera')} />
     </> : <View style={styles.emptyState}><Text style={styles.emptyTitle}>{loading ? 'Loading material guide...' : 'Material guide unavailable'}</Text><Text style={styles.emptyText}>{error || 'The guide includes preparation, recycling, disposal, and project ideas.'}</Text>{!loading ? <SecondaryButton label="Try again" onPress={loadGuide} /> : null}</View>}
   </SimplePage>;
@@ -621,9 +631,16 @@ function toImageUri(uri: string) {
 }
 
 function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => void; onCaptured: (uri: string, frame?: CaptureFrame) => void; onManual: () => void }) {
-  const [previewAspect, setPreviewAspect] = useState(1);
   const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
   const [flashMode, setFlashMode] = useState<'off' | 'on' | 'auto'>('off');
+  const [flashStatusVisible, setFlashStatusVisible] = useState(false);
+  const flashStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideFlashStatus = useCallback(() => {
+    if (flashStatusTimer.current) clearTimeout(flashStatusTimer.current);
+    flashStatusTimer.current = null;
+    setFlashStatusVisible(false);
+  }, []);
+  useEffect(() => () => { if (flashStatusTimer.current) clearTimeout(flashStatusTimer.current); }, []);
   const device = useCameraDevice(cameraPosition);
   const cameraRef = useRef<CameraRef>(null);
   const { hasPermission, canRequestPermission, requestPermission } = useCameraPermission();
@@ -676,7 +693,7 @@ function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => vo
         {},
       );
       console.log('[SNAPTURE] camera:capture:success');
-      onCaptured(photo.filePath, { aspect: previewAspect, x: .05, y: .08, width: .9, height: .84 });
+      onCaptured(photo.filePath);
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : 'Unable to capture a photo.';
       console.error('[SNAPTURE] camera:capture:error', message);
@@ -709,6 +726,7 @@ function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => vo
   };
 
   const toggleCamera = () => {
+    hideFlashStatus();
     if (cameraPosition === 'back') {
       cameraRef.current?.controller?.setTorchMode('off').catch(() => undefined);
       torchModeRef.current = 'off';
@@ -732,6 +750,12 @@ function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => vo
       console.log('[SNAPTURE] flash:mode', next);
       return next;
     });
+    if (flashStatusTimer.current) clearTimeout(flashStatusTimer.current);
+    setFlashStatusVisible(true);
+    flashStatusTimer.current = setTimeout(() => {
+      flashStatusTimer.current = null;
+      setFlashStatusVisible(false);
+    }, 2500);
   };
 
   const handleSessionError = (reason: Error) => {
@@ -759,10 +783,9 @@ function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => vo
   const flashModeLabel = flashMode === 'on' ? 'On' : flashMode === 'auto' ? 'Auto' : 'Off';
   return <View style={styles.cameraPage}>
     <View style={styles.cameraHeader}><Pressable onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back"><Text style={styles.cameraBackIcon}>‹</Text></Pressable><Text style={styles.cameraHeaderTitle}>Scan waste</Text><Pressable onPress={cycleFlashMode} disabled={!flashSupported} hitSlop={8} accessibilityRole="button" accessibilityLabel={flashSupported ? `Flash: ${flashModeLabel}` : 'Flash unavailable'}><View style={[styles.flashIconWrap, !flashSupported && styles.buttonDisabled]}>{flashMode === 'off' ? <ZapOff color="#fff" size={28} /> : <Zap color={flashMode === 'on' ? '#ffd21f' : '#fff'} size={28} />}{flashMode === 'auto' ? <Text style={styles.flashAutoLetter}>A</Text> : null}</View></Pressable></View>
-    <View style={styles.cameraPreview} onLayout={event => { const { width, height } = event.nativeEvent.layout; if (height > 0) setPreviewAspect(width / height); }}>
+    <View style={styles.cameraPreview}>
       <Camera ref={cameraRef} key={device.id} style={StyleSheet.absoluteFill} device={device} outputs={[photoOutput]} isActive={!sessionError} onStarted={() => { console.log('[SNAPTURE] camera:ready'); setCameraReady(true); }} onStopped={() => { console.log('[SNAPTURE] camera:stopped'); setCameraReady(false); }} onError={(reason) => { console.error('[SNAPTURE] camera:session_error', reason.message); handleSessionError(reason); }} />
-      <Text style={styles.flashStatus} pointerEvents="none">Flash: {flashModeLabel}</Text>
-      <View style={styles.cameraOverlay} pointerEvents="none"><View style={styles.cameraGuide} /><Text style={styles.cameraHint}>Only the guide area is analyzed. Keep items apart.</Text></View>
+      {flashStatusVisible ? <Text accessibilityLiveRegion="polite" style={styles.flashStatus} pointerEvents="none">Flash: {flashModeLabel}</Text> : null}
     </View>
     {error ? <Text style={styles.cameraError}>{error}</Text> : null}
     <View style={styles.cameraControls}><GalleryThumbnail onPress={selectFromGallery} /><View style={styles.shutterGroup}><Pressable style={[styles.shutterOuter, busy && styles.buttonDisabled]} onPress={capture} disabled={busy || !cameraReady} hitSlop={8} accessibilityRole="button" accessibilityLabel="Take photo"><View style={styles.shutterInner} /></Pressable></View><Pressable style={styles.cameraSwitchButton} onPress={toggleCamera} accessibilityRole="button" accessibilityLabel={`Switch to ${cameraPosition === 'back' ? 'front' : 'rear'} camera`}><SwitchCamera color="#fff" size={30} /></Pressable></View>
@@ -771,7 +794,8 @@ function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => vo
 }
 
 function LiveQualityScreen({ photoUri, error, analyzing, onBack, onContinue }: { photoUri: string | null; error: string; analyzing: boolean; onBack: () => void; onContinue: () => void }) {
-  return <SimplePage title="Review your photo" onBack={onBack}><View style={styles.photoPlaceholder}>{photoUri ? <Image source={{ uri: toImageUri(photoUri) }} style={styles.photoPreview} resizeMode="contain" /> : null}</View><Text style={styles.questionIntro}>Items are found automatically. Review their suggested materials before using any guidance.</Text><Text style={styles.privacyHint}>Analysis saves this photo privately to your account. Mixed scans also save item crops. Delete them from scan history when no longer needed. No external AI service receives this photo.</Text>{error ? <Text style={styles.authError}>{error}</Text> : null}<PrimaryButton label={analyzing ? 'Analyzing… please wait' : 'Analyze image'} onPress={onContinue} disabled={analyzing || !photoUri} />{analyzing ? <Text style={styles.privacyHint}>First analysis may take longer while the local model loads. Keep the USB/backend connection active.</Text> : <SecondaryButton label="Retake or choose another photo" onPress={onBack} />}</SimplePage>;
+  const [privacyBusy,setPrivacyBusy]=useState(true);
+  return <SimplePage title="Review your photo" onBack={onBack}><PrivatePhotoPreview uri={photoUri} onBusyChange={setPrivacyBusy}/><Text style={styles.questionIntro}>Items are found automatically. Review their suggested materials before using any guidance.</Text><Text style={styles.privacyHint}>Only privacy-processed photos and item crops are saved for review. The original is used internally for detection, not shown in history. No external AI service receives this photo.</Text>{error ? <Text style={styles.authError}>{error}</Text> : null}<PrimaryButton label={analyzing ? 'Analyzing… please wait' : privacyBusy?'Protecting photo...':'Analyze image'} onPress={onContinue} disabled={analyzing || privacyBusy || !photoUri} />{analyzing ? <Text style={styles.privacyHint}>First analysis may take longer while the local model loads. Keep the USB/backend connection active.</Text> : <SecondaryButton label="Retake or choose another photo" onPress={onBack} />}</SimplePage>;
 }
 
 function LiveResultScreen({ photoUri, prediction, error, onBack, onContinue }: { photoUri: string | null; prediction: Prediction | null; error: string; onBack: () => void; onContinue: () => void }) {
@@ -819,28 +843,32 @@ function LiveRecommendationsScreen({ prediction, selected, setSelected, quantity
   return <SimplePage title="Recommendations" onBack={onBack}><View style={styles.recommendationBanner}><Text style={styles.bannerIcon}>Idea</Text><View style={styles.bannerCopy}><Text style={styles.bannerTitle}>Choose what fits your goal</Text><Text style={styles.bannerSubtitle}>Options are adjusted for {quantityLabel}.</Text></View></View><View style={styles.optionalPanel}><Text style={styles.optionalLabel}>How much do you have? <Text style={styles.optionalHint}>(optional)</Text></Text><View style={styles.quantityChoices}>{[['1', 'One'], ['3', 'A few'], ['10', 'Many']].map(([value, label]) => <Pressable key={value} onPress={() => setQuantity(value)} style={[styles.quantityChoice, quantity === value && styles.quantityChoiceSelected]}><Text style={[styles.quantityChoiceText, quantity === value && styles.quantityChoiceTextSelected]}>{label}</Text></Pressable>)}</View><Text style={styles.optionalHint}>You can continue with the default. The amount only changes the project guidance.</Text></View>{error ? <Text style={styles.authError}>{error}</Text> : null}<Text style={styles.sectionTitle}>Reuse and upcycling choices</Text>{options.map((recommendation) => <Pressable key={recommendation.id} style={[styles.recommendationCard, selected === recommendation.id && styles.recommendationSelected]} onPress={() => setSelected(recommendation.id)}><View style={styles.projectIcon}><Text style={styles.projectIconText}>Idea</Text></View><View style={styles.projectCopy}><Text style={styles.projectTitle}>{recommendation.title}</Text><Text style={styles.projectDescription}>{recommendation.summary}</Text><Text style={styles.projectMaterials}>{recommendation.materials.join(' | ')}</Text>{recommendation.quantity_note ? <Text style={styles.projectQuantity}>{recommendation.quantity_note}</Text> : null}</View><Text style={styles.radio}>{selected === recommendation.id ? 'Selected' : 'Choose'}</Text></Pressable>)}{options.length === 0 ? <Text style={styles.questionIntro}>No recommendations were returned for this result. Retake the photo or choose another item.</Text> : null}<PrimaryButton label={busy ? 'Saving...' : selected ? 'Save selected project' : 'Choose a project'} onPress={onSave} disabled={busy || !selected} /></SimplePage>;
 }
 
-function HistoryScreen({ navigate }: { navigate: (next: Screen) => void }) {
+function HistoryScreen({ navigate, onOpenScan }: { navigate: (next: Screen) => void; onOpenScan:(id:number)=>void }) {
   const [records, setRecords] = useState<PredictionSummary[]>([]);
+  const [missingPhotos,setMissingPhotos]=useState<Record<number,boolean>>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading,setLoading]=useState(true);
 
   const loadHistory = () => {
     setError('');
-    listPredictions().then(setRecords).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load your history.'));
+    setLoading(true);
+    listPredictions().then(setRecords).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load your history.')).finally(()=>setLoading(false));
   };
 
   useEffect(() => {
     loadHistory();
   }, []);
 
-  const removeRecord = (id: number) => {
-    Alert.alert('Delete this scan?', 'The saved image, result, and answers will be permanently removed from your account.', [
+  const removeRecord = (record: PredictionSummary) => {
+    Alert.alert('Delete this scan?', record.scene_id?'This deletes the photo and all detected item results within this scan. Started projects remain.':'The saved image, result, and answers will be permanently removed from your account.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         setBusy(true);
         try {
-          await deletePrediction(id);
-          setRecords((current) => current.filter((record) => record.id !== id));
+          if(record.scene_id)await deleteScene(record.scene_id);
+          else await deletePrediction(record.id);
+          setRecords((current) => current.filter((row) => row.id !== record.id));
         } catch (reason) {
           setError(reason instanceof Error ? reason.message : 'Unable to delete this scan.');
         } finally {
@@ -871,9 +899,22 @@ function HistoryScreen({ navigate }: { navigate: (next: Screen) => void }) {
   return <View style={styles.appPage}><ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
     <Pressable onPress={() => navigate('profile')} style={styles.historyBack}><Text style={styles.historyBackText}>‹  Profile</Text></Pressable>
     <View style={styles.pageHeaderRow}><View><Text style={styles.pageTitle}>My scans</Text><Text style={styles.pageSubtitle}>Only you can see these saved identification results.</Text></View>{records.length ? <Pressable onPress={clearHistory} disabled={busy}><Text style={styles.deleteLink}>Clear all</Text></Pressable> : null}</View>
-    {error ? <Text style={styles.authError}>{error}</Text> : null}
+    {error ? <><Text style={styles.authError}>{error}</Text><Pressable accessibilityRole="button" accessibilityLabel="Retry scan history" onPress={loadHistory}><Text style={styles.historyBackText}>Try again</Text></Pressable></> : null}
     <View style={styles.privacyNotice}><Text style={styles.privacyNoticeTitle}>Your history is private</Text><Text style={styles.privacyNoticeText}>Scans stay attached to your account until you choose to delete them.</Text></View>
-    {records.length === 0 && !error ? <View style={styles.emptyState}><Text style={styles.emptyIcon}>Scan</Text><Text style={styles.emptyTitle}>No saved scans yet</Text><Text style={styles.emptyText}>Analyze an object to see your private history here.</Text><PrimaryButton label="Scan an object" onPress={() => navigate('camera')} /></View> : records.map((record) => <View style={styles.historyRow} key={record.id}><View style={styles.historyIcon}><Text style={styles.historyIconText}>{record.input_method === 'manual' ? 'Item' : 'AI'}</Text></View><View style={styles.historyCopy}><Text style={styles.historyTitle}>{record.title}</Text><Text style={styles.historyMeta}>{new Date(record.created_at).toLocaleString()} - {record.input_method === 'manual' ? 'User-selected material, not AI verification' : `${Math.round(record.confidence * 100)}% model confidence`}</Text></View><Pressable onPress={() => removeRecord(record.id)} disabled={busy} hitSlop={8}><Text style={styles.deleteLink}>Delete</Text></Pressable></View>)}
+    {loading?<Text style={styles.historyMeta}>Loading saved scans...</Text>:null}
+    {!loading && records.length === 0 && !error ? <View style={styles.emptyState}><Text style={styles.emptyIcon}>Scan</Text><Text style={styles.emptyTitle}>No saved scans yet</Text><Text style={styles.emptyText}>Analyze an object to see your private history here.</Text><PrimaryButton label="Scan an object" onPress={() => navigate('camera')} /></View> : records.map(record => {
+      const photo=record.original_image_url || record.image_url;
+      return <View style={styles.historyRow} key={record.id}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Open saved scan ${record.id}`} accessibilityHint="View this scan's original photo and saved results" style={styles.historyOpen} onPress={()=>onOpenScan(record.id)}>
+          {photo && !missingPhotos[record.id]?<Image accessibilityLabel={`Photo preview for scan ${record.id}`} source={{uri:imageUrl(photo)}} resizeMode="contain" style={styles.historyThumbnail} onError={()=>setMissingPhotos(previous=>({...previous,[record.id]:true}))}/>:<View style={styles.historyPhotoFallback}><Text style={styles.historyMeta}>{record.input_method==='manual'?'No photo · manual assessment':'Photo unavailable · tap to view saved results'}</Text></View>}
+          <View style={styles.historyScanCopy}>
+            <Text style={styles.historyTitle}>{record.title}</Text>
+            <Text style={styles.historyMeta}>{new Date(record.created_at).toLocaleString()}{record.scene_id?` · ${record.item_count ?? 0} detected items`:` - ${record.input_method === 'manual' ? 'User-selected material, not AI verification' : `${Math.round(record.confidence * 100)}% model confidence`}`}</Text>
+          </View>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Delete saved scan ${record.id}`} style={styles.historyDelete} onPress={()=>removeRecord(record)} disabled={busy}><Text style={styles.deleteLink}>Delete</Text></Pressable>
+      </View>;
+    })}
   </ScrollView><BottomNavigation active="profile" navigate={navigate} /></View>;
 }
 
@@ -998,16 +1039,12 @@ const styles = StyleSheet.create({
   flashIcon: { color: '#fff', fontSize: 36, lineHeight: 40, fontWeight: '900' },
   flashIconActive: { color: '#ffd21f' },
   flashAutoLetter: { position: 'absolute', right: 0, bottom: 0, color: '#fff', fontSize: 16, lineHeight: 18, fontWeight: '900' },
-  flashStatus: { position: 'absolute', top: 22, alignSelf: 'center', color: '#fff', fontSize: 16, fontWeight: '700', zIndex: 3 },
-  cameraPreview: { flex: 1, marginHorizontal: 18, borderRadius: 24, backgroundColor: '#34483d', borderWidth: 1, borderColor: '#92b29e', alignItems: 'center', justifyContent: 'center' },
-  cameraOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  cameraGuide: { position: 'absolute', left: '5%', top: '8%', width: '90%', height: '84%', borderWidth: 1.5, borderColor: '#ffffffbb', borderRadius: 12 },
+  flashStatus: { position: 'absolute', top: 22, alignSelf: 'center', color: '#fff', fontSize: 16, fontWeight: '700', zIndex: 3, backgroundColor: '#0009', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  cameraPreview: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   cameraModes: { flexDirection: 'row', justifyContent: 'center', gap: 12, paddingTop: 14 },
   cameraMode: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' },
   cameraModeText: { color: '#c9d7ce', fontSize: 13 }, cameraModeSelected: { color: '#ffd21f', fontWeight: '800' },
   cameraManual: { alignItems: 'center', paddingBottom: 14, minHeight: 40 },
-  cameraGuideText: { color: '#fff', textAlign: 'center', fontWeight: '800', paddingHorizontal: 18 },
-  cameraHint: { position: 'absolute', bottom: 18, color: '#f4f8f4', fontSize: 12, backgroundColor: '#0009', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
   cameraControls: { minHeight: 136, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   cameraError: { color: '#ffd7d2', textAlign: 'center', fontSize: 12, paddingHorizontal: 24, paddingTop: 8 },
   galleryButton: { alignItems: 'center', width: 82 },
@@ -1087,9 +1124,12 @@ const styles = StyleSheet.create({
   historyBack: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' },
   historyBackText: { color: COLORS.primary, fontSize: 13, fontWeight: '800' },
   deleteLink: { color: '#b3261e', fontSize: 12, fontWeight: '900', paddingVertical: 14, paddingLeft: 12 },
-  historyRow: { backgroundColor: COLORS.surface, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  historyIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#e5eee8', alignItems: 'center', justifyContent: 'center' },
-  historyIconText: { color: COLORS.primary, fontSize: 11, fontWeight: '900' },
+  historyRow: { backgroundColor: COLORS.surface, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 12, marginBottom: 14 },
+  historyOpen:{minHeight:56,paddingVertical:4},
+  historyThumbnail:{width:'100%',height:160,borderRadius:12,backgroundColor:'#e5eee8'},
+  historyPhotoFallback:{minHeight:80,borderRadius:12,backgroundColor:'#e5eee8',padding:16,justifyContent:'center'},
+  historyScanCopy:{marginTop:12},
+  historyDelete:{minHeight:44,justifyContent:'center',alignSelf:'flex-end',paddingHorizontal:8},
   historyCopy: { flex: 1, marginLeft: 12 },
   historyTitle: { color: COLORS.text, fontWeight: '900', fontSize: 14 },
   historyMeta: { color: COLORS.muted, fontSize: 11, marginTop: 4 },

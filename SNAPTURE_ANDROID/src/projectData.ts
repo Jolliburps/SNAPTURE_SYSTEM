@@ -1,6 +1,6 @@
-import type { PredictionSummary, Recommendation, UserProject } from './api';
+import type { IdeaReference, PredictionSummary, Recommendation, UserProject } from './api';
 
-export type Idea = Recommendation & { material: string; guideLabel: string };
+export type Idea = Recommendation & Partial<Pick<IdeaReference,'status'|'source'|'review_note'|'conditions'|'can_start'>> & { material: string; guideLabel: string };
 export type SavedEntry = { record: PredictionSummary; idea?: Idea };
 
 export function savedIdeas(records: PredictionSummary[], catalogIdeas: Idea[]): SavedEntry[] {

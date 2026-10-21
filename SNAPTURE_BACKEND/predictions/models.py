@@ -87,3 +87,22 @@ class UserProject(models.Model):
 
     def __str__(self):
         return f"{self.user.username} · {self.title}"
+
+
+class IdentificationReview(models.Model):
+    """Explicitly contributed crop reference. Never included in training automatically."""
+    prediction = models.OneToOneField(PredictionRecord, on_delete=models.CASCADE, related_name='identification_review')
+    snapshot = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')], default='pending')
+    reviewer = models.ForeignKey(User, null=True, blank=True, on_delete=models.PROTECT, related_name='identification_reviews')
+    review_notes = models.TextField(blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    consented_at = models.DateTimeField()
+
+    class Meta:
+        permissions = [('review_identification', 'Review consented identification examples')]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.status != 'pending' and not (self.reviewer_id and self.reviewed_at and self.review_notes.strip()):
+            raise ValidationError('A review decision needs an identified reviewer, date and evidence notes.')

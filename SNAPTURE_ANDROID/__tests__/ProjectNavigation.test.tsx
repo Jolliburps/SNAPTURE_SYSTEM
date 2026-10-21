@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Renderer from 'react-test-renderer';
-import { ScrollView } from 'react-native';
 import { MainExperience, type MainRoute } from '../src/MainExperience';
 import ProjectPanels from '../src/ProjectPanels';
 
@@ -18,23 +17,22 @@ function Harness({ initial }: { initial: MainRoute }) {
   return <MainExperience screen={screen} navigate={navigate} user={null} onUserChange={jest.fn()} onCategory={jest.fn()} onLogout={jest.fn()} />;
 }
 
-test('photo history is inside the waste scroll content, not beneath bottom navigation', async () => {
+test('Waste has no separate photo history shortcut and Profile keeps the unified scan history', async () => {
   const navigate = jest.fn();
   let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(async () => { tree = Renderer.create(<MainExperience screen="waste" navigate={navigate} user={null} onUserChange={jest.fn()} onCategory={jest.fn()} onLogout={jest.fn()} />); });
-  const label = tree.root.findAll(node => node.props.children === 'Photo scan history')[0];
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Photo scan history');
+  await Renderer.act(async () => { tree.update(<MainExperience screen="profile" navigate={navigate} user={null} onUserChange={jest.fn()} onCategory={jest.fn()} onLogout={jest.fn()} />); });
+  const label = tree.root.findAll(node => node.props.children === 'My scans')[0];
   let parent = label.parent;
   let action: Renderer.ReactTestInstance | null = null;
-  let scroll = false;
   while (parent) {
-    if (parent.props.accessibilityRole === 'button' && typeof parent.props.onPress === 'function') action = parent;
-    if (parent.type === ScrollView) scroll = true;
+    if (typeof parent.props.onPress === 'function') action = parent;
     parent = parent.parent;
   }
-  expect(scroll).toBe(true);
   expect(action).not.toBeNull();
   await Renderer.act(async () => { action!.props.onPress(); });
-  expect(navigate).toHaveBeenCalledWith('scene-history');
+  expect(navigate).toHaveBeenCalledWith('history');
   await Renderer.act(async () => { tree.unmount(); });
 });
 

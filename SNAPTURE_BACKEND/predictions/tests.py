@@ -226,6 +226,8 @@ class ProjectApiTests(TestCase):
         from core.models import Guidance
         from core.content import digest
         call_command("seed_reference_guidance", verbosity=0)
+        from core.test_support import expert_project_fixtures
+        expert_project_fixtures()
         entry = Guidance.objects.get(key="cardboard-craft-base")
         entry.key = "cardboard_organizer"
         entry.title = "Drawer organizer"
@@ -238,7 +240,7 @@ class ProjectApiTests(TestCase):
             user=self.user, model_class="cardboard", decision="cardboard", title="Cardboard", confidence=0.88,
             selected_recommendation="cardboard_organizer:v1",
             condition="Clean and dry", previous_contents="No chemical contact known", quantity=1,
-            answers={"paper_surface": "Plain uncoated material without personal details"},
+            answers={"user_confirmed_material": "cardboard", "paper_surface": "Plain uncoated material without personal details", "contamination": "None known", "moisture": "Dry"},
             recommendation_choices=[{
                 "id": "cardboard_organizer:v1", "title": "Drawer organizer", "summary": "Make a drawer divider.",
                 "materials": ["Dry cardboard", "Glue"], "steps": ["Measure the cardboard.", "Fold the dividers."],

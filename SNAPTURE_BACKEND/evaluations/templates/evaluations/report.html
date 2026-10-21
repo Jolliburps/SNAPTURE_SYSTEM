@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>{{ run.name }}</h1>
+<p><a href="?format=csv">Download metric CSV</a> · <a href="?format=json">Download full report JSON</a></p>
+<p>{{ run.get_split_display }} · Dataset {{ run.dataset_version }} · {% if run.frozen_at %}Frozen {{ run.frozen_at }}{% else %}Draft — not a final research result{% endif %}</p>
+<p>{{ run.protocol|linebreaksbr }}</p>
+<h2>Coverage and evidence</h2>
+<p>{{ report.counts.adjudicated }} / {{ report.counts.total }} cases adjudicated. {{ report.counts.unreviewed }} unreviewed; {{ report.counts.manual_excluded_from_camera }} manual cases excluded from camera metrics.</p>
+<p>{{ report.recommendations.judged }} / {{ report.recommendations.shown }} recommendations judged. {{ report.recommendations.unjudged }} still unjudged.</p>
+<ul>{% for warning in report.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+<h2>1. Raw camera material identification</h2>
+<p>Camera cases: {{ report.identification.n }}. Macro-F1: {{ report.identification.macro_f1|floatformat:3|default:"Not measured" }}. All supported classes tested: {{ report.identification.all_scope_classes_tested|yesno:"Yes,No" }}.</p>
+<table><thead><tr><th>Material</th><th>Test count</th><th>Precision</th><th>Recall</th><th>F1</th></tr></thead><tbody>
+{% for row in report.identification.per_material %}<tr><td>{{ row.label }}</td><td>{{ row.support }}</td><td>{{ row.precision|floatformat:3|default:"—" }}</td><td>{{ row.recall|floatformat:3|default:"—" }}</td><td>{{ row.f1|floatformat:3|default:"—" }}</td></tr>{% endfor %}
+</tbody></table>
+<h3>Confusion matrix — actual rows, predicted columns</h3>
+<p>Labels in row/column order: {{ report.identification.confusion.actual_labels|join:", " }}</p>
+<table><tbody>{% for row in report.identification.confusion.counts %}<tr>{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+{% for section, values in report.items %}{% if section == 'identification' or section == 'segregation' or section == 'recommendations' %}
+<h2>{{ section|capfirst }} rates</h2><table><thead><tr><th>Measure</th><th>Count</th><th>Proportion</th><th>95% Wilson interval</th></tr></thead><tbody>
+{% for name, value in values.items %}{% if value.denominator != None %}<tr><td>{{ name }}</td><td>{{ value.numerator }} / {{ value.denominator }}</td><td>{{ value.value|floatformat:3|default:"Not measured" }}</td><td>{% if value.ci95 %}{{ value.ci95.0|floatformat:3 }}–{{ value.ci95.1|floatformat:3 }}{% else %}—{% endif %}</td></tr>{% endif %}{% endfor %}
+</tbody></table>{% endif %}{% endfor %}
+<p>Do not combine these into one accuracy percentage. Safety failures are not averaged away. Reports contain no resident names or photos.</p>
+{% endblock %}

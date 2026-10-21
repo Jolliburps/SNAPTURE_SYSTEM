@@ -26,7 +26,8 @@ test('shows model boxes with pending routes and opens the correct item review', 
   let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(async () => { tree = Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onReview={onReview} onRetry={jest.fn()} />); });
   expect(JSON.stringify(tree.toJSON())).toContain('Suggested groups need material and local-acceptance checks');
-  expect(tree.root.findAllByProps({ accessibilityLabel: 'Select box 1' })).toHaveLength(0);
+  expect(tree.root.findAllByProps({ accessibilityLabel: 'Select box 1' }).length).toBeGreaterThan(0);
+  await Renderer.act(() => { tree.root.findAllByProps({ accessibilityLabel: 'Select item 1 card' }).find(node => typeof node.props.onPress === 'function')?.props.onPress(); });
   const button = tree.root.findAllByProps({ accessibilityLabel: 'Review item 1' }).find(node => typeof node.props.onPress === 'function');
   await Renderer.act(() => { button?.props.onPress(); });
   expect(onReview).toHaveBeenCalledWith(prediction);

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'accounts',
     'predictions',
     'datasets',
+    'evaluations',
 ]
 
 MIDDLEWARE = [

@@ -12,7 +12,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch {
-    throw new Error('The service could not be reached or timed out. No completed assessment was received. Check the backend connection and try again.');
+    throw new Error(controller.signal.aborted?'The server took too long to respond. Please try again.':'Cannot connect to the SNAPTURE server. Keep the USB cable connected and restore the phone connection on the PC. Make sure the backend is running.');
   } finally {
     clearTimeout(timeout);
   }
@@ -34,6 +34,10 @@ export type PredictionSummary = {
   confidence: number;
   created_at: string;
   image_url: string | null; 
+  scene_id?: number | null;
+  item_count?: number;
+  original_image_url?: string | null;
+  saved_assessment_available?: boolean;
   selected_recommendation: string;
   recommendation_choices?: Recommendation[];
 };
@@ -47,6 +51,8 @@ export type Recommendation = {
   quantity_note?: string;
   safety_note?: string;
 };
+
+export type IdeaReference = Recommendation & {status:'source_checked'|'awaiting_review';can_start:false;source:string;review_note:string;conditions:string[]};
 
 export type UserProject = {
   id: number;
@@ -78,12 +84,15 @@ export type MaterialGuide = {
   disposal: string;
   model_status: string;
   upcycling: Recommendation[];
+  idea_references?: IdeaReference[];
 };
 
 export type Prediction = PredictionSummary & {
+  waste_identifier?: WasteIdentity | null;
+  review_contribution?: string | null;
   image_quality?: ImageQuality;
   input_method?: 'camera' | 'manual';
-  assessment?: Assessment;
+  assessment?: Assessment | null;
   model_class: string;
   raw_model_class?: string;
   decision: string;
@@ -102,11 +111,47 @@ export type Prediction = PredictionSummary & {
 };
 
 export type AssessmentQuestion = { id: string; label: string; options: string[]; required: boolean };
+export type WasteIdentity = {
+  box: number[] | null; fine_class: string | null; category: string; category_label: string;
+  suggested_category: string; category_basis: string; target_material: string | null; confidence: number;
+  condition: string; safety_gate_passed: boolean; needs_confirmation: boolean;
+  top_predictions: { label: string; score: number }[]; handling_steps: string[];
+  general_guidance?: { status: string; instructions: string[]; source: { name: string; url: string; section: string; date: string | null } };
+};
 export type ImageQuality = { flags: { code: string; message: string }[]; limitations: string };
 export type CaptureFrame = { aspect: number; x: number; y: number; width: number; height: number };
 export type SceneItem = { id: number; box: number[]; name: string; score: number; prediction: Prediction; route: { key: string; label: string; reason: string }; suggested_group?: string; display_box?: boolean; display_group?: string; low_confidence?: boolean; background?: boolean; review_reason?: string };
-export type ScanScene = { id: number; image_url: string; width: number; height: number; frame: number[]; status: string; error: string; quality: ImageQuality; items: SceneItem[]; truncated: boolean; detector: string; limitations: string; background_objects?: { name: string; count: number }[] };
-export const imageUrl = (uri: string) => uri.startsWith('/') ? `${API_BASE_URL.replace(/\/api$/, '')}${uri}` : uri;
+export type ScanScene = { id: number; image_url: string; created_at?: string; width: number; height: number; frame: number[]; status: string; error: string; quality: ImageQuality; items: SceneItem[]; truncated: boolean; detector: string; limitations: string; background_objects?: { name: string; count: number }[] };
+export const imageUrl = (uri: string) => {
+  const url=uri.startsWith('/') ? `${API_BASE_URL.replace(/\/api$/, '')}${uri}` : uri;
+  // Avoid reusing pre-privacy cached originals from an older app installation.
+  return /\/media\/(scenes|predictions)\//.test(url)?`${url}${url.includes('?')?'&':'?'}privacy=face-v1`:url;
+};
+
+export async function preparePrivatePreview(uri:string) {
+  const token=await getStoredToken();
+  if(!token)throw new Error('Please log in to prepare a private photo preview.');
+  const data=new FormData();
+  data.append('image',{uri:/^(file|content):/.test(uri)?uri:`file://${uri}`,name:'privacy-preview.jpg',type:'image/jpeg'} as unknown as Blob);
+  return parseResponse<{preview_uri:string;faces_blurred:number;version:string}>(await fetchWithTimeout(`${API_BASE_URL}/photo-privacy/preview/`,{method:'POST',headers:{Authorization:`Bearer ${token}`},body:data},60000));
+}
+
+export async function addSceneRegion(id: number, box: number[], requestId: string) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in before reviewing a scan.');
+  return parseResponse<{ scene: ScanScene }>(await fetchWithTimeout(`${API_BASE_URL}/scenes/${id}/items/`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ box, request_id: requestId }),
+  }));
+}
+
+export async function contributeIdentification(id: number, withdraw = false) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in before contributing.');
+  return parseResponse<{ status?: string; withdrawn?: boolean }>(await fetchWithTimeout(`${API_BASE_URL}/predictions/${id}/review-contribution/`, {
+    method: withdraw ? 'DELETE' : 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    ...(withdraw ? {} : { body: JSON.stringify({ consent: true }) }),
+  }));
+}
 
 export async function createScene(uri: string, requestId: string, frame?: CaptureFrame) {
   const token = await getStoredToken();
@@ -149,6 +194,12 @@ export async function getCollectionNotices(month: string) {
 }
 export type GuidanceSource = { key: string; version: number; source: string; review_level: string; review_note: string };
 export type Assessment = {
+  management_guidance?: {
+    version:string; material_label:string; status:string; notice:string; legacy_supplement?:boolean;
+    sections:{key:string;title:string;instructions:string[]}[];
+    sources:{title:string;url:string}[]; source_checked_on:string;
+  };
+  quick_check?: { has_sorting_rule: boolean; has_reviewed_projects: boolean; sorting_question_ids: string[]; project_question_ids: string[]; sorting_complete: boolean; user_reviewed?: boolean };
   version: string;
   material: { label: string; title: string; status: string; explanation: string; input_method: string };
   questions: AssessmentQuestion[];
@@ -167,6 +218,12 @@ export async function createManualPrediction(label: string) {
     body: JSON.stringify({ label }),
   });
   return parseResponse<{ prediction: Prediction }>(response);
+}
+
+export async function getAssessmentQuestions(label: string) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in before checking an item.');
+  return parseResponse<{ label: string; questions: AssessmentQuestion[]; quick_check?: Assessment['quick_check'] }>(await fetchWithTimeout(`${API_BASE_URL}/predictions/questions/${encodeURIComponent(label)}/`, { headers:{ Authorization:`Bearer ${token}` } }));
 }
 
 export type AdminPredictionSummary = {
@@ -217,7 +274,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 export async function registerUser(email: string, password: string, displayName = '', barangay = '') {
-  const response = await fetch(`${API_BASE_URL}/auth/register/`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/auth/register/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, display_name: displayName, barangay }),
@@ -228,7 +285,7 @@ export async function registerUser(email: string, password: string, displayName 
 }
 
 export async function loginUser(email: string, password: string) {
-  const response = await fetch(`${API_BASE_URL}/auth/login/`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/auth/login/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -350,6 +407,27 @@ export async function getAdminOverview() {
   return parseResponse<AdminOverview>(response);
 }
 
+export type EvaluationRate = { numerator: number; denominator: number; value: number | null; ci95: [number, number] | null };
+export type EvaluationRunSummary = { id: number; name: string; split: string; dataset_version: string; frozen: boolean };
+export type EvaluationReport = {
+  run: EvaluationRunSummary;
+  counts: { total: number; adjudicated: number; unreviewed: number; manual_excluded_from_camera: number };
+  identification: { macro_f1: number | null; all_scope_classes_tested: boolean; per_material: { label: string; support: number; precision: number | null; recall: number | null; f1: number | null }[]; accepted_correctness: EvaluationRate; acceptance_coverage: EvaluationRate; review_rate: EvaluationRate; unsupported_false_acceptance: EvaluationRate };
+  segregation: { correct_route: EvaluationRate; unsafe_guidance: EvaluationRate; appropriate_review: EvaluationRate; unnecessary_review: EvaluationRate };
+  recommendations: { shown: number; judged: number; unjudged: number; acceptable: EvaluationRate; unsafe: EvaluationRate; eligible_cases_with_acceptable_idea: EvaluationRate; appropriate_withholding: EvaluationRate };
+  warnings: string[];
+};
+export async function getEvaluationRuns() {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in as an administrator.');
+  return parseResponse<{ runs: EvaluationRunSummary[] }>(await fetchWithTimeout(`${API_BASE_URL}/evaluations/`, { headers: { Authorization: `Bearer ${token}` } }));
+}
+export async function getEvaluationReport(id: number) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in as an administrator.');
+  return parseResponse<EvaluationReport>(await fetchWithTimeout(`${API_BASE_URL}/evaluations/${id}/`, { headers: { Authorization: `Bearer ${token}` } }));
+}
+
 export async function getAdminPredictionDetail(predictionId: number) {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in as an administrator.');
@@ -365,14 +443,20 @@ export async function getMaterials() {
 }
 
 export async function listPredictions() {
-  const payload = await getPredictionOverview();
+  const payload = await getPredictionOverview(true);
   return payload.predictions;
 }
 
-export async function getPredictionOverview() {
+export async function getSavedScan(id: number) {
+  const token = await getStoredToken();
+  if (!token) throw new Error('Please log in to view your saved scan.');
+  return parseResponse<{ prediction: Prediction; scene: ScanScene | null }>(await fetchWithTimeout(`${API_BASE_URL}/predictions/${id}/?history=1`, { headers: { Authorization: `Bearer ${token}` } }));
+}
+
+export async function getPredictionOverview(grouped = false) {
   const token = await getStoredToken();
   if (!token) return { predictions: [], total_count: 0 };
-  const response = await fetch(`${API_BASE_URL}/predictions/`, {
+  const response = await fetch(`${API_BASE_URL}/predictions/${grouped?'?grouped=1':''}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return parseResponse<{ predictions: PredictionSummary[]; total_count: number }>(response);

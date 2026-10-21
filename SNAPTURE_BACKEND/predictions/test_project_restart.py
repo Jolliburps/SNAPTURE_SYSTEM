@@ -10,10 +10,12 @@ from predictions.models import PredictionRecord, UserProject
 class ProjectRestartTests(TestCase):
     def setUp(self):
         call_command('seed_reference_guidance',verbosity=0)
+        from core.test_support import expert_project_fixtures
+        expert_project_fixtures()
         self.user = User.objects.create_user('project-restart-test')
         self.auth = {'HTTP_AUTHORIZATION':f'Bearer {issue_token(self.user)}'}
         self.record = PredictionRecord.objects.create(user=self.user,model_class='paper',decision='paper',title='Paper',confidence=.9,
-            quantity=1,condition='Clean and dry',previous_contents='No chemical contact known',answers={'paper_surface':'Plain uncoated material without personal details'},selected_recommendation='paper-gift-wrap:v1')
+            quantity=1,condition='Clean and dry',previous_contents='No chemical contact known',answers={'user_confirmed_material':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Dry'},selected_recommendation='paper-gift-wrap:v1')
         self.project = self.client.post('/api/projects/',json.dumps({'prediction_id':self.record.id}),content_type='application/json',**self.auth).json()['project']
         self.url = f"/api/projects/{self.project['id']}/restart/"
 

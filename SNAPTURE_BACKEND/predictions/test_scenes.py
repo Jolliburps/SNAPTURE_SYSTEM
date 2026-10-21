@@ -84,19 +84,21 @@ class SceneApiTests(TestCase):
         self.assertEqual(item['suggested_group'],'recyclable')
         self.assertTrue(item['prediction']['needs_verification'])
         self.assertEqual(item['prediction']['recommendation_choices'],[])
-        self.assertEqual(item['prediction']['image_quality'],{})
-        self.assertFalse(item['display_box'])
+        self.assertEqual(item['prediction']['image_quality'],{'alternatives':[]})
+        self.assertTrue(item['display_box'])
         self.assertEqual(item['display_group'],'review')
 
     def test_no_detections_are_not_replaced_with_fake_boxes(self):
         result = self.create(rows=[]).json()['scene']
         self.assertEqual(result['items'],[]); self.assertEqual(PredictionRecord.objects.count(),0)
 
-    def test_background_detections_do_not_become_waste_history_records(self):
+    def test_background_detections_stay_boxed_but_unconfirmed(self):
         result = self.create(rows=[{'name':'computer keyboard','material':'unknown_unsupported','score':.6,'box':[.1,.1,.8,.8]}]).json()['scene']
-        self.assertEqual(result['items'],[])
+        self.assertEqual(len(result['items']),1)
+        self.assertTrue(result['items'][0]['background'])
+        self.assertEqual(result['items'][0]['display_group'],'review')
         self.assertEqual(result['background_objects'],[{'name':'computer keyboard','count':1}])
-        self.assertEqual(PredictionRecord.objects.count(),0)
+        self.assertEqual(PredictionRecord.objects.count(),1)
 
     def test_reported_chemical_contact_stays_in_special_handling_even_at_low_score(self):
         result = self.create().json()['scene']
@@ -105,7 +107,7 @@ class SceneApiTests(TestCase):
         record.save()
         refreshed = self.client.get(f"/api/scenes/{result['id']}/",**self.auth).json()['scene']
         self.assertEqual(refreshed['items'][0]['display_group'],'special')
-        self.assertFalse(refreshed['items'][0]['display_box'])
+        self.assertTrue(refreshed['items'][0]['display_box'])
 
     def test_request_retry_is_idempotent_and_reads_are_owner_only(self):
         first = self.create().json()['scene']

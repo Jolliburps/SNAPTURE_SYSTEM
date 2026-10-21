@@ -12,14 +12,14 @@ import { useSuccessAlert } from './SuccessAlertDialog';
 import BarangayPickerModal from './BarangayPickerModal';
 import useBarangayEditor from './useBarangayEditor';
 
-type Props = { user: ApiUser | null; onUserChange: (user: ApiUser) => void; onBack: () => void; onLogout: () => void };
+type Props = { user: ApiUser | null; onUserChange: (user: ApiUser) => void; onBack: () => void; onLogout: () => void; backLabel?: string };
 
 const GREEN = '#176b45';
 const TEXT = '#1c3027';
 const MUTED = '#708178';
 const LINE = '#dce9df';
 
-export default function SettingsPage({ user, onUserChange, onBack, onLogout }: Props) {
+export default function SettingsPage({ user, onUserChange, onBack, onLogout, backLabel='Profile' }: Props) {
   const { showSuccess, successDialog } = useSuccessAlert();
   const barangay = useBarangayEditor(user, onUserChange, showSuccess);
   const [name, setName] = useState(user?.display_name && user.display_name !== user.email ? user.display_name : '');
@@ -61,7 +61,7 @@ export default function SettingsPage({ user, onUserChange, onBack, onLogout }: P
   const avatarUri = pendingPhoto?.uri || user?.profile_picture_url;
 
   return <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-    <Pressable style={styles.back} onPress={onBack}><ArrowLeft size={20} color={GREEN} /><Text style={styles.backText}>Profile</Text></Pressable>
+    <Pressable style={styles.back} onPress={onBack} accessibilityRole="button" accessibilityLabel={`Back to ${backLabel}`}><ArrowLeft size={20} color={GREEN} /><Text style={styles.backText}>{backLabel}</Text></Pressable>
     <Text style={styles.title}>Settings</Text><Text style={styles.subtitle}>Your account information and preferences.</Text>
     <View style={styles.card}>
       <Text style={styles.heading}>Profile picture</Text>
@@ -89,7 +89,7 @@ export default function SettingsPage({ user, onUserChange, onBack, onLogout }: P
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 115 },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 40, marginBottom: 10 },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 44, marginBottom: 10 },
   backText: { color: GREEN, fontSize: 13, fontWeight: '800' },
   title: { color: TEXT, fontSize: 27, fontWeight: '900' },
   subtitle: { color: MUTED, fontSize: 13, marginTop: 5, marginBottom: 18 },

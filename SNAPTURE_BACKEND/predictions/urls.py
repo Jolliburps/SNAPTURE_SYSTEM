@@ -1,8 +1,10 @@
 from django.urls import path
 
 from . import views
+from .review_views import contribute
 
 urlpatterns = [
+    path('<int:prediction_id>/review-contribution/', contribute),
     path("", views.list_predictions, name="prediction-list"),
     path("create/", views.create_prediction, name="prediction-create"),
     path("manual/", views.create_manual_prediction, name="prediction-manual"),
