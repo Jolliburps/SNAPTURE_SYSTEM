@@ -8,7 +8,7 @@ import { getScene, type ScanScene } from '../src/api';
 jest.mock('../src/api',()=>({getScene:jest.fn(),imageUrl:(uri:string)=>uri}));
 
 function sampleScene():ScanScene {
-  return {id:41,image_url:'/original.jpg',width:800,height:600,status:'complete',quality:{flags:[]},items:[
+  return {id:41,image_url:'/original.jpg',width:800,height:600,status:'complete',quality:{flags:[]},disposal_selection:{confirmed:true,item_ids:[10,20]},items:[
     {id:10,name:'A long cardboard item name that should remain fully readable on a narrow phone',score:.9,box:[.1,.1,.4,.4],display_group:'recyclable',route:{key:'recyclable',label:'Accepted by a collector',reason:'Exact material checked.'},prediction:{id:100,title:'Cardboard',image_url:'/crop10.jpg',assessment:{material:{status:'user_selected'},segregation:{instructions:['Keep this cardboard dry.']}},recommendation_choices:[{id:'paper-wrap',title:'Reuse as wrapping'}]}},
     {id:20,name:'Unidentified object',score:.1,box:[.5,.2,.8,.5],display_group:'review',low_confidence:true,background:true,route:{key:'review',label:'Needs review',reason:'Confirm the object.'},prediction:{id:200,title:'Unknown',assessment:{material:{status:'needs_confirmation'},segregation:{instructions:[]}},recommendation_choices:[]}},
   ]} as unknown as ScanScene;
@@ -62,6 +62,7 @@ test('numbered boxes expand the correct item and all existing actions retain the
   expect(action(tree,'Select item 1 card').props.accessibilityState.expanded).toBe(true);
   await press(tree,'Back');await press(tree,'Scan another photo');
   expect(onBack).toHaveBeenCalledTimes(1);expect(onRetry).toHaveBeenCalledTimes(1);
+  await press(tree,'Change selected items');
   expect(action(tree,'Mark a missed item')).toBeDefined();
   await Renderer.act(()=>tree.unmount());
 });
@@ -92,7 +93,7 @@ test('empty and processing results keep their existing feedback without empty ac
   const empty={...sampleScene(),items:[]};
   const {tree}=await render(empty);
   expect(tree.root.findAllByType(DetectionItemCard)).toHaveLength(0);
-  expect(JSON.stringify(tree.toJSON())).toContain('No clear waste items found');
+  expect(JSON.stringify(tree.toJSON())).toContain('No recognizable objects found');
   expect(JSON.stringify(tree.toJSON())).not.toContain('Detected items');
   await Renderer.act(()=>tree.unmount());
   const processing={...empty,status:'processing'} as ScanScene;

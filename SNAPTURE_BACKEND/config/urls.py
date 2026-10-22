@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/scenes/capabilities/', scene_views.capabilities),
     path('api/scenes/<int:scene_id>/', scene_views.scene_detail),
     path('api/scenes/<int:scene_id>/items/', scene_views.add_region),
+    path('api/scenes/<int:scene_id>/disposal-selection/', scene_views.disposal_selection),
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
     path('api/auth/', include('accounts.urls')),

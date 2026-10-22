@@ -19,7 +19,7 @@ function record(id:number, material:string):Prediction {
   }} as unknown as Prediction;
 }
 function scene(predictions:Prediction[]):ScanScene {
-  return {id:50,image_url:'/saved.jpg',width:100,height:100,status:'complete',quality:{flags:[]},items:predictions.map(prediction=>({id:prediction.id,score:.9,name:prediction.title,box:[.1,.1,.4,.4],prediction,route:{key:'review',label:'Needs review',reason:'Confirm item.'}}))} as unknown as ScanScene;
+  return {id:50,image_url:'/saved.jpg',width:100,height:100,status:'complete',quality:{flags:[]},disposal_selection:{confirmed:true,item_ids:predictions.map(prediction=>prediction.id)},items:predictions.map(prediction=>({id:prediction.id,score:.9,name:prediction.title,box:[.1,.1,.4,.4],prediction,route:{key:'review',label:'Needs review',reason:'Confirm item.'}}))} as unknown as ScanScene;
 }
 function button(tree:Renderer.ReactTestRenderer,label:string){return tree.root.findAllByProps({accessibilityLabel:label}).find(node=>typeof node.props.onPress==='function')!;}
 async function press(tree:Renderer.ReactTestRenderer,label:string){await Renderer.act(async()=>button(tree,label).props.onPress());}

@@ -21,6 +21,7 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone }: Pro
   const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState('');
   const [expandedSafety, setExpandedSafety] = useState(false);
+  const [details,setDetails]=useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alive = useRef(true);
   const transitionVersion = useRef(0);
@@ -71,6 +72,16 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone }: Pro
   const last = index === project.steps.length - 1;
   if (!project.steps.length) return <ScrollView contentContainerStyle={s.page}><Text style={s.title}>Guide unavailable</Text><Text style={s.body}>This older project has no usable steps. Choose a project with published instructions.</Text><Button title="Back to projects" onPress={onDone} /></ScrollView>;
   return <ScrollView ref={scroll} contentContainerStyle={s.page} showsVerticalScrollIndicator={false}>
+    <Pressable accessibilityRole="button" accessibilityLabel="Project information and source" accessibilityState={{expanded:details}} onPress={()=>setDetails(value=>!value)} style={s.secondary}><Text style={s.link}>Project information and source</Text></Pressable>
+    {details?<View style={s.card}>
+      <Text style={s.heading}>{project.title}</Text><Text style={s.body}>Input material: {project.material}</Text>
+      <Text style={s.body}>{project.summary || 'No separate finished-product description was saved.'}</Text>
+      <Text style={s.heading}>Required materials and tools</Text>{project.materials.map((line,i)=><Text key={i} style={s.body}>{line}</Text>)}
+      <Text style={s.heading}>Safety precautions</Text><Text style={s.body}>{project.safety_note}</Text>
+      <Text style={s.heading}>Source and verification status</Text>
+      <Text selectable style={s.body}>{project.reference?.source || 'No source snapshot was saved for this older project. Ask for a reviewed version before starting it again.'}</Text>
+      <Text style={s.small}>{project.reference?.review_level?`Review status: ${project.reference.review_level.replace(/_/g,' ')}. Not a safety certification or CESD endorsement.`:'Verification status unavailable for this older saved project.'}</Text>
+    </View>:null}
     {summary ? <>
       <Animated.View accessibilityLabel="Completed checkmark" style={[s.celebration, { transform: [{ scale }] }]}><Check color="#fff" size={46} /></Animated.View>
       <Text accessibilityRole="header" style={s.title}>Project completed!</Text><Text style={s.projectTitle}>{project.title}</Text>

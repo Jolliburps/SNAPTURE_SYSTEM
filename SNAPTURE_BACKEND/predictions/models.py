@@ -72,6 +72,7 @@ class UserProject(models.Model):
     materials = models.JSONField(default=list)
     steps = models.JSONField(default=list)
     safety_note = models.TextField(blank=True)
+    reference = models.JSONField(default=dict, blank=True, help_text='Source and review snapshot captured when this project is started.')
     completed_steps = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

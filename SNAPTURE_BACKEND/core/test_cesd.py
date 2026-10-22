@@ -24,7 +24,7 @@ class CESDInformationTests(TestCase):
         self.assertEqual(CollectionNotice.objects.count(), 0)
         self.assertFalse(Guidance.objects.exclude(kind='information', material='').exists())
         self.assertTrue(all(entry.review_level == 'source_checked' and entry.reviewed_by_id is None for entry in Guidance.objects.all()))
-        self.assertEqual(len(self.client.get('/api/materials/').json()['materials']), 6)
+        self.assertEqual(len(self.client.get('/api/materials/').json()['materials']), 7)
 
     def test_source_change_fails_before_database_writes(self):
         with patch('core.management.commands.import_cesd_information.SOURCE_HASHES', {'sample.png': 'wrong'}), \

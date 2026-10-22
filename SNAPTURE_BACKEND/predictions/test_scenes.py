@@ -96,7 +96,7 @@ class SceneApiTests(TestCase):
         result = self.create(rows=[{'name':'computer keyboard','material':'unknown_unsupported','score':.6,'box':[.1,.1,.8,.8]}]).json()['scene']
         self.assertEqual(len(result['items']),1)
         self.assertTrue(result['items'][0]['background'])
-        self.assertEqual(result['items'][0]['display_group'],'review')
+        self.assertEqual(result['items'][0]['display_group'],'special')
         self.assertEqual(result['background_objects'],[{'name':'computer keyboard','count':1}])
         self.assertEqual(PredictionRecord.objects.count(),1)
 
@@ -145,3 +145,131 @@ class SceneApiTests(TestCase):
         self.create()
         self.assertEqual(self.client.delete('/api/predictions/clear/',**self.auth).status_code,200)
         self.assertEqual(ScanScene.objects.count(),0)
+
+    def select(self, scene, ids, names=None):
+        return self.client.post(f"/api/scenes/{scene['id']}/disposal-selection/",
+                                json.dumps({'item_ids':ids, 'object_names':names or {}}),
+                                content_type='application/json', **self.auth)
+
+    def test_phone_and_towel_are_selectable_without_overwriting_predictions(self):
+        scene = self.create(rows=[
+            {'name':'mobile phone','material':'unknown_unsupported','score':.7,'box':[.1,.1,.4,.6]},
+            {'name':'towel','material':'fabric_scraps','score':.6,'box':[.08,.08,.8,.9]},
+        ]).json()['scene']
+        self.assertFalse(scene['disposal_selection']['confirmed'])
+        self.assertFalse(any(item['identification']['selected_for_disposal'] for item in scene['items']))
+        phone, towel = scene['items']
+        result = self.select(scene, [phone['id'],towel['id']]).json()['scene']
+        self.assertEqual([row['handling']['route'] for row in result['items']], ['special_handling','requires_information'])
+        self.assertTrue(result['items'][0]['identification']['selected_for_disposal'])
+        self.assertEqual(result['items'][0]['prediction']['raw_model_class'], 'mobile phone')
+        self.assertEqual(result['items'][0]['score'], .7)
+        self.assertIsNone(result['items'][0]['identification']['material_prediction']['confidence'])
+        self.assertIsNone(result['items'][0]['identification']['ai_waste_category'])
+        deselected = self.select(scene, [phone['id']]).json()['scene']['items'][1]
+        self.assertFalse(deselected['identification']['selected_for_disposal'])
+        self.assertEqual(deselected['handling']['route'], 'not_selected')
+
+    def test_unknown_plastic_subtype_and_low_confidence_never_become_approved_projects(self):
+        scene = self.create(rows=[{'name':'plastic bottle','material':'unknown_unsupported','score':.12,'box':[.1,.1,.4,.8]}]).json()['scene']
+        item = self.select(scene, [scene['items'][0]['id']]).json()['scene']['items'][0]
+        self.assertEqual(item['identification']['material_prediction']['title'], 'Plastic — subtype unconfirmed')
+        self.assertEqual(item['handling']['route'], 'requires_information')
+        self.assertFalse(item['handling']['upcycling_eligible'])
+        self.assertEqual(item['prediction']['recommendation_choices'], [])
+
+    def test_outside_material_database_keeps_no_verified_method_and_original_user_correction(self):
+        scene = self.create(rows=[{'name':'wallet','material':'unknown_unsupported','score':.8,'box':[.1,.1,.4,.8]}]).json()['scene']
+        item = scene['items'][0]
+        corrected = self.select(scene,[item['id']],{str(item['id']):'cellphone'}).json()['scene']['items'][0]
+        self.assertEqual(corrected['name'], 'wallet')
+        self.assertEqual(corrected['identification']['user_object_name'],'cellphone')
+        self.assertEqual(corrected['handling']['route'],'special_handling')
+        self.assertEqual(corrected['prediction']['confidence'],.8)
+        self.assertEqual(corrected['prediction']['decision'],'unknown_unsupported')
+        unknown = self.select(scene,[item['id']],{str(item['id']):''}).json()['scene']['items'][0]
+        self.assertEqual(unknown['handling']['route'],'no_verified_method')
+
+    def test_confirmed_supported_material_without_reviewed_project_says_so(self):
+        scene = self.create().json()['scene']; item = scene['items'][0]
+        response = self.client.patch(f"/api/predictions/{item['prediction']['id']}/",json.dumps({
+            'answers':{'material_confirmation':'paper'}, 'condition':'Clean and dry',
+        }),content_type='application/json',**self.auth)
+        self.assertEqual(response.status_code,200)
+        result = self.select(scene,[item['id']]).json()['scene']['items'][0]
+        self.assertEqual(result['handling']['route'],'no_verified_method')
+        self.assertFalse(result['handling']['upcycling_eligible'])
+
+    def test_selection_validation_owner_scope_and_failed_detection(self):
+        scene = self.create().json()['scene']; item = scene['items'][0]
+        for ids in ([], [True], [item['id'],item['id']], [99999]):
+            self.assertEqual(self.select(scene,ids).status_code,400)
+        self.assertEqual(self.select(scene,[item['id']],{str(item['id']):'x'*121}).status_code,400)
+        other = User.objects.create_user('other-disposal')
+        result = self.client.post(f"/api/scenes/{scene['id']}/disposal-selection/",json.dumps({'item_ids':[item['id']]}),
+                                 content_type='application/json',HTTP_AUTHORIZATION=f'Bearer {issue_token(other)}')
+        self.assertEqual(result.status_code,404)
+        self.assertEqual(self.client.post('/api/scenes/',{'request_id':'empty_image_test'},**self.auth).status_code,415)
+        for data in (b'',b'not an image'):
+            self.assertEqual(self.client.post('/api/scenes/',{'request_id':'invalid_image_test','image':SimpleUploadedFile('bad.jpg',data,content_type='image/jpeg')},**self.auth).status_code,400)
+        with patch('predictions.scene_detector.available',return_value=True), patch('predictions.scene_detector.detect',side_effect=RuntimeError('test failure')):
+            self.assertEqual(self.upload('failure_request_test').status_code,503)
+
+    def test_disposal_selection_and_handling_history_remain_attached_to_original_scene(self):
+        scene = self.create().json()['scene']; item = scene['items'][0]
+        expected = self.select(scene,[item['id']]).json()['scene']
+        self.create(rows=[{'name':'battery','material':'unknown_unsupported','score':.8,'box':[.1,.1,.4,.8]}], request_id='newer_scene_test')
+        with patch('predictions.views.assess',side_effect=AssertionError('History must not reassess')):
+            saved = self.client.get(f"/api/scenes/{scene['id']}/?history=1",**self.auth).json()['scene']
+        self.assertEqual(saved['items'][0]['handling'],expected['items'][0]['handling'])
+        self.assertEqual(saved['disposal_selection']['item_ids'],[item['id']])
+        self.assertNotIn('battery',str(saved['items'][0]['handling']))
+
+    def test_manual_region_name_is_a_user_report_and_special_route_survives_material_misreport(self):
+        from django.core.management import call_command
+        from core.test_support import expert_project_fixtures
+        call_command('seed_reference_guidance',verbosity=0); expert_project_fixtures()
+        scene = self.create().json()['scene']
+        added = self.client.post(f"/api/scenes/{scene['id']}/items/",json.dumps({'box':[.1,.1,.5,.8],'request_id':'manual_object_test'}),content_type='application/json',**self.auth).json()['scene']
+        item = added['items'][-1]
+        result = self.select(added,[item['id']],{str(item['id']):'phone'}).json()['scene']['items'][-1]
+        self.assertEqual(result['identification']['object_prediction']['source'],'user_marked_region')
+        self.assertIsNone(result['identification']['object_prediction']['confidence'])
+        changed = self.client.patch(f"/api/predictions/{item['prediction']['id']}/",json.dumps({
+            'quantity':1,'condition':'Clean and dry','previous_contents':'No chemical contact known',
+            'answers':{'material_confirmation':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Dry'},
+        }),content_type='application/json',**self.auth)
+        self.assertEqual(changed.status_code,200)
+        self.assertEqual(changed.json()['prediction']['recommendation_choices'],[])
+        saved = self.client.get(f"/api/scenes/{scene['id']}/?history=1",**self.auth).json()['scene']['items'][-1]
+        self.assertEqual(saved['handling']['route'],'special_handling')
+
+    def test_overlapping_phone_and_towel_stay_distinct_when_detected(self):
+        kept, _ = clean_detections([
+            {'name':'mobile phone','score':.7,'box':[.1,.1,.7,.7]},
+            {'name':'towel','score':.6,'box':[.09,.09,.72,.72]},
+        ])
+        self.assertEqual({row['name'] for row in kept},{'mobile phone','towel'})
+
+    def test_matching_reviewed_project_route_keeps_sources_in_project_snapshot(self):
+        # Synthetic approvals exist ONLY in this isolated test database.
+        from django.core.management import call_command
+        from core.test_support import expert_project_fixtures
+        call_command('seed_reference_guidance',verbosity=0); expert_project_fixtures()
+        scene = self.create().json()['scene']; item = scene['items'][0]
+        self.select(scene,[item['id']])
+        response = self.client.patch(f"/api/predictions/{item['prediction']['id']}/",json.dumps({
+            'quantity':1,'condition':'Clean and dry','previous_contents':'No chemical contact known',
+            'answers':{'material_confirmation':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Dry'},
+        }),content_type='application/json',**self.auth)
+        self.assertEqual(response.status_code,200)
+        saved = self.client.get(f"/api/scenes/{scene['id']}/?history=1",**self.auth).json()['scene']['items'][0]
+        self.assertEqual(saved['handling']['route'],'eligible')
+        self.assertTrue(saved['handling']['upcycling_eligible'])
+        recommendation = saved['handling']['recommendations'][0]
+        self.assertIn('source',recommendation['review'])
+        selected = self.client.post(f"/api/predictions/{item['prediction']['id']}/recommendation/",json.dumps({'recommendation_id':recommendation['id']}),content_type='application/json',**self.auth)
+        self.assertEqual(selected.status_code,200)
+        project = self.client.post('/api/projects/',json.dumps({'prediction_id':item['prediction']['id']}),content_type='application/json',**self.auth)
+        self.assertIn(project.status_code,(200,201))
+        self.assertEqual(project.json()['project']['reference']['source'],recommendation['review']['source'])

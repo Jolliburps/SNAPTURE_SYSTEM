@@ -9,14 +9,14 @@ jest.mock('../src/api', () => ({ createManualPrediction: jest.fn(), updatePredic
 
 beforeEach(() => jest.clearAllMocks());
 
-test('offers six manual materials without coconut shells', async () => {
+test('offers seven manual materials including restored coconut shells', async () => {
   let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(() => { tree = Renderer.create(<AssessmentScreen prediction={null} onChange={jest.fn()} onBack={jest.fn()} onSaved={jest.fn()} onRetry={jest.fn()} />); });
-  expect(Object.keys(MATERIAL_NAMES)).toHaveLength(6);
+  expect(Object.keys(MATERIAL_NAMES)).toHaveLength(7);
   expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
   expect(JSON.stringify(tree.toJSON())).not.toContain('Use camera instead');
   expect(JSON.stringify(tree.toJSON())).not.toContain('CESD references');
-  expect(MATERIAL_NAMES.coconut_shells).toBeUndefined();
+  expect(MATERIAL_NAMES.coconut_shells).toBe('Coconut shells');
   expect(JSON.stringify(tree.toJSON())).toContain('Manual selection does not count as an AI prediction');
 });
 

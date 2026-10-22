@@ -1,0 +1,234 @@
+{
+  "generated_at_utc": "2026-10-21T22:05:44Z",
+  "datasets": [
+    {
+      "dataset": "kaggle_drinking",
+      "source": "https://www.kaggle.com/datasets/arkadiyhacks/drinking-waste-classification",
+      "license": "CC0 on Kaggle; incorporates TrashNet material: retain original MIT notices and attribution",
+      "annotation": "Classification raw images and YOLO image/label pairs; inspect source class IDs",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "Aluminium cans",
+        "Glass bottles",
+        "PET bottles",
+        "HDPE milk bottles"
+      ],
+      "image_files": 9641,
+      "archive_bytes": 1605572649,
+      "archive_sha256": "2231be78c398a8606b29399ccc8797be0586d5c4894d610d4ff5e84494dd1449",
+      "exact_duplicate_extra_files": 4871,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "Images_of_Waste/rawimgs/AluCan": 1060,
+        "Images_of_Waste/rawimgs/Glass": 1224,
+        "Images_of_Waste/rawimgs/HDPEM": 1028,
+        "Images_of_Waste/rawimgs/PET": 1508,
+        "Images_of_Waste/YOLO_imgs": 4821
+      }
+    },
+    {
+      "dataset": "kaggle_organic",
+      "source": "https://www.kaggle.com/datasets/techsash/waste-classification-data",
+      "license": "CC-BY-SA-4.0 per publisher; preserve attribution and share-alike conditions",
+      "annotation": "image classification; original TRAIN/TEST split must be preserved",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "O (publisher organic label)",
+        "R (publisher recyclable label)"
+      ],
+      "image_files": 50154,
+      "archive_bytes": 447914276,
+      "archive_sha256": "e2916687984e1f88e69fb3c1402d555e0d56b6829fbf397a08616f66eb2fad3c",
+      "exact_duplicate_extra_files": 25403,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "DATASET/DATASET/TEST/O": 1401,
+        "DATASET/DATASET/TEST/R": 1112,
+        "DATASET/DATASET/TRAIN/O": 12565,
+        "DATASET/DATASET/TRAIN/R": 9999,
+        "DATASET/TEST/O": 1401,
+        "DATASET/TEST/R": 1112,
+        "DATASET/TRAIN/O": 12565,
+        "DATASET/TRAIN/R": 9999
+      }
+    },
+    {
+      "dataset": "realwaste",
+      "source": "https://archive.ics.uci.edu/dataset/908/realwaste",
+      "license": "CC-BY-4.0",
+      "annotation": "image classification; not object boxes",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "Cardboard",
+        "Food Organics",
+        "Glass",
+        "Metal",
+        "Miscellaneous Trash",
+        "Paper",
+        "Plastic",
+        "Textile Trash",
+        "Vegetation"
+      ],
+      "image_files": 4752,
+      "archive_bytes": 688545323,
+      "archive_sha256": "1ede08b32358ee62065bcc1c8cb47a2ece04e8dff5b1fb53342bb8750895b2f3",
+      "exact_duplicate_extra_files": 0,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "realwaste-main/RealWaste/Cardboard": 461,
+        "realwaste-main/RealWaste/Food Organics": 411,
+        "realwaste-main/RealWaste/Glass": 420,
+        "realwaste-main/RealWaste/Metal": 790,
+        "realwaste-main/RealWaste/Miscellaneous Trash": 495,
+        "realwaste-main/RealWaste/Paper": 500,
+        "realwaste-main/RealWaste/Plastic": 921,
+        "realwaste-main/RealWaste/Textile Trash": 318,
+        "realwaste-main/RealWaste/Vegetation": 436
+      }
+    },
+    {
+      "dataset": "realdirt",
+      "source": "https://zenodo.org/records/12517610",
+      "license": "CC-BY-4.0",
+      "annotation": "object detection",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "Plastic bottle",
+        "Plastic bag",
+        "Carton"
+      ],
+      "image_files": 500,
+      "archive_bytes": 247758950,
+      "archive_sha256": "15e146259cadf10155508f7bbd7d8a09cb8a3534dccc4bc4ab3c6b4b9a3565ac",
+      "exact_duplicate_extra_files": 0,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "RealDirt/train/images": 500
+      }
+    },
+    {
+      "dataset": "zerowaste",
+      "source": "https://github.com/dbash/zerowaste/",
+      "license": "RESEARCH_ONLY_PENDING_LICENSE_CONFLICT: author README CC-BY-NC-4.0; Zenodo metadata CC-BY-4.0",
+      "annotation": "segmentation / instance labels; fully annotated subset only",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "cardboard",
+        "soft plastic",
+        "rigid plastic",
+        "metal"
+      ],
+      "image_files": 9006,
+      "archive_bytes": 7518242799,
+      "archive_sha256": "9ce00fe12e0e4163d94f83e167e7d358211702d58fd6b82b9b9021615a80f117",
+      "exact_duplicate_extra_files": 85,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "splits_final_deblurred/test/data": 929,
+        "splits_final_deblurred/test/sem_seg": 929,
+        "splits_final_deblurred/train/data": 3002,
+        "splits_final_deblurred/train/sem_seg": 3002,
+        "splits_final_deblurred/val/data": 572,
+        "splits_final_deblurred/val/sem_seg": 572
+      }
+    },
+    {
+      "dataset": "reclaim_pet",
+      "source": "https://zenodo.org/records/11504415",
+      "license": "CC-BY-4.0",
+      "annotation": "Publisher material label; inspect actual per-object annotation availability",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "PET recyclable waste"
+      ],
+      "image_files": 1240,
+      "archive_bytes": 1813563528,
+      "archive_sha256": "f9809656436fe7c1f8aa4a70ae407c572a9d7df49376b3c4a420b6f6003c1e4d",
+      "exact_duplicate_extra_files": 0,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "RGB_PET_waste": 1240
+      }
+    },
+    {
+      "dataset": "reclaim_hdpe",
+      "source": "https://zenodo.org/records/11504453",
+      "license": "CC-BY-4.0",
+      "annotation": "Publisher material label; inspect actual per-object annotation availability",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "HDPE recyclable waste"
+      ],
+      "image_files": 1362,
+      "archive_bytes": 830337401,
+      "archive_sha256": "5c4e569bf04ac511de8612d069f2db7d65caa4f706a384a8d2347ab7c4217826",
+      "exact_duplicate_extra_files": 0,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "RGB_HDPE_waste": 1362
+      }
+    },
+    {
+      "dataset": "mmorwad_rgb",
+      "source": "https://zenodo.org/records/22226868",
+      "license": "CC-BY-4.0",
+      "annotation": "COCO segmentation/boxes and material/condition attributes; physical-object split metadata",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "See publisher dataset.csv and COCO categories"
+      ],
+      "image_files": 3300,
+      "archive_bytes": 1593899591,
+      "archive_sha256": "529cb1bec7374e49b6010e44b189c635952fb5451d97aead6ec29910bc1ae972",
+      "exact_duplicate_extra_files": 0,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "color_img": 3300
+      }
+    },
+    {
+      "dataset": "trashnet",
+      "source": "https://github.com/garythung/trashnet",
+      "license": "MIT per creator-owned Hugging Face dataset card; preserve citation",
+      "annotation": "image classification",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "cardboard",
+        "glass",
+        "metal",
+        "paper",
+        "plastic",
+        "trash"
+      ],
+      "image_files": 2527,
+      "archive_bytes": 42834870,
+      "archive_sha256": "c060e8abfe5d6de0578ca15be1ed8ad0794a865d333c3473d53d1d9ad6e38b8c",
+      "exact_duplicate_extra_files": 3,
+      "unreadable_images": [
+        {
+          "path": "__MACOSX\\dataset-resized\\cardboard\\._cardboard9.jpg",
+          "error": "cannot identify image file 'C:\\\\Users\\\\My PC\\\\Documents\\\\SNAPTURE_SYSTEM\\\\SNAPTURE_ML\\\\data\\\\public_sources\\\\trashnet\\\\extracted\\\\__MACOSX\\\\dataset-resized\\\\car"
+        }
+      ],
+      "image_folder_counts": {
+        "dataset-resized/cardboard": 403,
+        "dataset-resized/glass": 501,
+        "dataset-resized/metal": 410,
+        "dataset-resized/paper": 594,
+        "dataset-resized/plastic": 482,
+        "dataset-resized/trash": 137
+      }
+    }
+  ],
+  "verified_image_files_total": 82482,
+  "note": "Files are not unique physical objects or approved training samples. No training or inference change performed."
+}

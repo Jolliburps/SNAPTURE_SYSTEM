@@ -38,6 +38,7 @@ def _serialize(project):
         "materials": project.materials,
         "steps": steps,
         "safety_note": project.safety_note,
+        "reference": project.reference,
         "completed_steps": completed,
         "completed_count": count,
         "total_steps": total,
@@ -85,6 +86,7 @@ def projects(request):
                 "materials": choice.get("materials") if isinstance(choice.get("materials"), list) else [],
                 "steps": steps,
                 "safety_note": str(choice.get("safety_note", "")),
+                "reference": choice.get('review', {}),
             },
         )
     return JsonResponse({"project": _serialize(project)}, status=201 if created else 200)

@@ -41,10 +41,10 @@ class ScopeInferenceTests(unittest.TestCase):
         result = self.predictor("glass", 0.99).predict_image(Image.new("RGB", (4, 4)))
         self.assertEqual(result["decision"], "unknown_unsupported")
 
-    def test_removed_coconut_output_is_rejected_not_reassigned(self):
+    def test_restored_coconut_output_keeps_its_own_label(self):
         result = self.predictor("coconut_shells", 0.99).predict_image(Image.new("RGB", (4, 4)))
         self.assertEqual(result["class"], "coconut_shells")
-        self.assertEqual(result["decision"], "unknown_unsupported")
+        self.assertEqual(result["decision"], "coconut_shells")
 
     def test_corrupt_photo_is_rejected(self):
         with self.assertRaises(ValueError):

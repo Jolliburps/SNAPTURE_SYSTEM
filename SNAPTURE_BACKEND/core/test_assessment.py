@@ -78,12 +78,13 @@ class AssessmentTests(TestCase):
         self.assertEqual(value["input_method"], "manual")
         self.assertEqual(value["assessment"]["material"]["status"], "user_selected")
 
-    def test_coconut_is_excluded_but_historical_record_is_preserved(self):
+    def test_coconut_is_supported_without_inventing_a_verified_project(self):
         response = self.client.post("/api/predictions/manual/", json.dumps({"label": "coconut_shells"}), content_type="application/json", **self.auth)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['prediction']['recommendation_choices'], [])
         self.record.decision = "coconut_shells"
         self.record.save()
-        self.assertEqual(assess(self.record)["material"]["label"], "unknown_unsupported")
+        self.assertEqual(assess(self.record)["material"]["label"], "coconut_shells")
         self.assertTrue(PredictionRecord.objects.filter(pk=self.record.pk).exists())
 
     def test_unknown_plastic_mark_never_unlocks_a_project(self):

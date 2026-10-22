@@ -36,6 +36,7 @@ SCOPE_CLASSES = frozenset(
         "cardboard",
         "paper",
         "fabric_scraps",
+        "coconut_shells",
         "dry_untreated_wood_scraps",
     }
 )

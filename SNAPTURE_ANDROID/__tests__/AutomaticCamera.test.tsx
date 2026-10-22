@@ -30,7 +30,7 @@ beforeEach(() => {
   (api.listSavedPredictions as jest.Mock).mockResolvedValue([]);
 });
 
-test.each([[1,'Item result'],[2,'Sort this scan']])('camera automatically presents %i detections without a mode selector', async (count, title) => {
+test.each([1,2])('camera automatically presents %i detections for disposal selection without a mode selector', async count => {
   const scene = { id: 5, width: 200, height: 200, image_url: '/test-scene.jpg', status: 'complete', quality: { flags: [] }, items: Array.from({ length: Number(count) }, (_, index) => ({ id: index+1, name: 'paper scrap', score: .7, box: [.1+index*.3,.1,.3+index*.3,.4], suggested_group: 'recyclable', route: { key: 'review', label: 'Needs review', reason: 'Confirm the material.' }, prediction: { id: index+1, image_url: null, title: 'Paper', recommendation_choices: [], assessment: { material: { status: 'needs_confirmation' }, missing_information: [], segregation: { status: 'needs_information', instructions: [] } } } })) } as unknown as ScanScene;
   (createScene as jest.Mock).mockResolvedValue({ scene }); (getScene as jest.Mock).mockResolvedValue({ scene });
   let tree!: Renderer.ReactTestRenderer;
@@ -47,11 +47,11 @@ test.each([[1,'Item result'],[2,'Sort this scan']])('camera automatically presen
   const analyze = tree.root.findAll(node=>typeof node.props.onPress==='function' && node.findAllByType(Text).some(child=>child.props.children==='Analyze image'))[0];
   expect(analyze).toBeDefined();
   await Renderer.act(async () => { await analyze.props.onPress(); });
-  json = JSON.stringify(tree.toJSON()); expect(json).toContain(title);
-  expect(tree.root.findAllByProps({accessibilityLabel:'Select item 1 card'})[0].props.accessibilityState.expanded).toBe(false);
-  await press('Select item 1 card');
-  expect(tree.root.findAllByProps({accessibilityLabel:'Select item 1 card'})[0].props.accessibilityState.expanded).toBe(true);
-  expect(tree.root.findAllByProps({accessibilityLabel:'Review item 1'}).length).toBeGreaterThan(0);
+  json = JSON.stringify(tree.toJSON()); expect(json).toContain('Which items do you want to discard?');
+  expect(tree.root.findAllByProps({accessibilityLabel:'Select box 1'})[0].props.accessibilityState.checked).toBe(false);
+  await press('Select box 1');
+  expect(tree.root.findAllByProps({accessibilityLabel:'Select box 1'})[0].props.accessibilityState.checked).toBe(true);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Review item 1'})).toHaveLength(0);
   expect(createScene).toHaveBeenCalled(); expect(createPrediction).not.toHaveBeenCalled();
   expect((createScene as jest.Mock).mock.calls[0][2]).toBeUndefined();
   await Renderer.act(async () => { tree.unmount(); });

@@ -75,6 +75,7 @@ test('a scene-linked record shows its original photo and all saved item accordio
   const prediction=record(8);
   const scene={id:4,image_url:'/original-4.jpg',created_at:prediction.created_at,width:100,height:100,status:'complete',quality:{flags:[]},items:[{id:9,name:'saved paper scrap',score:.81,box:[.1,.1,.4,.4],prediction,display_group:'review',route:{label:'Saved route',reason:'Saved reason.'}}]} as unknown as ScanScene;
   (getSavedScan as jest.Mock).mockResolvedValue({prediction,scene});
+  scene.disposal_selection={confirmed:true,item_ids:[9]};
   const onBack=jest.fn();let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(async()=>{tree=Renderer.create(<SavedScanReview id={8} onBack={onBack} onRetry={jest.fn()}/>);});
   expect(tree.root.findByType(SceneResults).props.historical).toBe(true);

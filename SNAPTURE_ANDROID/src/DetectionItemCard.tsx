@@ -18,13 +18,15 @@ export default function DetectionItemCard({item,number,category,color,explanatio
   const assessment=item.prediction.assessment;
   const low=item.low_confidence || item.display_box===undefined && item.score<.28;
   const instructions=assessment?.segregation.instructions || [];
-  const ideas=item.prediction.recommendation_choices || [];
+  const handling=item.handling;
+  const special=handling?.route==='special_handling';
+  const ideas=handling?handling.recommendations:item.prediction.recommendation_choices || [];
   return <View onLayout={event=>onLayout(event.nativeEvent.layout.y)} style={[s.card,selected && s.selected]}>
     <Pressable accessibilityRole="button" accessibilityLabel={`Select item ${number} card`} accessibilityValue={{text:`${item.name}. ${category}`}} accessibilityState={{expanded,selected}} accessibilityHint={expanded?'Collapse item details':'Expand classification and sorting details'} onPress={onToggle} style={s.header}>
       <View style={[s.number,{backgroundColor:color}]}><Text style={s.numberText}>{number}</Text></View>
       <View style={s.copy}>
-        <Text style={s.name}>{item.name}</Text>
-        <Text style={[s.category,{color}]}>{category}</Text>
+        <Text style={s.name}>{item.identification?.user_object_name || item.name}</Text>
+        <Text style={[s.category,{color}]}>{handling?.title || category}</Text>
         {low?<Text style={s.status}>Unconfirmed suggestion</Text>:null}
         {item.background?<Text style={s.status}>Possible background object</Text>:null}
       </View>
@@ -32,6 +34,12 @@ export default function DetectionItemCard({item,number,category,color,explanatio
     </Pressable>
     {expanded?<View style={s.details}>
       {item.prediction.image_url?<Image source={{uri:imageUrl(item.prediction.image_url)}} resizeMode="contain" style={s.crop} accessibilityLabel={`Detected item ${number} crop for review`}/>:null}
+      {handling?<View><Text style={s.section}>{handling.title}</Text><Text style={s.body}>{handling.explanation}</Text>
+        {handling.instructions.map((line,index)=><Text key={index} style={s.body}>{line}</Text>)}
+        <Text style={s.reference}>Project status: {handling.verification_status.replace(/_/g,' ')}. Disposal selection is your intention, not AI ground truth.</Text>
+        {handling.sources.map((source,index)=><Text selectable key={index} style={s.reference}>{source.title || source.source || 'Project review'}{source.url?`\n${source.url}`:''}{source.review_level?` · ${source.review_level}`:''}</Text>)}
+      </View>:null}
+      {!special?<>
       <Text style={s.body}>{item.review_reason || item.route.reason}</Text>
       <Text style={s.body}>{assessment?.material.status==='user_selected'?`${item.prediction.title} — selected by you, not AI verification.`:'Material not confirmed. Review the item before following sorting advice.'}</Text>
       <Text style={s.section}>Why this group?</Text><Text style={s.body}>{explanation}</Text>
@@ -39,7 +47,6 @@ export default function DetectionItemCard({item,number,category,color,explanatio
       <Text style={s.section}>Preparation</Text>
       {instructions.length?instructions.map((line,index)=><Text key={index} style={s.body}>{line}</Text>):<Text style={s.body}>{fallbackPreparation}</Text>}
       {onReview?<CardAction title={`Review item ${number}`} onPress={onReview}/>:null}
-      {onShowPhoto?<CardAction title={`Show item ${number} in photo`} onPress={onShowPhoto}/>:null}
       <Text style={s.section}>Reuse / recycling options</Text>
       {ideas.length?ideas.map(idea=><View key={idea.id}><Text style={s.body}>{idea.title}</Text>{onOpenGuide?<CardAction title={openingGuide===idea.id?'Opening guide...':`Open guide: ${idea.title}`} disabled={guidesBusy} onPress={()=>onOpenGuide(idea.id)}/>:null}</View>):<>
         <Text style={s.reference}>General reference, not item-specific approval:</Text>
@@ -47,6 +54,8 @@ export default function DetectionItemCard({item,number,category,color,explanatio
         {onReview?<Text style={s.reference}>Use Review item to check whether a reviewed project is available.</Text>:null}
       </>}
       <WasteRecommendations key={item.prediction.id} prediction={item.prediction}/>
+      </>:null}
+      {onShowPhoto?<CardAction title={`Show item ${number} in photo`} onPress={onShowPhoto}/>:null}
     </View>:null}
   </View>;
 }

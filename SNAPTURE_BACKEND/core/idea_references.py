@@ -2,6 +2,7 @@
 from .content import published_guidance
 
 PENDING = {
+    'coconut_shells': ('Coconut shell reuse ideas', 'No qualified, reviewed shell-cleaning, cutting or drilling project is currently published. Detailed instructions remain unavailable pending review.'),
     'pete_bottles': ('Beverage bottle seed container', 'The cutting and drainage procedure still needs qualified safety review. Do not cut or puncture a bottle from this concept.'),
     'hdpe_containers': ('Beverage jug for watering ornamental plants', 'The container history and material-specific instructions still need review. Never repurpose chemical or unknown-content containers.'),
     'cardboard': ('Reuse an intact box for a non-food gift', 'No source-checked or expert-reviewed instructions are currently published for this material.'),

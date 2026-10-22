@@ -7,6 +7,7 @@ import AssessmentAdvice from './AssessmentAdvice';
 export const MATERIAL_NAMES: Record<string,string> = {
   pete_bottles:'PETE bottles', hdpe_containers:'HDPE containers', cardboard:'Cardboard', paper:'Paper',
   fabric_scraps:'Fabric scraps', dry_untreated_wood_scraps:'Dry untreated wood scraps',
+  coconut_shells:'Coconut shells',
 };
 const CONDITION_PRESETS = [
   {label:'Clean, dry and no residue',values:{condition:'Clean and dry',contamination:'None known',moisture:'Dry'}},

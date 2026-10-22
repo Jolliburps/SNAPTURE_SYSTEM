@@ -22,12 +22,12 @@ test('shows model boxes with pending routes and opens the correct item review', 
   const prediction = { id: 9, title: 'Paper', assessment: { material: { status: 'needs_confirmation' }, missing_information: ['condition'], segregation: { instructions: [] } }, recommendation_choices: [] };
   const scene = { id: 3, image_url: '/scene.jpg', width: 200, height: 100, frame: [0, 0, 1, 1], status: 'complete', quality: { flags: [] }, limitations: 'May miss objects.', items: [{ id: 1, box: [.1, .2, .4, .6], name: 'paper scrap', score: .22, prediction, route: { key: 'review', label: 'Needs review', reason: 'Confirm material.' }, suggested_group: 'recyclable' }] } as unknown as ScanScene;
   (getScene as jest.Mock).mockResolvedValue({ scene });
+  scene.disposal_selection={confirmed:true,item_ids:[1]};
   const onReview = jest.fn();
   let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(async () => { tree = Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onReview={onReview} onRetry={jest.fn()} />); });
-  expect(JSON.stringify(tree.toJSON())).toContain('Suggested groups need material and local-acceptance checks');
+  expect(JSON.stringify(tree.toJSON())).toContain('a box is not a confirmed waste category');
   expect(tree.root.findAllByProps({ accessibilityLabel: 'Select box 1' }).length).toBeGreaterThan(0);
-  await Renderer.act(() => { tree.root.findAllByProps({ accessibilityLabel: 'Select item 1 card' }).find(node => typeof node.props.onPress === 'function')?.props.onPress(); });
   const button = tree.root.findAllByProps({ accessibilityLabel: 'Review item 1' }).find(node => typeof node.props.onPress === 'function');
   await Renderer.act(() => { button?.props.onPress(); });
   expect(onReview).toHaveBeenCalledWith(prediction);
@@ -41,6 +41,7 @@ test('high-confidence numbered boxes and cards highlight each other without navi
   const prediction = { id: 8, title: 'Paper', assessment: { material: { status: 'needs_confirmation' }, missing_information: ['condition'], segregation: { instructions: [] } }, recommendation_choices: [] };
   const scene = { id: 2, image_url: '/scene.jpg', width: 200, height: 100, status: 'complete', quality: { flags: [] }, items: [1,2].map(id=>({ id,box: [id*.1,.1,id*.1+.1,.4],name: 'paper scrap',score:.8,prediction,route:{key:'review',label:'Needs review',reason:'Confirm material.'},suggested_group:'recyclable',display_box:true,display_group:'recyclable' })) } as unknown as ScanScene;
   (getScene as jest.Mock).mockResolvedValue({ scene });
+  scene.disposal_selection={confirmed:true,item_ids:[1,2]};
   const onReview = jest.fn(); let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(async () => { tree = Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onReview={onReview} onRetry={jest.fn()} />); });
   const press = async (label: string) => { await Renderer.act(async () => { tree.root.findAllByProps({ accessibilityLabel:label }).find(node=>typeof node.props.onPress==='function')?.props.onPress(); }); };

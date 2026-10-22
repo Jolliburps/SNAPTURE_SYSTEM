@@ -323,6 +323,8 @@ def prediction_detail(request, prediction_id):
         record.available_materials = available_materials
         record.answers['assessment_checked_at'] = timezone.now().isoformat()
         refresh(record)
+        from .disposal_workflow import snapshot
+        snapshot(record)
         record.save(update_fields=[
             "model_class",
             "decision",
@@ -335,6 +337,7 @@ def prediction_detail(request, prediction_id):
             "recommendation_choices",
             "selected_recommendation",
             "assessment",
+            "image_quality",
         ])
         logger.info(
             "scan_updated id=%s user_id=%s decision=%s quantity=%s condition=%s recommendations=%s",

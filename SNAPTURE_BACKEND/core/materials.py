@@ -9,6 +9,7 @@ SCOPE_LABELS = (
     "paper",
     "fabric_scraps",
     "dry_untreated_wood_scraps",
+    "coconut_shells",
 )
 
 MATERIALS = {

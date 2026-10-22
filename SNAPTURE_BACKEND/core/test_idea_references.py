@@ -12,10 +12,10 @@ class IdeaReferenceTests(TestCase):
     def setUp(self):
         call_command('seed_reference_guidance', verbosity=0)
 
-    def test_six_materials_have_honest_reference_or_pending_cards(self):
+    def test_seven_materials_have_honest_reference_or_pending_cards(self):
         rows = {row['label']: row for row in public_materials()}
-        self.assertEqual(len(rows), 6)
-        self.assertNotIn('coconut_shells', rows)
+        self.assertEqual(len(rows), 7)
+        self.assertIn('coconut_shells', rows)
         for label, row in rows.items():
             self.assertEqual(row['upcycling'], [])
             self.assertEqual(len(row['idea_references']), 1)

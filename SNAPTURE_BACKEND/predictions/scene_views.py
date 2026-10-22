@@ -37,6 +37,7 @@ def routing(prediction):
 
 def serialize_scene(scene, saved=False):
     from .views import _serialize
+    from .disposal_workflow import describe, handling
     items = []
     stored = {item.id:item for item in scene.items.select_related('prediction').order_by('id') if item.prediction}
     # Deduplication happens during detection. Do not re-suppress saved/confirmed objects.
@@ -57,20 +58,23 @@ def serialize_scene(scene, saved=False):
         draw = True
         display_group = 'special' if identifier['category']=='C' else 'review' if identifier['category']=='UNIDENTIFIED' else {'A':'biodegradable','B1':'recyclable','B2':'non_biodegradable'}.get(identifier['category'],'review')
         reason = ('Possible background object. Not included in waste sorting unless you identify it as a discarded item.' if background else 'Low detector score. Review this item before sorting.' if low else 'The region is too broad for a clear object box. Review it separately.' if row.get('ambiguous_large') else route['reason'])
+        workflow = (item.prediction.image_quality or {}).get('handling_snapshot') if saved else None
+        workflow = workflow or handling(item, prediction)
         items.append({'id':item.id,'box':row['box'],'name':item.name,'score':item.score,'prediction':prediction,'route':route,'suggested_group':group,
                       'display_box':draw,'display_group':display_group,'low_confidence':low,'background':background,'review_reason':reason,
-                      'waste_identifier':identifier})
+                      'waste_identifier':identifier, 'identification':describe(item, prediction), 'handling':workflow})
     flags = [flag for flag in scene.quality.get('flags',[]) if flag['code'] not in {'edge_item','crowded'}]
     frame = scene.frame or [0,0,1,1]
     drawn = [item for item in items if item['display_box']]
     if any(min(abs(item['box'][0]-frame[0]),abs(item['box'][1]-frame[1]),abs(frame[2]-item['box'][2]),abs(frame[3]-item['box'][3])) < .012 for item in drawn):
-        flags.append({'code':'edge_item','message':'A detected item touches the guide edge and may be cut off. Leave space around it if it is incomplete.'})
+        flags.append({'code':'edge_item','message':'A detected item touches the edge of the analyzed photo and may be cut off. Leave space around it if it is incomplete.'})
     if len(drawn)>8:
         flags.append({'code':'crowded','message':'Several item regions overlap or crowd this photo. Spread the items out for clearer detection.'})
     return {'id':scene.id,'image_url':scene.image.url if scene.image else '', 'created_at':scene.created_at.isoformat(),'width':scene.width,'height':scene.height,'frame':scene.frame,
             'status':scene.status,'error':scene.error,'quality':{**scene.quality,'flags':flags},'items':items,'truncated':scene.truncated,
             'display_threshold':scene_detector.DISPLAY_THRESHOLD,'suppressed_count':len(stored)-len(items),
             'background_objects':scene.quality.get('background_objects',[]),
+            'disposal_selection':scene.quality.get('disposal_selection', {'confirmed':False,'item_ids':[]}),
             'detector':'OWL-ViT base patch32, experimental zero-shot',
             'limitations':'Boxes are model suggestions. Hidden, small or unfamiliar objects may be missed or mislabeled. Review every item; not all objects are guaranteed to be detected.'}
 
@@ -78,7 +82,9 @@ def serialize_scene(scene, saved=False):
 @require_api_user
 @require_http_methods(['GET'])
 def capabilities(request):
-    return JsonResponse({'available':scene_detector.available(),'experimental':True,'maximum_items':30})
+    return JsonResponse({'available':scene_detector.available(),'experimental':True,'maximum_items':30,
+                         'object_queries':[name for name, _ in scene_detector.PROMPTS],
+                         'material_confidence_available':False,'disposal_selection_required':True})
 
 
 @csrf_exempt
@@ -222,3 +228,48 @@ def add_region(request, scene_id):
             record.image.delete(save=False)
             raise
     return JsonResponse({'scene':serialize_scene(scene)},status=201)
+
+
+@csrf_exempt
+@require_api_user
+@require_http_methods(['POST'])
+def disposal_selection(request, scene_id):
+    """Explicit full selection, owner scoped; never changes a model prediction."""
+    from .disposal_workflow import snapshot
+    from django.utils import timezone
+    try:
+        payload = json.loads(request.body)
+        if not isinstance(payload, dict): raise ValueError()
+        ids, corrections = payload.get('item_ids'), payload.get('object_names', {})
+        if (not isinstance(ids, list) or not ids or len(ids) > 60 or
+            any(type(value) is not int or value < 1 for value in ids) or len(set(ids)) != len(ids)):
+            raise ValueError()
+        if not isinstance(corrections, dict) or any(
+            not str(key).isdigit() or str(int(key)) != str(key) or not isinstance(value, str) or len(value.strip()) > 120 or
+            any(ord(char) < 32 for char in value) for key, value in corrections.items()
+        ): raise ValueError()
+    except (ValueError, TypeError, UnicodeDecodeError):
+        return JsonResponse({'detail':'Select at least one item and use object names of at most 120 characters.'}, status=400)
+    with transaction.atomic():
+        scene = ScanScene.objects.select_for_update().filter(pk=scene_id, user=request.api_user).first()
+        if not scene: return JsonResponse({'detail':'Scan not found.'}, status=404)
+        if scene.status != 'complete':
+            return JsonResponse({'detail':'Wait for detection to finish.'}, status=409)
+        items = list(scene.items.select_related('prediction'))
+        allowed = {item.id for item in items if item.prediction and item.prediction.user_id == request.api_user.id}
+        if not set(ids).issubset(allowed) or not {int(key) for key in corrections}.issubset(allowed):
+            return JsonResponse({'detail':'Choose items belonging to this scan.'}, status=400)
+        for item in items:
+            if not item.prediction: continue
+            record = item.prediction
+            metadata = {**record.image_quality, 'selected_for_disposal':item.id in ids}
+            if str(item.id) in corrections:
+                metadata['user_object_name'] = corrections[str(item.id)].strip()
+            record.image_quality = metadata
+            snapshot(record)
+            record.save(update_fields=['image_quality'])
+        scene.quality = {**scene.quality, 'disposal_selection':{
+            'confirmed':True, 'item_ids':sorted(ids), 'confirmed_at':timezone.now().isoformat(),
+        }}
+        scene.save(update_fields=['quality'])
+    return JsonResponse({'scene':serialize_scene(scene, saved=True)})

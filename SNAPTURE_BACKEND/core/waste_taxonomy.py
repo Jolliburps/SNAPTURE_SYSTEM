@@ -24,12 +24,13 @@ FINE_CLASSES = {
 
 
 def identity(record, assessment, box=None):
+    from predictions.disposal_workflow import special_kind
     answers = record.answers if isinstance(record.answers, dict) else {}
     category, _ = FINE_CLASSES.get(record.model_class, ('UNIDENTIFIED', None))
     label = assessment['material']['label']
     confirmed = assessment['material']['status'] == 'user_selected'
     reported_category = answers.get('reported_category')
-    hazardous = (record.previous_contents == 'Chemical or cleaning product' or answers.get('contamination') == 'Chemical contamination'
+    hazardous = (bool(special_kind(record)) or record.previous_contents == 'Chemical or cleaning product' or answers.get('contamination') == 'Chemical contamination'
                  or FINE_CLASSES.get(record.model_class, ('', None))[0] == 'C' or answers.get('other_material') == 'Battery / electronic item')
     if hazardous:
         category = 'C'

@@ -17,8 +17,13 @@ PROMPTS = [
     ('electronic waste', 'unknown_unsupported'), ('unfamiliar discarded object', 'unknown_unsupported'),
     ('computer keyboard', None), ('computer monitor', None), ('wristwatch', None),
     ('computer mouse', None), ('laptop computer', None), ('mobile phone', None),
+    ('towel', 'fabric_scraps'), ('wallet', 'unknown_unsupported'),
+    ('comb', 'unknown_unsupported'), ('coconut shell', 'coconut_shells'),
 ]
 BACKGROUND_NAMES = {name for name, material in PROMPTS if material is None}
+# Recognizing a belonging does not establish whether it is waste. Keep these
+# distinct from material queries when suppressing overlapping proposals.
+OBJECT_NAMES = BACKGROUND_NAMES | {'towel', 'wallet', 'comb', 'coconut shell'}
 DISPLAY_THRESHOLD = .28  # Proposal-score cutoff, not a calibrated accuracy percentage.
 MIN_PROPOSAL_SCORE = .1
 _model = _processor = None
@@ -57,7 +62,7 @@ def clean_detections(rows, limit=30):
     background = [row for row in valid if row['name'] in BACKGROUND_NAMES]
     for row in sorted(valid,key=lambda value:(bool(value.get('user_confirmed')),value['score']),reverse=True):
         box = row['box']
-        if row['name'] not in BACKGROUND_NAMES and not row.get('user_confirmed') and any(
+        if row['name'] not in OBJECT_NAMES and not row.get('user_confirmed') and any(
             (iou(box,bg['box'])>.4 or (overlap_smaller(box,bg['box'])>.9 and min(area(box),area(bg['box']))/max(area(box),area(bg['box']))>.5)) and bg['score'] >= row['score']*.85 for bg in background):
             continue
         duplicate = next((other for other in chosen if family(row['name'])==family(other['name']) and
@@ -69,7 +74,9 @@ def clean_detections(rows, limit=30):
                 weight = duplicate['score']+row['score']
                 duplicate['box'] = [(a*duplicate['score']+b*row['score'])/weight for a,b in zip(duplicate['box'],box)]
             continue
-        if any(iou(box,other['box'])>.65 for other in chosen):
+        if any(iou(box,other['box'])>.65 and not (
+            row['name'] != other['name'] and (row['name'] in OBJECT_NAMES or other['name'] in OBJECT_NAMES)
+        ) for other in chosen):
             continue
         row['background'] = row['name'] in BACKGROUND_NAMES
         row['ambiguous_large'] = area(box)>.5

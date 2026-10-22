@@ -64,6 +64,7 @@ export type UserProject = {
   materials: string[];
   steps: string[];
   safety_note: string;
+  reference?: {source?:string;review_level?:string;reviewed_at?:string;key?:string;version?:number;digest?:string};
   completed_steps: number[];
   completed_count: number;
   total_steps: number;
@@ -120,8 +121,18 @@ export type WasteIdentity = {
 };
 export type ImageQuality = { flags: { code: string; message: string }[]; limitations: string };
 export type CaptureFrame = { aspect: number; x: number; y: number; width: number; height: number };
-export type SceneItem = { id: number; box: number[]; name: string; score: number; prediction: Prediction; route: { key: string; label: string; reason: string }; suggested_group?: string; display_box?: boolean; display_group?: string; low_confidence?: boolean; background?: boolean; review_reason?: string };
-export type ScanScene = { id: number; image_url: string; created_at?: string; width: number; height: number; frame: number[]; status: string; error: string; quality: ImageQuality; items: SceneItem[]; truncated: boolean; detector: string; limitations: string; background_objects?: { name: string; count: number }[] };
+export type ObjectIdentification = {
+  object_prediction: {name:string;confidence:number|null;source:string;score_kind:string};
+  user_object_name:string;material_prediction:{label:string;title:string;confidence:number|null;status:string;basis:string};
+  ai_waste_category:string|null;selected_for_disposal:boolean;
+};
+export type HandlingAdvice = ObjectIdentification & {
+  version:string;route:string;title:string;explanation:string;instructions:string[];
+  sources:Array<{title?:string;url?:string;source?:string;review_level?:string}>;
+  upcycling_eligible:boolean;recommendations:Recommendation[];verification_status:string;
+};
+export type SceneItem = { id: number; box: number[]; name: string; score: number; prediction: Prediction; route: { key: string; label: string; reason: string }; suggested_group?: string; display_box?: boolean; display_group?: string; low_confidence?: boolean; background?: boolean; review_reason?: string;identification?:ObjectIdentification;handling?:HandlingAdvice };
+export type ScanScene = { id: number; image_url: string; created_at?: string; width: number; height: number; frame: number[]; status: string; error: string; quality: ImageQuality; items: SceneItem[]; truncated: boolean; detector: string; limitations: string; background_objects?: { name: string; count: number }[];disposal_selection?:{confirmed:boolean;item_ids:number[];confirmed_at?:string} };
 export const imageUrl = (uri: string) => {
   const url=uri.startsWith('/') ? `${API_BASE_URL.replace(/\/api$/, '')}${uri}` : uri;
   // Avoid reusing pre-privacy cached originals from an older app installation.
@@ -141,6 +152,15 @@ export async function addSceneRegion(id: number, box: number[], requestId: strin
   if (!token) throw new Error('Please log in before reviewing a scan.');
   return parseResponse<{ scene: ScanScene }>(await fetchWithTimeout(`${API_BASE_URL}/scenes/${id}/items/`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ box, request_id: requestId }),
+  }));
+}
+
+export async function confirmDisposalSelection(id:number,itemIds:number[],objectNames:Record<number,string>) {
+  const token=await getStoredToken();
+  if(!token)throw new Error('Please log in before confirming items.');
+  return parseResponse<{scene:ScanScene}>(await fetchWithTimeout(`${API_BASE_URL}/scenes/${id}/disposal-selection/`,{
+    method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+    body:JSON.stringify({item_ids:itemIds,object_names:objectNames}),
   }));
 }
 

@@ -73,7 +73,9 @@ def assess(record):
     if record.previous_contents == "Chemical or cleaning product":
         reasons.append("Reported chemical contents exclude this item from upcycling in this prototype.")
     from .waste_taxonomy import FINE_CLASSES
-    if FINE_CLASSES.get(record.model_class, ('', None))[0] == 'C' or answers.get('reported_category') not in {None, 'B1'} or answers.get('other_material') == 'Battery / electronic item':
+    from predictions.disposal_workflow import special_kind
+    special = bool(special_kind(record))
+    if special or FINE_CLASSES.get(record.model_class, ('', None))[0] == 'C' or answers.get('reported_category') not in {None, 'B1'} or answers.get('other_material') == 'Battery / electronic item':
         reasons.append('Potential special-handling or residual item: no prototype reuse project is enabled.')
     if label == "dry_untreated_wood_scraps" and answers.get("wood_treatment") not in {None, "", "Not sure", WOOD[0]}:
         reasons.append("Wood treatment, mold or hardware has not been ruled out.")
@@ -81,7 +83,7 @@ def assess(record):
     entries = catalog_entries if identified else []
     rules = [entry for entry in entries if entry.kind == "segregation"]
     matched = [entry for entry in rules if _matches(entry, context)]
-    if record.previous_contents == 'Chemical or cleaning product' or answers.get('contamination') in {'Chemical contamination', 'Oil or grease', 'Mold or biological waste', 'Not sure'} or answers.get('moisture') == 'Wet' or FINE_CLASSES.get(record.model_class, ('', None))[0] == 'C':
+    if special or record.previous_contents == 'Chemical or cleaning product' or answers.get('contamination') in {'Chemical contamination', 'Oil or grease', 'Mold or biological waste', 'Not sure'} or answers.get('moisture') == 'Wet' or FINE_CLASSES.get(record.model_class, ('', None))[0] == 'C':
         matched = []
     segregation = {"status": "needs_information" if not identified else "awaiting_review", "category": None,
                    "instructions": [], "explanation": "No applicable reviewed local rule is published for this item.", "sources": []}
