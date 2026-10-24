@@ -1,0 +1,36 @@
+{
+  "name": "snapture-admin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "..\\SNAPTURE_ML\\.venv\\Scripts\\python.exe ..\\SNAPTURE_BACKEND\\manage.py runserver 0.0.0.0:8000 --noreload",
+    "db:migrate": ".venv\\Scripts\\python.exe server/manage.py migrate",
+    "owner:create": ".venv\\Scripts\\python.exe server/manage.py create_cesd_owner",
+    "test:server": ".venv\\Scripts\\python.exe server/manage.py test cesd --verbosity 1",
+    "test:ui": ".venv\\Scripts\\python.exe server/seed_e2e.py && playwright test",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.59.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^8.4.0",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}

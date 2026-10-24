@@ -92,7 +92,7 @@ export default function ProjectPanels({ section, initialFilter = 'all', projects
   };
 
 
-  const title = project ? 'Step-by-Step Guide' : detail ? 'Saved idea' : section === 'projects' ? 'My projects' : 'Saved ideas';
+  const title = project ? 'Step-by-Step Guide' : detail ? 'Saved idea' : section === 'projects' ? filter==='completed'?'Projects completed':'My projects' : 'Saved ideas';
   return <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={back}>
     <View style={styles.scrim}>
       <View style={styles.scrimTouch} />
@@ -104,7 +104,7 @@ export default function ProjectPanels({ section, initialFilter = 'all', projects
           <Pressable onPress={onClose} accessibilityLabel="Close" hitSlop={10}><X size={22} color={TEXT} /></Pressable>
         </View>
 
-        {project ? <ProjectGuide key={project.id} project={project} onStep={onStep} onRestart={onRestart} onDone={() => { setGuideId(null); setDetail(null); setFilter('completed'); if (section !== 'projects') onShowProjects(); }} /> : detail ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {project ? <ProjectGuide directCompletion key={project.id} project={project} onStep={onStep} onRestart={onRestart} onDone={() => { setGuideId(null); setDetail(null); setFilter('completed'); if (section !== 'projects') onShowProjects(); }} /> : detail ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           <View style={styles.detailArtwork}><Lightbulb size={45} color={GREEN} /></View>
           <Text style={styles.detailTitle}>{detail.idea?.title || 'Saved recommendation'}</Text>
           <Text style={styles.smallGreen}>From {detail.record.title}</Text>

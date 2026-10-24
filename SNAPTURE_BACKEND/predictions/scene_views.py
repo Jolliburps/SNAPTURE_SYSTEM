@@ -19,6 +19,8 @@ from .models import ScanScene, SceneItem, PredictionRecord
 from .image_quality import oriented_image, frame_bounds, quality_report
 from . import scene_detector
 from .photo_privacy import privacy_copy, jpeg_bytes
+from .material_classifier import classify_material, classify_detected_material
+from core.ml_service import model_status
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +57,10 @@ def serialize_scene(scene, saved=False):
         identifier = prediction['waste_identifier'] or {'category':'UNIDENTIFIED','needs_confirmation':True}
         identifier['box'] = item.box
         low = identifier['needs_confirmation']
-        draw = True
+        whole_photo = item.prediction.image_quality.get('object_source') == 'whole_image_classifier'
+        draw = not whole_photo
         display_group = 'special' if identifier['category']=='C' else 'review' if identifier['category']=='UNIDENTIFIED' else {'A':'biodegradable','B1':'recyclable','B2':'non_biodegradable'}.get(identifier['category'],'review')
-        reason = ('Possible background object. Not included in waste sorting unless you identify it as a discarded item.' if background else 'Low detector score. Review this item before sorting.' if low else 'The region is too broad for a clear object box. Review it separately.' if row.get('ambiguous_large') else route['reason'])
+        reason = ('The complete photo was classified. Object locations were not detected; use one item per photo.' if whole_photo else 'Possible background object. Not included in waste sorting unless you identify it as a discarded item.' if background else 'Low detector score. Review this item before sorting.' if low else 'The region is too broad for a clear object box. Review it separately.' if row.get('ambiguous_large') else route['reason'])
         workflow = (item.prediction.image_quality or {}).get('handling_snapshot') if saved else None
         workflow = workflow or handling(item, prediction)
         items.append({'id':item.id,'box':row['box'],'name':item.name,'score':item.score,'prediction':prediction,'route':route,'suggested_group':group,
@@ -75,16 +78,19 @@ def serialize_scene(scene, saved=False):
             'display_threshold':scene_detector.DISPLAY_THRESHOLD,'suppressed_count':len(stored)-len(items),
             'background_objects':scene.quality.get('background_objects',[]),
             'disposal_selection':scene.quality.get('disposal_selection', {'confirmed':False,'item_ids':[]}),
-            'detector':'OWL-ViT base patch32, experimental zero-shot',
+            'detector':scene.quality.get('identification_mode', 'OWL-ViT base patch32, experimental zero-shot'),
             'limitations':'Boxes are model suggestions. Hidden, small or unfamiliar objects may be missed or mislabeled. Review every item; not all objects are guaranteed to be detected.'}
 
 
 @require_api_user
 @require_http_methods(['GET'])
 def capabilities(request):
-    return JsonResponse({'available':scene_detector.available(),'experimental':True,'maximum_items':30,
+    model = model_status()
+    return JsonResponse({'available':scene_detector.available() or model['loaded'],'experimental':True,'maximum_items':30,
                          'object_queries':[name for name, _ in scene_detector.PROMPTS],
-                         'material_confidence_available':False,'disposal_selection_required':True})
+                         'object_detection_available':scene_detector.available(),
+                         'material_confidence_available':model['loaded'],'material_model':model,
+                         'disposal_selection_required':True})
 
 
 @csrf_exempt
@@ -109,8 +115,9 @@ def scenes(request):
         frame = frame_bounds(image,json.loads(request.POST.get('frame','null')))
     except (ValueError,OSError,UnidentifiedImageError,Image.DecompressionBombError):
         return JsonResponse({'detail':'The image or guide frame is invalid. Retake or choose another photo.'},status=400)
-    if not scene_detector.available():
-        return JsonResponse({'detail':'Automatic detection is unavailable. Choose a material manually or ask the administrator to install the detector.'},status=503)
+    detector_available = scene_detector.available()
+    if not detector_available and not model_status()['loaded']:
+        return JsonResponse({'detail':'The dataset-trained identification model is unavailable. Ask the administrator to restore the model runtime, or choose a material manually.'},status=503)
     if not scene_detector.inference_lock.acquire(blocking=False):
         return JsonResponse({'detail':'Another image is being analyzed. Try again in a moment.'},status=429)
     scene = None
@@ -126,18 +133,31 @@ def scenes(request):
         scene.save()
         focused = image.crop(frame)
         protected_focused = protected.crop(frame) if protected is not None else None
-        rows, truncated = scene_detector.detect(focused)
+        if detector_available:
+            rows, truncated = scene_detector.detect(focused)
+        else:
+            # This is classification of the complete photo, not a detected box.
+            material = classify_material(focused)
+            rows, truncated = [{'name':material_info(material['label'])['title'],
+                                'material':material['label'], 'score':0, 'box':[0,0,1,1],
+                                'source':'whole_image_classifier', 'material_prediction':material}], False
         background = [row for row in rows if row['name'] in scene_detector.BACKGROUND_NAMES]
-        quality = quality_report(focused,[row['box'] for row in rows])
+        quality = quality_report(focused,[row['box'] for row in rows] if detector_available else [])
         quality['photo_privacy'] = privacy
+        quality['identification_mode'] = 'object detection with dataset-trained material classification' if detector_available else 'whole-photo dataset-trained material classification; object locations are not detected'
         quality['background_objects'] = [{'name':name,'count':sum(row['name']==name for row in background)} for name in sorted({row['name'] for row in background})]
         with transaction.atomic():
             for row in rows:
                 bx = row['box']
                 crop_box = [round(bx[0]*focused.width),round(bx[1]*focused.height),round(bx[2]*focused.width),round(bx[3]*focused.height)]
-                record = PredictionRecord(user=request.api_user,model_class=row['name'],decision=row['material'],
-                    title=material_info(row['material'])['title'],confidence=row['score'],threshold=.1,
-                    model_version='owlvit-scene-candidate-unverified-v2', image_quality={'alternatives':row.get('alternatives',[])})
+                material = row.get('material_prediction') or classify_detected_material(focused.crop(crop_box), row)
+                label = material['label']
+                record = PredictionRecord(user=request.api_user,model_class=row['name'],decision=label,
+                    title=material_info(label)['title'],confidence=material.get('confidence', 0),threshold=material.get('threshold', 1),
+                    model_version=material.get('model_version', 'material-model-unavailable'),
+                    image_quality={'alternatives':row.get('alternatives',[]), 'material_prediction':material,
+                                   'object_source':row.get('source', 'model'),
+                                   'raw_material_class':material.get('raw_class', 'unknown_unsupported')})
                 refresh(record)
                 if protected_focused is not None:
                     record.image.save(f'{uuid4().hex}.jpg',ContentFile(jpeg_bytes(protected_focused.crop(crop_box))),save=False)

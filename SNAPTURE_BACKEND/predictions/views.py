@@ -114,6 +114,7 @@ def _serialize(record, saved=False):
         "previous_contents": record.previous_contents,
         "answers": record.answers,
         "recommendation_choices": recommendations,
+        "upcycling_ideas": assessment.get('upcycling', {}).get('suggested_ideas', []) if assessment else [],
         "selected_recommendation": record.selected_recommendation if record.selected_recommendation in {item["id"] for item in recommendations} else "",
         "assessment": assessment,
         "waste_identifier": identity(record, assessment) if assessment else None,

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { type Prediction } from './api';
 import WasteRecommendations from './WasteRecommendations';
+import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
 
 export function adviceSummary(prediction: Prediction) {
   const a = prediction.assessment;
@@ -25,6 +26,7 @@ export default function AssessmentAdvice({prediction, saved, onEdit, onDone, onR
   const canExplore = Boolean(a?.quick_check?.has_reviewed_projects && summary.kind !== 'caution');
   return <>
     <Text style={s.small}>Item: {a?.material.title || prediction.title}</Text>
+    <ScanUpcyclingIdeas key={prediction.id} prediction={prediction}/>
     {saved ? <Text accessibilityLiveRegion="polite" style={s.saved}>Your answers are saved. Here is what to do next.</Text> : null}
     <View style={[s.card,summary.kind === 'ready' ? s.ready : s.caution]}>
       <Text accessibilityRole="header" style={s.title}>{summary.title}</Text>

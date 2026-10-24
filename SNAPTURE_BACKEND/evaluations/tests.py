@@ -23,11 +23,11 @@ class ScorecardTests(TestCase):
                                            separation_notes="Unique physical items and capture groups; no training, tuning or duplicate overlap.", held_out_confirmed=True, created_by=self.reviewer)
         return lock_protocol(run, self.reviewer)
 
-    def make_case(self, run=None, actual="paper", predicted="paper", confidence=.9, input_method="camera", route="Recyclable", requires_review=False, recommendations=None, eligible=False, unsafe=False, checked=True, group=None, model="controlled-model-v1"):
+    def make_case(self, run=None, actual="paper", predicted="paper", confidence=.9, input_method="camera", route="Recyclable", requires_review=False, recommendations=None, eligible=False, unsafe=False, checked=True, group=None, model="controlled-model-v1", metadata=None):
         run = run or self.make_run()
         count = EvaluationCase.objects.count() + 1
         record = PredictionRecord.objects.create(user=self.resident, title="Captured item", model_class=predicted, decision=predicted, confidence=confidence, threshold=.8, input_method=input_method, model_version=model,
-                    condition="Clean and dry", previous_contents="No chemical contact known", quantity=1,
+                    condition="Clean and dry", previous_contents="No chemical contact known", quantity=1, image_quality=metadata or {},
                     assessment={"version": "assessment-v1", "segregation": {"status": "available" if route else "needs_information", "category": route, "instructions": ["Captured instruction"]}}, recommendation_choices=recommendations or [])
         case = EvaluationCase(run=run, reference_id=f"item-{count}", group_id=group or f"physical-{count}", source_prediction=record,
                     expected_material=actual, expected_routes=[] if requires_review else ["Recyclable"], requires_review=requires_review,
@@ -55,6 +55,12 @@ class ScorecardTests(TestCase):
         self.assertEqual(result["identification"]["n"], 0)
         with self.assertRaises(ValidationError):
             freeze(run, self.reviewer)
+
+    def test_dataset_material_evidence_is_captured_instead_of_the_object_query(self):
+        case=self.make_case(predicted='paper scrap',checked=False,
+                            metadata={'raw_material_class':'cardboard','object_source':'whole_image_classifier'})
+        self.assertEqual(case.snapshot['raw_material'],'cardboard')
+        self.assertEqual(case.snapshot['cohort'],'whole_image')
 
     def test_precision_recall_macro_and_confusion_math(self):
         result = classification([("paper", "paper"), ("paper", "cardboard"), ("cardboard", "cardboard")])

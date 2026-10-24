@@ -106,6 +106,7 @@ export type Prediction = PredictionSummary & {
   previous_contents: string;
   answers: Record<string, unknown>;
   recommendation_choices: Recommendation[];
+  upcycling_ideas?: Recommendation[];
   needs_verification?: boolean;
   verification_reasons?: string[];
   alternatives?: Array<{ class: string; confidence: number }>;
@@ -198,13 +199,24 @@ export async function deleteScene(id: number) {
   const token = await getStoredToken();
   return parseResponse<{ deleted: boolean }>(await fetchWithTimeout(`${API_BASE_URL}/scenes/${id}/`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }));
 }
-export type LearningEntry = { key: string; version: number; title: string; category: string; summary: string; instructions: string[]; warnings: string; source: string; review_note: string; review_level: string };
+export type LearningEntry = { key: string; version: number; title: string; category: string; summary: string; instructions: string[]; warnings: string; source: string; review_note: string; review_level: string; content_type?: 'policy' | 'material'; file_url?: string | null; material_type?: 'PDF Guide' | 'Infographic' | 'Video'; effective_date?: string; updated_at?: string };
+
+export function publicFileUrl(path: string) {
+  // File routes are relative to the server origin, not to /api.
+  const origin = API_BASE_URL.replace(/\/api\/?$/, '');
+  return path.startsWith('/') && !path.startsWith('//') ? `${origin}${path}` : '';
+}
+
+export type Announcement = { id: string; title: string; description: string; category: string; publishedAt: string };
+export async function getAnnouncements() {
+  return parseResponse<{ entries: Announcement[] }>(await fetchWithTimeout(`${API_BASE_URL}/announcements/`));
+}
 
 export async function getLearningInformation() {
   const response = await fetchWithTimeout(`${API_BASE_URL}/learning/`);
   return parseResponse<{ entries: LearningEntry[] }>(response);
 }
-export type CollectionEntry = { date: string; barangay: string; title: string; status: string; description?: string; source: string };
+export type CollectionEntry = { id?: string; date: string; barangay: string; title: string; status: string; description?: string; source: string };
 
 export async function getCollectionNotices(month: string) {
   const token = await getStoredToken();
@@ -392,12 +404,12 @@ export async function listProjects() {
   return payload.projects;
 }
 
-export async function startProject(predictionId: number) {
+export async function startProject(predictionId: number, recommendationId?: string) {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in to start a project.');
   const response = await fetch(`${API_BASE_URL}/projects/`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prediction_id: predictionId }),
+    body: JSON.stringify({ prediction_id: predictionId, ...(recommendationId ? {recommendation_id:recommendationId} : {}) }),
   });
   return parseResponse<{ project: UserProject }>(response);
 }

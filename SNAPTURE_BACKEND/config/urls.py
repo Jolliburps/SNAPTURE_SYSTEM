@@ -15,13 +15,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.conf import settings
-from django.conf.urls.static import static
 from django.urls import include, path, re_path
 from predictions import scene_views
 from predictions import photo_privacy
+from cesd import views as cesd_views
 
 urlpatterns = [
+    path('', include('cesd.urls')),
     re_path(r'^media/(?P<path>(?:scenes|predictions)/.+)$', photo_privacy.protected_media),
     path('api/photo-privacy/preview/', photo_privacy.preview),
     path('api/scenes/', scene_views.scenes),
@@ -38,8 +38,11 @@ urlpatterns = [
     path('api/evaluations/', include('evaluations.urls')),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve only allowed legacy images; CESD files must pass publication checks.
+urlpatterns += [
+    path('media/<path:filename>', cesd_views.legacy_media),
+    path('protected-media/<path:filename>', cesd_views.legacy_media),
+]
 
 admin.site.site_header = 'SNAPTURE Administration'
 admin.site.site_title = 'SNAPTURE Admin'

@@ -81,3 +81,6 @@ SNAPTURE_ML/data/*training_bundle*.zip
 .tools/
 SNAPTURE_ML/models/owlvit-base-patch32/
 
+
+# Shared API local backups, mail, and import artifacts
+SNAPTURE_BACKEND/.local/

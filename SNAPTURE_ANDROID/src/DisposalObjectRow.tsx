@@ -9,7 +9,8 @@ export default function DisposalObjectRow({item,number,color,checked,name,onTogg
 }) {
   const identity=item.identification;
   const [editing,setEditing]=useState(false);
-  const score=identity?.object_prediction.confidence ?? (item.prediction.input_method==='manual'?null:item.score);
+  const wholePhoto=identity?.object_prediction.source==='whole_image_classifier';
+  const score=wholePhoto?null:identity?.object_prediction.confidence ?? (item.prediction.input_method==='manual'?null:item.score);
   return <View style={[s.card,checked && s.chosen]}>
     <Pressable accessibilityRole="checkbox" accessibilityLabel={`Discard item ${number}: ${name || item.name}`} accessibilityState={{checked}} onPress={onToggle} style={s.row}>
       <View style={[s.badge,{backgroundColor:color}]}><Text style={s.white}>{number}</Text></View>
@@ -17,7 +18,7 @@ export default function DisposalObjectRow({item,number,color,checked,name,onTogg
       <Text style={s.tick}>{checked?'✓':'○'}</Text>
     </Pressable>
     <Text style={s.body}>{identity?.material_prediction.title || 'Material unconfirmed'} · {identity?.material_prediction.status || 'uncertain'}</Text>
-    <Text style={s.note}>{score===null?'User-marked region — no AI detection score':`Detection score ${Math.round(score*100)}%${score<.28?' · low confidence':''} — not measured accuracy`}</Text>
+    <Text style={s.note}>{wholePhoto?'Whole-photo classification — object locations were not detected':score===null?'User-marked region — no AI detection score':`Detection score ${Math.round(score*100)}%${score<.28?' · low confidence':''} — not measured accuracy`}</Text>
     <Text style={s.note}>Material confidence: {identity?.material_prediction.confidence==null?'not available':`${Math.round(identity.material_prediction.confidence*100)}%`}. A selected item is not an AI-verified waste classification.</Text>
     {name?<Text style={s.note}>Your name correction; original suggestion: {item.name}</Text>:null}
     <Pressable accessibilityRole="button" accessibilityLabel={`Correct name item ${number}`} accessibilityState={{expanded:editing}} onPress={()=>setEditing(value=>!value)} style={s.locate}><Text style={s.link}>{editing?'Hide name correction':'Correct name'}</Text></Pressable>

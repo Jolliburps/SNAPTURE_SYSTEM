@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'predictions',
     'datasets',
     'evaluations',
+    'cesd',
 ]
 
 MIDDLEWARE = [
@@ -55,6 +56,7 @@ MIDDLEWARE = [
     'core.middleware.ActivityLogMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'cesd.middleware.ActiveAccountMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -189,3 +191,21 @@ SNAPTURE_ML_DIR = Path(os.getenv('SNAPTURE_ML_DIR', BASE_DIR.parent / 'SNAPTURE_
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Shared web-admin and resident API configuration.
+LOCAL = BASE_DIR / '.local'
+ADMIN_WEB_URL = os.getenv('ADMIN_WEB_URL', 'http://127.0.0.1:5173').rstrip('/')
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv(
+    'DJANGO_CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:5173,http://localhost:5173'
+).split(',') if origin.strip()]
+SESSION_COOKIE_NAME = 'snapture_cesd_session'
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 60 * 60 * 8
+SESSION_SAVE_EVERY_REQUEST = True
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
+EMAIL_BACKEND = os.getenv('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.filebased.EmailBackend')
+EMAIL_FILE_PATH = LOCAL / 'mail'
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'SNAPTURE CESD <no-reply@snapture.local>')
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 110 * 1024 * 1024

@@ -38,19 +38,20 @@ local policies, facilities, and barangay collection schedules remain unavailable
 Users can optionally enter their barangay during registration or in Profile;
 the app does not request a street address.
 
-The API client is in `src/api.ts`. It uses the Django backend at
-`http://10.0.2.2:8000/api` for an Android emulator. For a physical phone,
-replace `10.0.2.2` with the computer's LAN IPv4 address.
+The API client is in `src/api.ts`. Its current backend address is
+`http://127.0.0.1:8000/api`. The Android emulator and phones connected through
+USB or wireless debugging use this address through `adb reverse`.
 
 ## Run after Android tooling is installed
 
-Install a compatible JDK and Android Studio SDK, then run:
+Follow the [local runbook](../RUNBOOK.md#4-build-and-launch-the-android-app)
+for step-by-step emulator, USB-phone, and wireless-phone instructions, including backend and
+Metro startup and explicit target commands without a selection prompt.
+Development instructions belong in that runbook; `.env` stores backend
+configuration values.
 
-```powershell
-cd .\SNAPTURE_ANDROID
-npm.cmd install
-npm.cmd run android
-```
+For a physical phone without a cable, follow
+[wireless debugging (Android 11+)](../RUNBOOK.md#option-c-android-phone-over-wireless-debugging-android-11).
 
 The camera uses React Native VisionCamera. The Android manifest already includes
 the camera and local-network permissions. A native rebuild is required after
@@ -63,7 +64,6 @@ guidance. A future recommendation model can replace their data service without
 changing the project and saved-idea UI. Video project instructions are not
 implemented.
 
-For a physical phone, set `API_BASE_URL` in `src/api.ts` to the computer's LAN
-IPv4 address (for example `http://192.168.1.171:8000/api`) and keep the phone
-and computer on the same Wi-Fi network. The Android emulator uses
-`http://10.0.2.2:8000/api`.
+Repeat the runbook's port-forwarding commands after reconnecting the phone
+or restarting the emulator. Keep the backend and Metro running during debug
+development.

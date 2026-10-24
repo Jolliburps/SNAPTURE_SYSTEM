@@ -1,5 +1,9 @@
 # SNAPTURE Django backend
 
+This service now serves both Android and the CESD web admin on port **8000**, with shared database/media storage. The CESD app is in `cesd/`. Run `manage.py migrate` after pulling this integration. Existing isolated admin installations should preview `manage.py import_legacy_cesd` and use `--apply` to back up and import staff/content before creating another owner. See [shared admin setup](../SNAPTURE_ADMIN/README.md#shared-backend-integration).
+
+Run one API process. Vite proxies `/api` to this backend. Published policies/materials, announcements, and schedules feed the mobile app; staff dashboards/reports include current saved mobile aggregates. Do not serve the entire media directory through a raw web-server alias: draft CESD attachments and scan photos require their guarded handlers.
+
 This is the local Python backend for the standalone SNAPTURE Android client.
 It uses Django 5.2, the built-in SQLite database for local development, and
 the existing TensorFlow model in `../SNAPTURE_ML`.

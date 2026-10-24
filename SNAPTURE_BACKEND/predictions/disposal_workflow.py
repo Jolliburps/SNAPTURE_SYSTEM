@@ -36,14 +36,18 @@ def describe(item, prediction):
     display_material = ('Plastic — subtype unconfirmed' if plastic and not confirmed else material_info(label)['title'] if label in SCOPE_LABELS
                         else 'Plastic — subtype unconfirmed' if plastic else 'Material unsupported / unknown')
     manual = record.input_method == 'manual'
+    evidence = metadata.get('material_prediction', {})
+    classified = evidence.get('status') == 'classified'
+    whole_photo = metadata.get('object_source') == 'whole_image_classifier'
     return {
-        'object_prediction': {'name': item.name, 'confidence': None if manual else item.score,
-                              'source': 'user_marked_region' if manual else 'model',
-                              'score_kind': 'uncalibrated detection score, not accuracy'},
+        'object_prediction': {'name': item.name, 'confidence': None if manual or whole_photo else item.score,
+                              'source': 'user_marked_region' if manual else 'whole_image_classifier' if whole_photo else 'model',
+                              'score_kind': 'whole-photo classification; no object detection score' if whole_photo else 'uncalibrated detection score, not accuracy'},
         'user_object_name': metadata.get('user_object_name', ''),
-        'material_prediction': {'label': label, 'title': display_material, 'confidence': None,
-                                'status': 'user_reported' if confirmed else 'uncertain' if label in SCOPE_LABELS or plastic else 'unsupported',
-                                'basis': 'user report, not AI verification' if confirmed else 'material evidence unconfirmed; no independent material score'},
+        'material_prediction': {'label': label, 'title': display_material,
+                                'confidence': evidence.get('confidence') if classified and label in SCOPE_LABELS and evidence.get('label') == label else None,
+                                'status': 'user_reported' if confirmed else 'model_suggested' if classified and label in SCOPE_LABELS else 'uncertain' if label in SCOPE_LABELS or plastic else 'unsupported',
+                                'basis': 'user report, not AI verification' if confirmed else evidence.get('basis', 'material evidence unconfirmed; no independent material score')},
         'ai_waste_category': None,  # No independently trained waste-category classifier.
         'waste_category_hypothesis': (prediction.get('waste_identifier') or {}).get('suggested_category', 'UNIDENTIFIED'),
         'waste_category_basis': 'object-label routing rule, not an independent AI prediction',

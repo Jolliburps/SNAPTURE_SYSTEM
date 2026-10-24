@@ -1,13 +1,16 @@
-param([string]$Serial, [switch]$DebugBuild)
+param([string]$Serial, [switch]$DebugBuild, [switch]$Watch, [string]$PackageName)
 $ErrorActionPreference = 'Stop'
 
 # Reconnecting USB resets adb forwarding. Restore it without clearing app data.
 $projectDir = Split-Path $PSScriptRoot -Parent
 $adbCandidates = @(
+    $(if ($env:ANDROID_HOME) { Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe' }),
+    $((Get-Command adb -ErrorAction SilentlyContinue).Source),
+    'C:\Android\Sdk\platform-tools\adb.exe',
     (Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'),
     (Join-Path $projectDir '.tools\android-sdk\platform-tools\adb.exe')
 )
-$adb = $adbCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+$adb = $adbCandidates | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } | Select-Object -First 1
 if (-not $adb) { throw 'Android platform tools were not found. Install them through Android Studio.' }
 
 $deviceList = & $adb devices
@@ -19,7 +22,10 @@ if (-not $Serial) {
     }
     $Serial = $readyPhones[0]
 }
-if ($Serial -notin $readyPhones) { throw 'The selected phone is not authorized or connected. Unlock it and allow USB debugging.' }
+if (-not $Watch -and $Serial -notin $readyPhones) { throw 'The selected phone is not authorized or connected. Unlock it and allow USB debugging.' }
+if ($PackageName -and $PackageName -notmatch '^com\.snapture_android(?:\.prototype)?$') {
+    throw 'PackageName must be com.snapture_android or com.snapture_android.prototype.'
+}
 
 try {
     # A connection check must not wait for a classifier to load.
@@ -39,10 +45,44 @@ if ($DebugBuild) {
 
 $ports = @(8000)
 if ($DebugBuild) { $ports += 8081 }
-foreach ($port in $ports) {
-    & $adb -s $Serial reverse "tcp:$port" "tcp:$port"
-    if ($LASTEXITCODE -ne 0) { throw "Could not restore the phone connection on port $port." }
-}
-& $adb -s $Serial shell am start -n com.snapture_android/.MainActivity
-if ($LASTEXITCODE -ne 0) { throw 'Could not open SNAPTURE. Build and install the Android app first.' }
-Write-Output 'SNAPTURE opened. The USB backend connection is restored. Keep USB connected; reconnecting the cable resets this mapping.'
+$launched = $false
+$lastState = ''
+do {
+    try {
+        $state = & $adb -s $Serial get-state 2>&1
+        if ($LASTEXITCODE -ne 0 -or "$state".Trim() -ne 'device') {
+            throw 'Phone disconnected or unauthorized. Waiting for USB debugging.'
+        }
+        $mappings = & $adb -s $Serial reverse --list 2>&1
+        if ($LASTEXITCODE -ne 0) { throw 'Waiting for the ADB connection to recover.' }
+        foreach ($port in $ports) {
+            if (-not ($mappings -match "\stcp:$port\s+tcp:$port(?:\s|$)")) {
+                & $adb -s $Serial reverse "tcp:$port" "tcp:$port" | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "Could not restore port $port. Waiting for the phone." }
+                Write-Output "Restored phone forwarding on port $port."
+            }
+        }
+        if (-not $launched) {
+            if (-not $PackageName) {
+                $prototype = & $adb -s $Serial shell pm path com.snapture_android.prototype
+                if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the installed app. Waiting for the phone.' }
+                $PackageName = if ($prototype -match '^package:') { 'com.snapture_android.prototype' } else { 'com.snapture_android' }
+            }
+            & $adb -s $Serial shell am start -n "$PackageName/com.snapture_android.MainActivity" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Could not open SNAPTURE. Build and install the Android app first.' }
+            $launched = $true
+            Write-Output "Opened $PackageName on $Serial."
+        }
+        if ($lastState -ne 'connected') {
+            Write-Output 'Phone forwarding is ready. Keep the USB cable connected.'
+            $lastState = 'connected'
+        }
+    } catch {
+        if (-not $Watch) { throw }
+        if ($lastState -ne $_.Exception.Message) {
+            Write-Output $_.Exception.Message
+            $lastState = $_.Exception.Message
+        }
+    }
+    if ($Watch) { Start-Sleep -Seconds 2 }
+} while ($Watch)

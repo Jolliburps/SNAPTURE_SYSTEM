@@ -7,17 +7,20 @@ SNAPTURE combines a React Native Android app, a Django API, and a TensorFlow ima
 ```text
 SNAPTURE_ANDROID/   React Native CLI app and Android project
 SNAPTURE_BACKEND/   Django API, migrations, and local database configuration
+SNAPTURE_ADMIN/     React web administration sharing the Django API and database
 SNAPTURE_ML/        Shared inference, training scripts, model, and requirements
 RUNBOOK.md          Additional local development notes
 ```
 
-This is one Git repository. Keep these three folders together because the backend imports the ML code from the sibling folder.
+This is one Git repository. Keep these folders together because the backend imports the ML code from the sibling folder.
+
+Android and the CESD web panel now share the backend on port **8000**, database, and media directory. After backend migrations, start one API process using the instructions below, then run `npm.cmd run dev` inside `SNAPTURE_ADMIN` and open `http://127.0.0.1:5173`. The admin's `npm.cmd run dev:api` is an alternative launcher for that same API. See [shared admin setup and data import](SNAPTURE_ADMIN/README.md#shared-backend-integration) before creating an owner if you have an older isolated admin database.
 
 ## Requirements
 
-- Windows PowerShell, Python 3.13, Node.js 22.11.0 or newer, and npm.
+- Windows Pow   erShell, Python 3.13, Node.js 22.11.0 or newer, and npm.
 - JDK 17, Android Studio with Android SDK Platform 37, Build Tools 37.0.0, Platform Tools, NDK 29.0.14206865, and CMake 3.31.6.
-- An Android emulator or a phone with USB debugging enabled. A physical phone must be on the same network as the API computer.
+- An Android emulator or a phone with USB debugging enabled. The USB workflow below uses `adb reverse` to reach the API computer.
 - SQLite is the local default. MySQL is optional; see [backend instructions](SNAPTURE_BACKEND/README.md) if the team uses it.
 
 ## First-time setup (PowerShell)
@@ -59,7 +62,7 @@ Keep keystores and release signing credentials out of Git.
 Copy-Item .\SNAPTURE_BACKEND\.env.example .\SNAPTURE_BACKEND\.env
 ```
 
-For local SQLite, set `SNAPTURE_DB_ENGINE=sqlite` or leave it blank; MySQL settings are used only when that engine is selected. Set `DJANGO_SECRET_KEY` to a private value. For a physical phone, include the computer's LAN IPv4 address in `DJANGO_ALLOWED_HOSTS`, along with `127.0.0.1` and `localhost`. Leave unused optional settings blank.
+For local SQLite, set `SNAPTURE_DB_ENGINE=sqlite` or leave it blank; MySQL settings are used only when that engine is selected. Set `DJANGO_SECRET_KEY` to a private value. Include `127.0.0.1` and `localhost` in `DJANGO_ALLOWED_HOSTS` for the emulator/USB port-forwarding workflow. Leave unused optional settings blank.
 
 Django reads process environment variables, not `.env` directly. In each new backend PowerShell terminal, load your edited file before starting Django:
 
@@ -89,7 +92,7 @@ Set-Location .\SNAPTURE_BACKEND
 
 For the Django administrator, run `manage.py createsuperuser` with the same Python executable once, then open `http://127.0.0.1:8000/admin/` on the computer.
 
-The mobile API address is the `API_BASE_URL` constant in `SNAPTURE_ANDROID/src/api.ts`. Use `http://10.0.2.2:8000/api` for the Android emulator. For a physical phone, use `http://<computer-LAN-IPv4>:8000/api` and keep the phone and computer on the same network. `localhost` on the phone refers to the phone, not the API computer.
+The mobile API address is the `API_BASE_URL` constant in `SNAPTURE_ANDROID/src/api.ts`. Keep its current value, `http://127.0.0.1:8000/api`, for both the Android emulator and a USB-connected phone. Use `adb reverse` as shown below to forward connections to the computer. See the [local runbook](RUNBOOK.md#4-build-and-launch-the-android-app) for separate step-by-step instructions for each target.
 
 In terminal 2, start Metro:
 
@@ -102,10 +105,14 @@ In terminal 3, confirm that `adb devices` lists the target as `device`, then ins
 
 ```powershell
 Set-Location .\SNAPTURE_ANDROID
-npm.cmd run android -- --no-packager
+adb devices
+$targetSerial = 'replace-with-target-serial'
+adb -s $targetSerial reverse tcp:8000 tcp:8000
+adb -s $targetSerial reverse tcp:8081 tcp:8081
+npm.cmd run android -- --device $targetSerial --no-packager
 ```
 
-Run only one Metro instance on port 8081. For a native build without a connected device, run:
+Use the serial shown by `adb devices` for the emulator or USB phone. Explicit `--device` avoids a selection prompt. Repeat the forwarding commands after reconnecting the phone or restarting the emulator. Run only one Metro instance on port 8081. For a native build without a connected device, run:
 
 ```powershell
 Set-Location .\SNAPTURE_ANDROID\android

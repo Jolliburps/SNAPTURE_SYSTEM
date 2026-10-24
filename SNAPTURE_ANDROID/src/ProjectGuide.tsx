@@ -8,13 +8,14 @@ type Props = {
   onStep: (id: number, step: number, completed: boolean) => Promise<UserProject>;
   onRestart: (id: number) => Promise<UserProject>;
   onDone: () => void;
+  directCompletion?: boolean;
 };
 
 function Button({ title, onPress, secondary = false, disabled = false }: { title: string; onPress: () => void; secondary?: boolean; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[secondary ? s.secondary : s.primary, disabled && s.disabled]}><Text style={secondary ? s.link : s.primaryText}>{title}</Text></Pressable>;
 }
 
-export default function ProjectGuide({ project, onStep, onRestart, onDone }: Props) {
+export default function ProjectGuide({ project, onStep, onRestart, onDone, directCompletion=false }: Props) {
   const [index, setIndex] = useState(() => Math.max(0, project.steps.findIndex((_, i) => !project.completed_steps.includes(i))));
   const [summary, setSummary] = useState(project.status === 'completed');
   const [busy, setBusy] = useState(false);
@@ -41,11 +42,13 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone }: Pro
   };
   const changeStep = async (completed: boolean) => {
     if (busy || transitioning) return;
+    if(directCompletion && completed && index===project.steps.length-1 && project.steps.some((_,i)=>i<index && !project.completed_steps.includes(i)))return;
     setBusy(true); setError('');
     const version = transitionVersion.current;
     try {
       const updated = await onStep(project.id, index, completed);
       if (!alive.current || version !== transitionVersion.current || !completed) return;
+      if(directCompletion && updated.status==='completed'){onDone();return;}
       setTransitioning(true);
       timer.current = setTimeout(() => {
         if (!alive.current || version !== transitionVersion.current) return;
@@ -70,6 +73,7 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone }: Pro
   ]);
   const done = project.completed_steps.includes(index);
   const last = index === project.steps.length - 1;
+  const earlierComplete = project.steps.every((_,i)=>i>=index || project.completed_steps.includes(i));
   if (!project.steps.length) return <ScrollView contentContainerStyle={s.page}><Text style={s.title}>Guide unavailable</Text><Text style={s.body}>This older project has no usable steps. Choose a project with published instructions.</Text><Button title="Back to projects" onPress={onDone} /></ScrollView>;
   return <ScrollView ref={scroll} contentContainerStyle={s.page} showsVerticalScrollIndicator={false}>
     <Pressable accessibilityRole="button" accessibilityLabel="Project information and source" accessibilityState={{expanded:details}} onPress={()=>setDetails(value=>!value)} style={s.secondary}><Text style={s.link}>Project information and source</Text></Pressable>
@@ -100,7 +104,8 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone }: Pro
       <View style={s.instruction}><Text style={s.instructionText}>{project.steps[index]}</Text>{done ? <Text style={s.badge}>Step completed</Text> : null}</View>
       {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
       {transitioning ? <Text accessibilityLiveRegion="polite" style={s.badge}>Step saved. Moving on...</Text> : null}
-      {!done ? <Button title={busy ? 'Saving...' : last ? 'Finish' : 'Mark as done'} onPress={() => { changeStep(true); }} disabled={busy || transitioning || !project.steps.length} /> : project.status === 'completed' ? <Button title="View completed summary" onPress={() => setSummary(true)} disabled={busy} /> : null}
+      {directCompletion && last && !earlierComplete?<Text style={s.small}>Complete the earlier steps to enable Completed.</Text>:null}
+      {!done ? <Button title={busy ? 'Saving...' : last ? directCompletion?'Completed':'Finish' : 'Mark as done'} onPress={() => { changeStep(true); }} disabled={busy || transitioning || !project.steps.length || directCompletion && last && !earlierComplete} /> : project.status === 'completed' ? <Button title="View completed summary" onPress={() => setSummary(true)} disabled={busy} /> : null}
       <View style={s.navigation}><Button title="Previous" secondary onPress={() => jump(index - 1)} disabled={busy || index === 0} />{!last ? <Button title="Next" secondary onPress={() => jump(index + 1)} disabled={busy} /> : null}</View>
       {done ? <Button title="Undo this step" secondary onPress={() => { changeStep(false); }} disabled={busy || transitioning} /> : null}
       <Text style={s.small}>Review any step below. Going back does not undo it.</Text>

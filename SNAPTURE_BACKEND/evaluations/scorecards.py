@@ -33,11 +33,13 @@ def capture(case):
         raise ValidationError("Captured recommendations must have unique, nonempty IDs.")
     if not isinstance(assessment.get("segregation", {}), dict):
         raise ValidationError("The stored segregation output has an invalid format.")
-    raw = record.model_class if record.model_class in MATERIALS else "unknown_unsupported"
+    metadata = record.image_quality if isinstance(record.image_quality, dict) else {}
+    material_class = metadata.get('raw_material_class', record.model_class)
+    raw = material_class if material_class in MATERIALS else "unknown_unsupported"
     scene_item = getattr(record, "scene_item", None)
     snapshot = {
         "schema": "snapture-evaluation-v1", "prediction_reference": f"scan-{record.id:04d}",
-        "input_method": record.input_method, "cohort": "manual" if record.input_method == "manual" else "detected_crop" if scene_item else "whole_image",
+        "input_method": record.input_method, "cohort": "manual" if record.input_method == "manual" else "detected_crop" if scene_item and metadata.get('object_source') != 'whole_image_classifier' else "whole_image",
         "model_version": record.model_version, "assessment_version": assessment.get("version", ""),
         "raw_material": raw, "confidence": record.confidence, "threshold": record.threshold,
         "accepted": record.input_method != "manual" and raw in SCOPE_LABELS and record.confidence >= record.threshold,

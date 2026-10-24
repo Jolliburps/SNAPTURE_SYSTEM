@@ -20,13 +20,14 @@ import { confirmPasswordReset, deleteAllPredictions, deletePrediction, getAdminO
 import { BottomNavigation, MainExperience, type MainRoute } from './src/MainExperience';
 import AssessmentScreen from './src/AssessmentScreen';
 import GalleryThumbnail from './src/GalleryThumbnail';
+import ScanUpcyclingIdeas from './src/ScanUpcyclingIdeas';
 import SceneResults, { QualityFeedback } from './src/SceneResults';
 import { imageUrl } from './src/api';
 import SavedScanReview from './src/SavedScanReview';
 import PasswordField from './src/PasswordField';
-import PrivatePhotoPreview from './src/PrivatePhotoPreview';
 import MaterialIdeaReferences from './src/MaterialIdeaReferences';
 import ProjectGuide from './src/ProjectGuide';
+import { ProjectFlowContext } from './src/ProjectFlowContext';
 import AdminScorecards from './src/AdminScorecards';
 import { useSuccessAlert } from './src/SuccessAlertDialog';
 import SwitchCamera from 'lucide-react-native/icons/switch-camera';
@@ -60,6 +61,7 @@ type Screen =
   | 'recommendations'
   | 'history'
   | 'projects'
+  | 'projects-completed'
   | 'saved'
   | 'settings';
 
@@ -178,6 +180,7 @@ function App() {
   const [scene, setScene] = useState<ScanScene | null>(null);
   const [savedScanId,setSavedScanId]=useState<number|null>(null);
   const [guideProject, setGuideProject] = useState<UserProject | null>(null);
+  const [guideReturnScreen,setGuideReturnScreen]=useState<Screen>('home');
   const [captureFrame, setCaptureFrame] = useState<CaptureFrame | undefined>();
   const requestIdRef = useRef('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -361,24 +364,26 @@ function App() {
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.safeArea}>
+        <ProjectFlowContext.Provider value={project=>{setGuideReturnScreen(screen);setGuideProject(project);setScreen('project-guide');}}>
         {screen === 'login' && <AuthScreen mode="login" email={email} password={password} confirmPassword={confirmPassword} displayName={displayName} barangay={barangay} setEmail={setEmail} setPassword={setPassword} setConfirmPassword={setConfirmPassword} setDisplayName={setDisplayName} setBarangay={setBarangay} onSubmit={() => submitAuth('login')} onSwitch={() => { setAuthError(''); setConfirmPassword(''); navigate('register'); }} onForgot={() => { setAuthError(''); navigate('forgot-password'); }} onBack={() => navigate('login')} error={authError} busy={authBusy} />}
         {screen === 'register' && <AuthScreen mode="register" email={email} password={password} confirmPassword={confirmPassword} displayName={displayName} barangay={barangay} setEmail={setEmail} setPassword={setPassword} setConfirmPassword={setConfirmPassword} setDisplayName={setDisplayName} setBarangay={setBarangay} onSubmit={() => submitAuth('register')} onSwitch={() => { setAuthError(''); setConfirmPassword(''); navigate('login'); }} onForgot={() => { setAuthError(''); navigate('forgot-password'); }} onBack={() => navigate('login')} error={authError} busy={authBusy} />}
         {screen === 'forgot-password' && <ForgotPasswordScreen email={email} setEmail={setEmail} onBack={() => navigate('login')} />}
         {screen === 'admin-login' && <AdminLoginScreen identifier={adminIdentifier} password={adminPassword} setIdentifier={setAdminIdentifier} setPassword={setAdminPassword} onSubmit={submitAdminAuth} onBack={() => navigate('login')} error={adminError} busy={adminBusy} />}
         {screen === 'admin-dashboard' && <AdminDashboardScreen user={currentUser} onLogout={signOut} />}
-        {['home', 'learn', 'references', 'waste', 'profile', 'calendar', 'ideas', 'history', 'projects', 'saved', 'settings'].includes(screen) && <MainShell screen={screen} navigate={navigate} user={currentUser} onUserChange={setCurrentUser} onLogout={signOut} onCategory={openCategory} onOpenScan={id=>{setSavedScanId(id);setScreen('scan-review');}} />}
+        {['home', 'learn', 'references', 'waste', 'profile', 'calendar', 'ideas', 'history', 'projects', 'projects-completed', 'saved', 'settings'].includes(screen) && <MainShell screen={screen} navigate={navigate} user={currentUser} onUserChange={setCurrentUser} onLogout={signOut} onCategory={openCategory} onOpenScan={id=>{setSavedScanId(id);setScreen('scan-review');}} />}
         {screen==='scan-review' && savedScanId!==null && <SavedScanReview key={savedScanId} id={savedScanId} onBack={()=>navigate('history')} onRetry={startAnotherScan} onBrowseIdeas={()=>navigate('ideas')}/>}
         {screen === 'material-detail' && selectedCategory && <MaterialDetailScreen label={selectedCategory} navigate={navigate} onBack={() => navigate(categoryReturn)} />}
         {screen === 'camera' && <NativeCameraScreen onManual={() => { setScene(null); navigate('assessment'); }} onBack={() => navigate('home')} onCaptured={(uri, frame) => { setCapturedUri(uri); setCaptureFrame(frame); requestIdRef.current = 'scan_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2); setScene(null); setPrediction(null); setAnalysisError(''); navigate('quality'); }} />}
         {screen === 'quality' && <LiveQualityScreen key={capturedUri || 'empty'} photoUri={capturedUri} error={analysisError} analyzing={analysisBusy} onBack={() => { if (!analysisBusy) navigate('camera'); }} onContinue={async () => { if (await analyzeCapturedPhoto()) navigate('scene-result'); }} />}
-        {screen === 'scene-result' && scene && <SceneResults key={scene.id} initial={scene} onSceneChange={setScene} onBack={() => navigate('history')} onReview={(value) => { setPrediction(value); setScreen('assessment'); }} onRetry={startAnotherScan} onBrowseIdeas={()=>navigate('ideas')} onOpenGuide={async (value, ideaId) => { await selectRecommendation(value.id, ideaId); const response = await startProject(value.id); setGuideProject(response.project); setScreen('project-guide'); }} />}
-        {screen === 'project-guide' && guideProject && <View style={styles.guidePage}><Pressable accessibilityRole="button" onPress={() => navigate('scene-result')}><Text style={styles.innerTitle}>Back to scan</Text></Pressable><ProjectGuide key={guideProject.id} project={guideProject} onDone={() => navigate('projects')} onStep={async (id, index, completed) => { const response = await setProjectStep(id, index, completed); setGuideProject(response.project); return response.project; }} onRestart={async id => { const response = await restartProject(id); setGuideProject(response.project); return response.project; }} /></View>}
+        {screen === 'scene-result' && scene && <SceneResults key={scene.id} initial={scene} onSceneChange={setScene} onBack={() => navigate('history')} onReview={(value) => { setPrediction(value); setScreen('assessment'); }} onRetry={startAnotherScan} onBrowseIdeas={()=>navigate('ideas')} onOpenGuide={async (value, ideaId) => { await selectRecommendation(value.id, ideaId); const response = await startProject(value.id); setGuideReturnScreen('scene-result');setGuideProject(response.project); setScreen('project-guide'); }} />}
+        {screen === 'project-guide' && guideProject && <View style={styles.guidePage}><Pressable accessibilityRole="button" onPress={() => setScreen(guideReturnScreen)}><Text style={styles.innerTitle}>Back to recommendations</Text></Pressable><ProjectGuide directCompletion key={guideProject.id} project={guideProject} onDone={() => navigate('projects-completed')} onStep={async (id, index, completed) => { const response = await setProjectStep(id, index, completed); setGuideProject(response.project); return response.project; }} onRestart={async id => { const response = await restartProject(id); setGuideProject(response.project); return response.project; }} /></View>}
         {screen === 'result' && <LiveResultScreen photoUri={prediction?.image_url?imageUrl(prediction.image_url):null} prediction={prediction} error={analysisError} onBack={() => navigate('quality')} onContinue={continueFromResult} />}
         {screen === 'assessment' && <AssessmentScreen prediction={prediction} onChange={setPrediction} onBack={() => navigate(scene ? 'scene-result' : prediction?.input_method === 'camera' ? 'result' : 'home')} onSaved={() => navigate('saved')} onRetry={startAnotherScan} onManualReset={() => { setPrediction(null); setScene(null); }} />}
         {screen === 'questions' && <LiveQuestionsScreen quantity={quantity} setQuantity={setQuantity} condition={condition} setCondition={setCondition} previousContents={previousContents} setPreviousContents={setPreviousContents} availableMaterials={availableMaterials} setAvailableMaterials={setAvailableMaterials} prompt={followUpPromptFor(prediction)} answer={followUpAnswer} setAnswer={setFollowUpAnswer} error={analysisError} busy={analysisBusy} onBack={() => navigate('result')} onContinue={async () => { if (await saveQuestionnaire()) navigate('safety'); }} />}
         {screen === 'safety' && <LiveSafetyScreen prediction={prediction} error={analysisError} onBack={() => navigate('questions')} onContinue={() => navigate('recommendations')} onRetry={startAnotherScan} />}
         {screen === 'recommendations' && <LiveRecommendationsScreen prediction={prediction} selected={selectedRecommendation} setSelected={setSelectedRecommendation} quantity={quantity} setQuantity={setQuantity} busy={analysisBusy} error={analysisError} onBack={() => navigate(followUpPromptFor(prediction) ? 'safety' : 'result')} onRetry={startAnotherScan} onSave={async () => { if (await saveRecommendation()) showSuccess('Your selected project has been saved to your ideas.', () => navigate('saved')); }} />}
         {successDialog}
+        </ProjectFlowContext.Provider>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -793,9 +798,14 @@ function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => vo
   </View>;
 }
 
-function LiveQualityScreen({ photoUri, error, analyzing, onBack, onContinue }: { photoUri: string | null; error: string; analyzing: boolean; onBack: () => void; onContinue: () => void }) {
-  const [privacyBusy,setPrivacyBusy]=useState(true);
-  return <SimplePage title="Review your photo" onBack={onBack}><PrivatePhotoPreview uri={photoUri} onBusyChange={setPrivacyBusy}/><Text style={styles.questionIntro}>Items are found automatically. Review their suggested materials before using any guidance.</Text><Text style={styles.privacyHint}>Only privacy-processed photos and item crops are saved for review. The original is used internally for detection, not shown in history. No external AI service receives this photo.</Text>{error ? <Text style={styles.authError}>{error}</Text> : null}<PrimaryButton label={analyzing ? 'Analyzing… please wait' : privacyBusy?'Protecting photo...':'Analyze image'} onPress={onContinue} disabled={analyzing || privacyBusy || !photoUri} />{analyzing ? <Text style={styles.privacyHint}>First analysis may take longer while the local model loads. Keep the USB/backend connection active.</Text> : <SecondaryButton label="Retake or choose another photo" onPress={onBack} />}</SimplePage>;
+export function LiveQualityScreen({ photoUri, error, analyzing, onBack, onContinue }: { photoUri: string | null; error: string; analyzing: boolean; onBack: () => void; onContinue: () => void }) {
+  return <SimplePage title="Review your photo" onBack={onBack}>
+    {photoUri ? <Image accessibilityLabel="Your captured photo" source={{uri:toImageUri(photoUri)}} style={{width:'100%',height:230,borderRadius:18}} resizeMode="contain" /> : null}
+    <Text style={styles.questionIntro}>Use a clear photo of one item. Materials are suggested by the model trained on the SNAPTURE image dataset. Review the result before using any guidance.</Text>
+    {error ? <Text style={styles.authError}>{error}</Text> : null}
+    <PrimaryButton label={analyzing ? 'Analyzing… please wait' : 'Analyze image'} onPress={onContinue} disabled={analyzing || !photoUri} />
+    {analyzing ? <Text style={styles.privacyHint}>First analysis may take longer while the local model loads. Keep the USB/backend connection active.</Text> : <SecondaryButton label="Retake or choose another photo" onPress={onBack} />}
+  </SimplePage>;
 }
 
 function LiveResultScreen({ photoUri, prediction, error, onBack, onContinue }: { photoUri: string | null; prediction: Prediction | null; error: string; onBack: () => void; onContinue: () => void }) {
@@ -807,6 +817,7 @@ function LiveResultScreen({ photoUri, prediction, error, onBack, onContinue }: {
     <View style={styles.resultCard}>{photoUri ? <Image source={{ uri: toImageUri(photoUri) }} style={styles.photoSmall} resizeMode="cover" /> : <View style={styles.photoSmall}><Text style={styles.photoBottle}>Photo</Text></View>}<View style={styles.resultCopy}><Text style={styles.resultName}>{resultTitle}</Text><Text style={styles.resultConfidence}>{confidence}</Text>{prediction ? <Text style={[styles.supportedTag, needsVerification && styles.verificationTag]}>{needsVerification ? 'Needs verification' : 'Educational result'}</Text> : null}</View></View>
     {error ? <Text style={styles.authError}>{error}</Text> : null}
     <InfoCard title="Next step" items={['Confirm the relevant item details before receiving segregation or project guidance.', 'You can select a supported material manually if the model cannot identify it. Manual selection is not AI verification.']} />
+    {prediction?<ScanUpcyclingIdeas key={prediction.id} prediction={prediction}/>:null}
     {prediction ? <PrimaryButton label="Check details and assessment" onPress={onContinue} /> : <SecondaryButton label="Retake photo" onPress={onBack} />}
   </SimplePage>;
 }

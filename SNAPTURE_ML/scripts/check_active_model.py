@@ -23,7 +23,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     predictor = ModelPredictor()
     if not SCOPE_CLASSES.issubset(set(predictor.labels)):
-        raise ValueError("The selected checkpoint does not contain all six active materials.")
+        raise ValueError(f"The selected checkpoint does not contain all {len(SCOPE_CLASSES)} active materials.")
     rng = random.Random(20261014)
     observations = []
     for label in sorted(SCOPE_CLASSES):
@@ -47,7 +47,7 @@ def main():
     }
     if args.output:
         args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(f"Completed {len(observations)} predictions across the six active folders. This is not an accuracy evaluation.")
+    print(f"Completed {len(observations)} predictions across the {len(SCOPE_CLASSES)} active folders. This is not an accuracy evaluation.")
 
 
 if __name__ == "__main__":

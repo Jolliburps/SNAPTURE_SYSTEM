@@ -7,13 +7,13 @@ import type { UserProject } from '../src/api';
 const base = { id: 1, title: 'Use paper as non-food gift wrapping', material: 'Paper', steps: ['Choose a clean sheet.', 'Wrap a non-food item.', 'Keep the sheet for another use.'], completed_steps: [], completed_count: 0, total_steps: 3, progress_percent: 0, status: 'active', safety_note: 'Non-food use only. Check suitability.' } as unknown as UserProject;
 const spyStep = jest.fn();
 const spyRestart = jest.fn();
-function Harness({ initial = base, onDone = jest.fn() }: { initial?: UserProject; onDone?: () => void }) {
+function Harness({ initial = base, onDone = jest.fn(), directCompletion=false }: { initial?: UserProject; onDone?: () => void; directCompletion?:boolean }) {
   const [project, setProject] = useState(initial);
   const update = (completed_steps: number[]) => {
     const updated = { ...project, completed_steps, completed_count: completed_steps.length, progress_percent: Math.round(completed_steps.length / 3 * 100), status: completed_steps.length === 3 ? 'completed' as const : 'active' as const };
     setProject(updated); return updated;
   };
-  return <ProjectGuide project={project} onDone={onDone} onStep={async (id, index, completed) => { spyStep(id, index, completed); return update(completed ? [...new Set([...project.completed_steps, index])] : project.completed_steps.filter(i => i !== index)); }} onRestart={async id => { spyRestart(id); return update([]); }} />;
+  return <ProjectGuide directCompletion={directCompletion} project={project} onDone={onDone} onStep={async (id, index, completed) => { spyStep(id, index, completed); return update(completed ? [...new Set([...project.completed_steps, index])] : project.completed_steps.filter(i => i !== index)); }} onRestart={async id => { spyRestart(id); return update([]); }} />;
 }
 let tree: Renderer.ReactTestRenderer;
 const button = (label: string) => tree.root.findAllByProps({ accessibilityLabel: label }).find(node => typeof node.props.onPress === 'function');
@@ -80,4 +80,35 @@ test('review navigation cancels a pending auto-advance', async () => {
   await press('Mark as done'); await press('Review step 1'); await advance();
   expect(headings()).toContain('Step 1 of 3');
   expect(button('Undo this step')).toBeDefined();
+});
+
+test('Completed saves the final step and opens completed projects directly',async()=>{
+  const onDone=jest.fn();
+  await Renderer.act(async()=>{tree=Renderer.create(<Harness directCompletion onDone={onDone}/>);});
+  await press('Mark as done');await advance();
+  await press('Mark as done');await advance();
+  expect(button('Completed')?.props.disabled).toBe(false);
+  await press('Completed');
+  expect(spyStep).toHaveBeenLastCalledWith(1,2,true);
+  expect(onDone).toHaveBeenCalledTimes(1);
+});
+
+test('Completed remains disabled while earlier steps have not been done',async()=>{
+  const onDone=jest.fn();
+  await Renderer.act(async()=>{tree=Renderer.create(<Harness directCompletion onDone={onDone}/>);});
+  await press('Review step 3');
+  expect(button('Completed')?.props.disabled).toBe(true);
+  await press('Completed');
+  expect(spyStep).not.toHaveBeenCalled();
+  expect(onDone).not.toHaveBeenCalled();
+});
+
+test('a failed final save stays in the guide and never reports completion',async()=>{
+  const onDone=jest.fn();
+  const project={...base,completed_steps:[0,1],completed_count:2,progress_percent:67};
+  await Renderer.act(()=>{tree=Renderer.create(<ProjectGuide directCompletion project={project} onStep={jest.fn().mockRejectedValue(new Error('Connection lost'))} onRestart={jest.fn()} onDone={onDone}/>);});
+  await press('Completed');
+  expect(onDone).not.toHaveBeenCalled();
+  expect(JSON.stringify(tree.toJSON())).toContain('Connection lost');
+  expect(button('Completed')?.props.disabled).toBe(false);
 });

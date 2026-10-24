@@ -17,6 +17,14 @@ function Harness({ initial }: { initial: MainRoute }) {
   return <MainExperience screen={screen} navigate={navigate} user={null} onUserChange={jest.fn()} onCategory={jest.fn()} onLogout={jest.fn()} />;
 }
 
+test('the completed-project route opens the Completed filter immediately',async()=>{
+  let tree!:Renderer.ReactTestRenderer;
+  await Renderer.act(async()=>{tree=Renderer.create(<Harness initial="projects-completed"/>);});
+  expect(tree.root.findByType(ProjectPanels).props.section).toBe('projects');
+  expect(tree.root.findByType(ProjectPanels).props.initialFilter).toBe('completed');
+  await Renderer.act(()=>tree.unmount());
+});
+
 test('Waste has no separate photo history shortcut and Profile keeps the unified scan history', async () => {
   const navigate = jest.fn();
   let tree!: Renderer.ReactTestRenderer;

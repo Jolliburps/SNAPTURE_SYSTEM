@@ -154,6 +154,8 @@ def assess(record):
         },
     }
     from .management_guidance import management_guidance
+    from .scan_ideas import scan_ideas
+    result['upcycling']['suggested_ideas'] = scan_ideas(record)
     result['management_guidance'] = management_guidance(result, record.model_class)
     return result
 

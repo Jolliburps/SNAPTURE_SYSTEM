@@ -53,13 +53,14 @@ import ProjectPanels from './ProjectPanels';
 import SettingsPage from './SettingsPage';
 import useProfileSettingsNavigation from './useProfileSettingsNavigation';
 import CESDLearning from './CESDLearning';
+import useContentRefresh from './useContentRefresh';
 import IdeaDetails, { ideaStatus } from './IdeaDetails';
 import { useSuccessAlert } from './SuccessAlertDialog';
 import BarangayPickerModal from './BarangayPickerModal';
 import useBarangayEditor from './useBarangayEditor';
 import { activeProjectsSorted, savedIdeas, type Idea } from './projectData';
 
-export type MainRoute = 'home' | 'learn' | 'references' | 'camera' | 'assessment' | 'waste' | 'profile' | 'calendar' | 'ideas' | 'projects' | 'saved' | 'settings' | 'history';
+export type MainRoute = 'home' | 'learn' | 'references' | 'camera' | 'assessment' | 'waste' | 'profile' | 'calendar' | 'ideas' | 'projects' | 'projects-completed' | 'saved' | 'settings' | 'history';
 type TabRoute = 'home' | 'learn' | 'camera' | 'waste' | 'profile';
 type Navigate = (route: MainRoute) => void;
 
@@ -180,6 +181,7 @@ export function MainExperience({ screen, navigate: navigateRoute, user, onUserCh
   onCategory: (label: string) => void;
   onLogout: () => void;
 }) {
+  const { revision: contentRevision } = useContentRefresh();
   const [guides, setGuides] = useState<MaterialGuide[]>([]);
   const [guidesLoading, setGuidesLoading] = useState(true);
   const [guidesError, setGuidesError] = useState('');
@@ -203,12 +205,12 @@ export function MainExperience({ screen, navigate: navigateRoute, user, onUserCh
   },[screen,navigateRoute]);
   const navigate: Navigate = (route) => {
     if(route==='settings'){openProfileSettings();return;}
-    if (route === 'projects' || route === 'saved') {
+    if (route === 'projects' || route === 'projects-completed' || route === 'saved') {
       setProjectOrigin(screen === 'home' ? 'home' : 'profile');
     }
     navigateRoute(route);
   };
-  const backgroundScreen = screen === 'projects' || screen === 'saved' ? projectOrigin : screen;
+  const backgroundScreen = screen === 'projects' || screen === 'projects-completed' || screen === 'saved' ? projectOrigin : screen;
 
   const loadGuides = useCallback(() => {
     setGuidesLoading(true);
@@ -229,6 +231,12 @@ export function MainExperience({ screen, navigate: navigateRoute, user, onUserCh
     listProjects().then(setProjects).catch((error) => setProjectsError(error instanceof Error ? error.message : 'Unable to load projects.')).finally(() => setProjectsLoading(false));
   }, []);
   useEffect(() => { loadGuides(); loadRecords(); loadSaved(); loadProjects(); }, [loadGuides, loadRecords, loadSaved, loadProjects]);
+  useEffect(() => {
+    if (contentRevision > 0) { loadGuides(); loadRecords(); loadSaved(); loadProjects(); }
+  }, [contentRevision, loadGuides, loadRecords, loadSaved, loadProjects]);
+  useEffect(() => {
+    if (screen === 'waste' || screen === 'ideas') loadGuides();
+  }, [screen, loadGuides]);
   const ideas = useMemo(() => flattenIdeas(guides), [guides]);
   const saved = useMemo(() => savedIdeas(savedRecords, ideas), [savedRecords, ideas]);
   const active = activeProjectsSorted(projects);
@@ -259,7 +267,7 @@ export function MainExperience({ screen, navigate: navigateRoute, user, onUserCh
     {screen === 'ideas' ? <IdeasPage ideas={ideas} loading={guidesLoading} error={guidesError} retry={loadGuides} navigate={navigate} onOpen={setSelectedIdea} /> : null}
     {screen === 'settings' ? <SettingsPage user={user} onUserChange={onUserChange} onBack={closeProfileSettings} backLabel={backLabel} onLogout={onLogout} /> : null}
     <BottomNavigation active={tab} navigate={navigate} />
-    {screen === 'projects' || screen === 'saved' ? <ProjectPanels section={screen} initialFilter={projectOrigin === 'home' ? 'active' : 'all'} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} saved={saved} savedLoading={savedLoading} savedError={savedError} onClose={() => navigate(projectOrigin)} onStart={startSavedProject} onStep={updateStep} onRestart={restartSavedProject} onShowProjects={() => navigate('projects')} /> : null}
+    {screen === 'projects' || screen === 'projects-completed' || screen === 'saved' ? <ProjectPanels section={screen==='saved'?'saved':'projects'} initialFilter={screen==='projects-completed'?'completed':projectOrigin === 'home' ? 'active' : 'all'} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} saved={saved} savedLoading={savedLoading} savedError={savedError} onClose={() => navigate(projectOrigin)} onStart={startSavedProject} onStep={updateStep} onRestart={restartSavedProject} onShowProjects={() => navigate('projects-completed')} /> : null}
     <Modal visible={selectedIdea !== null} animationType="slide" transparent onRequestClose={() => setSelectedIdea(null)}>
       <View style={styles.modalShade}><View style={styles.ideaModal}><BackHeader title="Project idea" onBack={() => setSelectedIdea(null)} />{selectedIdea ? <ScrollView showsVerticalScrollIndicator={false}><IdeaDetails idea={selectedIdea}/></ScrollView> : null}</View></View>
     </Modal>
@@ -273,19 +281,21 @@ function LocalUpdates({ updates, loading, error }: { updates: LocalUpdate[]; loa
 }
 
 function HomeLocalUpdates() {
+  const { revision, refresh } = useContentRefresh();
   const [updates, setUpdates] = useState<LocalUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true); setError(''); setUpdates([]);
     getLocalUpdates().then((items) => { if (mounted) setUpdates(items); })
       .catch((reason) => { if (mounted) setError(reason instanceof Error ? reason.message : 'Unable to load local updates.'); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, []);
+  }, [revision]);
 
-  return <LocalUpdates updates={updates} loading={loading} error={error} />;
+  return <><Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.miniLinkText}>Refresh local updates</Text></Pressable><LocalUpdates updates={updates} loading={loading} error={error} /></>;
 }
 
 function HomePage({ user, records, recordsLoading, recordsError, ideas, guidesLoading, guidesError, activeProjects, projectsLoading, projectsError, navigate, onOpenIdea }: {
@@ -325,27 +335,29 @@ function LearnPage({ navigate }: { navigate: Navigate }) {
   const [selected, setSelected] = useState<LearnTopic | null>(null);
   return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
     {!selected ? <BrandHeader /> : null}
-    {selected ? <><BackHeader title="Learn" onBack={() => setSelected(null)} /><View style={[styles.topicIconLarge, { backgroundColor: selected.tint }]}><selected.icon size={30} color={COLORS.green} /></View><PageIntro title={selected.title} subtitle={selected.subtitle} /><View style={styles.guidanceCard}><Text style={styles.guidanceLabel}>{selected.sourceStatus}</Text><Text style={styles.guidanceBody}>{selected.content}</Text></View>{['disposal', 'segregation'].includes(selected.id) ? <Pressable style={styles.fullButton} onPress={() => navigate('waste')}><Text style={styles.fullButtonText}>Open Waste materials</Text><ChevronRight size={18} color={COLORS.white} /></Pressable> : null}</> : <><PageIntro title="Learn" subtitle="Guides and information for thoughtful waste management." /><View style={styles.noticeCard}><Info size={19} color={COLORS.green} /><Text style={styles.noticeText}>General learning tips are not item-specific disposal approval. For source summaries, open the CESD reference library on Home. Confirm current local services with your barangay.</Text></View>{LEARN_TOPICS.map((topic) => { const Icon = topic.icon; return <Pressable key={topic.id} style={styles.learnCard} onPress={() => setSelected(topic)}><View style={[styles.learnIcon, { backgroundColor: topic.tint }]}><Icon size={24} color={COLORS.green} /></View><View style={styles.learnCopy}><Text style={styles.learnTitle}>{topic.title}</Text><Text style={styles.learnSub}>{topic.subtitle}</Text><Text style={styles.learnStatus}>{topic.sourceStatus}</Text></View><ChevronRight size={18} color={COLORS.muted} /></Pressable>; })}</>}
+    {selected ? <><BackHeader title="Learn" onBack={() => setSelected(null)} /><View style={[styles.topicIconLarge, { backgroundColor: selected.tint }]}><selected.icon size={30} color={COLORS.green} /></View><PageIntro title={selected.title} subtitle={selected.subtitle} /><View style={styles.guidanceCard}><Text style={styles.guidanceLabel}>{selected.sourceStatus}</Text><Text style={styles.guidanceBody}>{selected.content}</Text></View>{['disposal', 'segregation'].includes(selected.id) ? <Pressable style={styles.fullButton} onPress={() => navigate('waste')}><Text style={styles.fullButtonText}>Open Waste materials</Text><ChevronRight size={18} color={COLORS.white} /></Pressable> : null}</> : <><PageIntro title="Learn" subtitle="Guides and information for thoughtful waste management." /><Pressable style={styles.fullButton} onPress={() => navigate('references')}><Text style={styles.fullButtonText}>Published policies and materials</Text><ChevronRight size={18} color={COLORS.white} /></Pressable><View style={styles.noticeCard}><Info size={19} color={COLORS.green} /><Text style={styles.noticeText}>General learning tips are not item-specific disposal approval. For source summaries, open the CESD reference library on Home. Confirm current local services with your barangay.</Text></View>{LEARN_TOPICS.map((topic) => { const Icon = topic.icon; return <Pressable key={topic.id} style={styles.learnCard} onPress={() => setSelected(topic)}><View style={[styles.learnIcon, { backgroundColor: topic.tint }]}><Icon size={24} color={COLORS.green} /></View><View style={styles.learnCopy}><Text style={styles.learnTitle}>{topic.title}</Text><Text style={styles.learnSub}>{topic.subtitle}</Text><Text style={styles.learnStatus}>{topic.sourceStatus}</Text></View><ChevronRight size={18} color={COLORS.muted} /></Pressable>; })}</>}
   </ScrollView>;
 }
 
 function WastePage({ guides, loading, error, retry, onCategory }: { guides: MaterialGuide[]; loading: boolean; error: string; retry: () => void; onCategory: (label: string) => void }) {
   const visible = guides;
-  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"><BrandHeader /><PageIntro title="Waste materials" subtitle="Explore materials currently supported by SNAPTURE." />{error ? <Text style={styles.errorText}>{error}</Text> : null}{loading && !guides.length ? <EmptyCard icon={Recycle} title="Loading materials…" body="Fetching the supported material guide." /> : null}{!loading && !guides.length ? <EmptyCard icon={Recycle} title="Materials unavailable" body="Connect to the backend to load the current supported categories." action="Try again" onAction={retry} /> : null}<View style={styles.wasteGrid}>{visible.map((guide, index) => { const categoryIcon = WASTE_CATEGORY_ICONS[guide.label]; return <Pressable key={guide.label} style={styles.wasteCard} onPress={() => onCategory(guide.label)}><View style={[styles.wasteArtwork, { backgroundColor: ['#e8f4ec', '#e8f3fa', '#fff3e5', '#f1ecfa'][index % 4] }]}>{categoryIcon ? <Image source={categoryIcon} resizeMode="contain" style={styles.wasteArtworkImage} /> : <Recycle size={29} color={COLORS.green} strokeWidth={1.7} />}</View><Text style={styles.wasteTitle} numberOfLines={2}>{guide.short_title || guide.title}</Text><Text style={styles.wasteSub} numberOfLines={2}>{guide.description}</Text><View style={styles.wasteFoot}><Text style={styles.wasteFootText}>Open guide</Text><ChevronRight size={16} color={COLORS.green} /></View></Pressable>; })}</View>{guides.length > 0 && visible.length === 0 ? <EmptyCard icon={Search} title="No match found" body="Try another supported material name." /> : null}</ScrollView>;
+  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"><BrandHeader /><PageIntro title="Waste materials" subtitle="Explore materials currently supported by SNAPTURE." /><Pressable accessibilityRole="button" onPress={retry}><Text style={styles.miniLinkText}>Refresh materials</Text></Pressable>{error ? <Text style={styles.errorText}>{error}</Text> : null}{loading && !guides.length ? <EmptyCard icon={Recycle} title="Loading materials…" body="Fetching the supported material guide." /> : null}{!loading && !guides.length ? <EmptyCard icon={Recycle} title="Materials unavailable" body="Connect to the backend to load the current supported categories." action="Try again" onAction={retry} /> : null}<View style={styles.wasteGrid}>{visible.map((guide, index) => { const categoryIcon = WASTE_CATEGORY_ICONS[guide.label]; return <Pressable key={guide.label} style={styles.wasteCard} onPress={() => onCategory(guide.label)}><View style={[styles.wasteArtwork, { backgroundColor: ['#e8f4ec', '#e8f3fa', '#fff3e5', '#f1ecfa'][index % 4] }]}>{categoryIcon ? <Image source={categoryIcon} resizeMode="contain" style={styles.wasteArtworkImage} /> : <Recycle size={29} color={COLORS.green} strokeWidth={1.7} />}</View><Text style={styles.wasteTitle} numberOfLines={2}>{guide.short_title || guide.title}</Text><Text style={styles.wasteSub} numberOfLines={2}>{guide.description}</Text><View style={styles.wasteFoot}><Text style={styles.wasteFootText}>Open guide</Text><ChevronRight size={16} color={COLORS.green} /></View></Pressable>; })}</View>{guides.length > 0 && visible.length === 0 ? <EmptyCard icon={Search} title="No match found" body="Try another supported material name." /> : null}</ScrollView>;
 }
 
 function CalendarPage({ user, navigate }: { user: ApiUser | null; navigate: Navigate }) {
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const { revision, refresh } = useContentRefresh();
   const [notices, setNotices] = useState<CollectionEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [noticeError, setNoticeError] = useState('');
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
   useEffect(() => {
     let active = true;
-    setNotices([]); setNoticeError('');
-    getCollectionNotices(monthKey).then(result => { if (active) setNotices(result.entries); }).catch(reason => { if (active) setNoticeError(reason instanceof Error ? reason.message : 'Collection information unavailable.'); });
+    setNotices([]); setNoticeError(''); setLoading(true);
+    getCollectionNotices(monthKey).then(result => { if (active) setNotices(result.entries); }).catch(reason => { if (active) setNoticeError(reason instanceof Error ? reason.message : 'Collection information unavailable.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [monthKey, user?.barangay]);
+  }, [monthKey, user?.barangay, revision]);
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const firstWeekday = new Date(year, monthIndex, 1).getDay();
@@ -354,8 +366,8 @@ function CalendarPage({ user, navigate }: { user: ApiUser | null; navigate: Navi
   const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
   const entries = notices.filter((entry) => entry.date === dateKey);
   const changeMonth = (offset: number) => { setMonth(new Date(year, monthIndex + offset, 1)); setSelectedDay(1); };
-  if (noticeError) return <ScrollView contentContainerStyle={styles.scrollContent}><BackHeader title="Collection schedule" onBack={() => navigate('home')} /><EmptyCard icon={CalendarDays} title="Collection service unavailable" body={noticeError} action="Go back" onAction={() => navigate('home')} /></ScrollView>;
-  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}><BackHeader title="Collection schedule" onBack={() => navigate('home')} /><PageIntro title="Barangay calendar" subtitle="Collection information will be filtered by your barangay when verified data is available." /><View style={styles.noticeCard}><MapPin size={19} color={COLORS.green} /><Text style={styles.noticeText}>{user?.barangay ? `Selected barangay: ${user.barangay}` : 'No barangay selected yet. Set one in Profile.'}</Text></View><View style={styles.calendarCard}><View style={styles.calendarHeader}><Pressable onPress={() => changeMonth(-1)} accessibilityLabel="Previous month" style={styles.monthButton}><ChevronLeft size={22} color={COLORS.green} /></Pressable><Text style={styles.calendarMonth}>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text><Pressable onPress={() => changeMonth(1)} accessibilityLabel="Next month" style={styles.monthButton}><ChevronRight size={22} color={COLORS.green} /></Pressable></View><View style={styles.calendarGrid}>{['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, index) => <Text key={`${label}-${index}`} style={styles.weekday}>{label}</Text>)}{cells.map((day, index) => <Pressable key={index} disabled={!day} onPress={() => day && setSelectedDay(day)} style={[styles.calendarCell, day === selectedDay && styles.calendarCellSelected]}><Text style={[styles.calendarDay, day === selectedDay && styles.calendarDaySelected]}>{day || ''}</Text></Pressable>)}</View></View><SectionHeading title={new Date(year, monthIndex, selectedDay).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} />{entries.length ? entries.map((entry) => <View key={`${entry.date}-${entry.title}`} style={styles.scheduleEntry}><Text style={styles.scheduleTitle}>{entry.title}</Text><Text style={styles.mutedSmall}>{entry.barangay} · {entry.status}</Text>{entry.description ? <Text style={styles.emptyBody}>{entry.description}</Text> : null}</View>) : <EmptyCard icon={CalendarDays} title="No verified schedule available" body="Dates are empty until a verified barangay schedule is connected." />}</ScrollView>;
+  if (noticeError) return <ScrollView contentContainerStyle={styles.scrollContent}><BackHeader title="Collection schedule" onBack={() => navigate('home')} /><EmptyCard icon={CalendarDays} title="Collection service unavailable" body={noticeError} action="Retry schedule" onAction={refresh} /></ScrollView>;
+  return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}><BackHeader title="Collection schedule" onBack={() => navigate('home')} /><PageIntro title="Barangay calendar" subtitle="Collection schedules published for your selected barangay." /><View style={styles.noticeCard}><MapPin size={19} color={COLORS.green} /><Text style={styles.noticeText}>{user?.barangay ? `Selected barangay: ${user.barangay}` : 'No barangay selected yet. Set one in Profile.'}</Text></View><Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.miniLinkText}>Refresh schedules</Text></Pressable><View style={styles.calendarCard}><View style={styles.calendarHeader}><Pressable onPress={() => changeMonth(-1)} accessibilityLabel="Previous month" style={styles.monthButton}><ChevronLeft size={22} color={COLORS.green} /></Pressable><Text style={styles.calendarMonth}>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text><Pressable onPress={() => changeMonth(1)} accessibilityLabel="Next month" style={styles.monthButton}><ChevronRight size={22} color={COLORS.green} /></Pressable></View><View style={styles.calendarGrid}>{['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, index) => <Text key={`${label}-${index}`} style={styles.weekday}>{label}</Text>)}{cells.map((day, index) => <Pressable key={index} disabled={!day} onPress={() => day && setSelectedDay(day)} style={[styles.calendarCell, day === selectedDay && styles.calendarCellSelected]}><Text style={[styles.calendarDay, day === selectedDay && styles.calendarDaySelected]}>{day || ''}</Text></Pressable>)}</View></View><SectionHeading title={new Date(year, monthIndex, selectedDay).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} />{entries.length ? entries.map((entry) => <View key={entry.id || `${entry.date}-${entry.title}-${entry.description}`} style={styles.scheduleEntry}><Text style={styles.scheduleTitle}>{entry.title}</Text><Text style={styles.mutedSmall}>{entry.barangay} · {entry.status}</Text>{entry.description ? <Text style={styles.emptyBody}>{entry.description}</Text> : null}</View>) : <EmptyCard icon={CalendarDays} title={loading ? 'Loading schedules...' : 'No published schedule available'} body={user?.barangay ? 'No schedule for this date. Try another date or refresh.' : 'Select your barangay in Profile to see collection schedules.'} />}</ScrollView>;
 }
 
 function IdeasPage({ ideas, loading, error, retry, navigate, onOpen }: { ideas: Idea[]; loading: boolean; error: string; retry: () => void; navigate: Navigate; onOpen: (idea: Idea) => void }) {
@@ -364,7 +376,7 @@ function IdeasPage({ ideas, loading, error, retry, navigate, onOpen }: { ideas: 
   const visible=filter==='all'?ideas:ideas.filter(idea=>idea.guideLabel===filter);
   return <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
     <BackHeader title="Home" onBack={()=>navigate('home')}/>
-    <PageIntro title="Reuse & upcycling ideas" subtitle="Explore by material. General references are not approval for your scanned item."/>
+    <PageIntro title="Reuse & upcycling ideas" subtitle="Explore by material. General references are not approval for your scanned item."/><Pressable accessibilityRole="button" onPress={retry}><Text style={styles.miniLinkText}>Refresh ideas</Text></Pressable>
     {error?<Text style={styles.errorText}>{error}</Text>:null}
     <View style={styles.ideaFilters}>{[['all','All materials'],...materials].map(([key,title])=><Pressable key={key} accessibilityRole="button" accessibilityLabel={`Filter ideas: ${title}`} accessibilityState={{selected:filter===key}} onPress={()=>setFilter(key)} style={[styles.ideaFilter,filter===key && styles.ideaFilterSelected]}><Text style={styles.ideaFilterText}>{title}</Text></Pressable>)}</View>
     {visible.map(idea=><IdeaCard key={`${idea.guideLabel}-${idea.id}`} idea={idea} onPress={()=>onOpen(idea)}/>)}
@@ -423,7 +435,7 @@ function ProfilePage({ user, scanCount, recordsLoading, recordsError, savedCount
         <Pressable disabled={barangay.saving} onPress={barangay.cancel}><Text style={styles.cancelText}>Cancel</Text></Pressable>
       </> : <>
         <Pressable accessibilityRole="button" accessibilityLabel="Choose barangay" disabled={!user} onPress={barangay.open}><Text style={styles.barangayValue}>{barangay.saved || 'Not set'}</Text></Pressable>
-        <Text style={styles.mutedSmall}>Used to filter collection schedules when verified data is connected.</Text>
+        <Text style={styles.mutedSmall}>Used to show collection schedules for your barangay.</Text>
         <Pressable disabled={!user} onPress={barangay.open} style={styles.inlineAction}><Text style={styles.inlineActionText}>{user?.barangay ? 'Change barangay' : 'Set barangay'}</Text><ChevronRight size={15} color={COLORS.green} /></Pressable>
       </>}
     </View>

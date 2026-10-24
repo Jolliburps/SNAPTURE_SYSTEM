@@ -4,6 +4,7 @@ import { addSceneRegion, confirmDisposalSelection, getScene, imageUrl, type Imag
 import MarkObjectModal from './MarkObjectModal';
 import DetectionItemCard from './DetectionItemCard';
 import DisposalObjectRow from './DisposalObjectRow';
+import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
 
 export const GROUP_COLORS: Record<string, string> = { biodegradable: '#247544', recyclable: '#19739c', non_biodegradable: '#715a98', special: '#a24432', review: '#896322' };
 const GROUP_NAMES: Record<string, string> = { biodegradable: 'Biodegradable', recyclable: 'Recyclable / reusable', non_biodegradable: 'Residual', special: 'Special / hazardous', review: 'Unidentified / needs review' };
@@ -95,6 +96,7 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
   const checked = scene.items.filter(item => item.prediction.assessment?.quick_check?.user_reviewed || item.prediction.assessment?.quick_check?.sorting_complete || item.prediction.assessment?.segregation.status === 'available').length;
   const candidateCount = scene.items.length;
   const single = candidateCount === 1;
+  const wholePhoto = scene.items.some(item=>item.identification?.object_prediction.source==='whole_image_classifier');
   const numbers = new Map([...scene.items].sort((a,b) => a.id-b.id).map((item,index) => [item.id,index+1]));
   const eligible = scene.items.filter(canDraw);
   const drawn = eligible;
@@ -139,8 +141,8 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     <Text style={s.title}>{phase==='selection'?'Which items do you want to discard?':single?'Item handling':'Handling recommendations'}</Text>
     {scene.created_at?<Text style={[s.body,s.resultBody]}>{new Date(scene.created_at).toLocaleString()}</Text>:null}
     {historical?<Text style={[s.small,s.resultBody]}>Saved photo · no new detection.</Text>:null}
-    <Text style={[s.body,s.resultBody]}>{candidateCount} object suggestions · {discardIds.length} selected · {checked} reviewed</Text>
-    <Text style={s.small}>Select only items you plan to discard. Detection can miss or confuse objects; a box is not a confirmed waste category.</Text>
+    <Text style={[s.body,s.resultBody]}>{candidateCount} {wholePhoto?'material result':'object suggestions'} · {discardIds.length} selected · {checked} reviewed</Text>
+    <Text style={s.small}>Select only items you plan to discard. {wholePhoto?'The whole photo was classified. Use one item per photo; object locations were not detected.':'Detection can miss or confuse objects; a box is not a confirmed waste category.'}</Text>
     <View onLayout={event => { photoY.current = event.nativeEvent.layout.y; setPhotoWidth(event.nativeEvent.layout.width); }} style={[s.photo,{height:stageHeight}]}>
       {scene.image_url && !photoError?<Image source={{ uri:imageUrl(scene.image_url) }} onError={()=>setPhotoError(true)} accessibilityLabel="Original scanned photo" resizeMode="contain" style={StyleSheet.absoluteFill} />:<Text style={s.missingPhoto}>The photo is unavailable or privacy processing is not ready. Saved item results are still shown below.</Text>}
       {scene.image_url && !photoError?drawn.map(item => {
@@ -153,17 +155,18 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
       }):null}
     </View>
     <QualityFeedback quality={scene.quality} />
-    <Text style={[s.small,s.resultBody]}>{phase==='selection'?'Tap a box or checkbox to select or deselect an item. Unselected belongings are not treated as waste. Colors distinguish objects, not confirmed bins.':'Tap an item below to expand its saved handling advice. You can change the selected items without running detection again.'}</Text>
+    <Text style={[s.small,s.resultBody]}>{phase==='selection'?wholePhoto?'Use the checkbox below to select this item for disposal. Review the suggested material before following any advice.':'Tap a box or checkbox to select or deselect an item. Unselected belongings are not treated as waste. Colors distinguish objects, not confirmed bins.':'Tap an item below to expand its saved handling advice. You can change the selected items without running detection again.'}</Text>
     {scene.truncated ? <Text style={s.low}>The detector reached its proposal limit. Some regions are not shown. Use a separate photo or mark a missed item.</Text> : null}
     {phase==='selection' && !historical && scene.status === 'complete' ? <Action title="Mark a missed item" secondary disabled={confirming} onPress={() => setMarking(true)} /> : null}
     {phase==='handling'?<Action title="Change selected items" secondary onPress={()=>{edited.current=true;setPhase('selection');}}/>:null}
     {error || scene.error ? <Text accessibilityRole="alert" style={s.error}>{error || scene.error}</Text> : null}
     {scene.status==='processing' ? <View style={s.card}><Text style={s.heading}>Analyzing this photo...</Text><Text style={s.body}>This result updates automatically when analysis finishes.</Text></View> : null}
     {scene.status==='complete' && !scene.items.length ? <View style={s.card}><Text style={s.heading}>No recognizable objects found</Text><Text style={s.body}>This does not mean no waste is present. Mark a missed item or try fewer separated items.</Text></View> : null}
-    {scene.items.length ? <Text accessibilityRole="header" style={s.itemsTitle}>Detected items</Text> : null}
+    {scene.items.length ? <Text accessibilityRole="header" style={s.itemsTitle}>{wholePhoto?'Material result':'Detected items'}</Text> : null}
     {phase==='selection'?<View pointerEvents={confirming?'none':'auto'}>{[...scene.items].sort((a,b)=>a.id-b.id).map(item=><View key={item.id} onLayout={event=>{cardY.current[item.id]=event.nativeEvent.layout.y;}}>
       <DisposalObjectRow item={item} number={numbers.get(item.id)!} color={OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length]} checked={discardIds.includes(item.id)} name={objectNames[item.id] || ''}
         onToggle={()=>chooseBox(item)} onName={name=>{edited.current=true;setObjectNames(old=>({...old,[item.id]:name}));}} onDetails={()=>showPhoto(item)}/>
+      <ScanUpcyclingIdeas key={`ideas-${item.prediction.id}`} prediction={item.prediction}/>
     </View>)}</View>:null}
     {phase==='handling'?[...scene.items].filter(item=>discardIds.includes(item.id)).sort((a,b)=>a.id-b.id).map(item=>{
       const group=itemGroup(item);

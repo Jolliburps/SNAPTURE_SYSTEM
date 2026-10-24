@@ -20,6 +20,21 @@ prediction—and any prediction below the confidence threshold—is returned as
 Confidence is a practical rejection rule, not a perfect unknown-object detector
 or a safety certification.
 
+Camera material results use the checkpoint selected in `models/active_model.json`.
+The current candidate was trained on the seven class folders in `data/`;
+adding images to those folders does not automatically retrain that checkpoint.
+When the optional object detector is installed, each eligible object crop is
+classified by this checkpoint; detector prompt names do not supply material
+labels or material confidence. Without the detector, the complete photo is
+classified as one sample, with no claimed object localization. Use one item
+per photo in that mode. Low-confidence results remain unidentified, and
+the candidate's unverified training labels still require review.
+
+The Android review screen displays the user's local capture immediately and
+does not upload it for a separate privacy check before analysis. Face redaction
+of saved photos remains a backend operation; a redaction failure does not
+prevent material inference. Its OpenCV runtime is included in `requirements.txt`.
+
 ## Project structure
 
 ```text

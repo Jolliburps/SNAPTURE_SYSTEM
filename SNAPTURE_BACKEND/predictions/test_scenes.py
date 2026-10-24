@@ -65,6 +65,16 @@ class SceneApiTests(TestCase):
         self.auth = {'HTTP_AUTHORIZATION':f'Bearer {issue_token(self.user)}'}
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         override = self.settings(MEDIA_ROOT=temp.name); override.enable(); self.addCleanup(override.disable)
+        # Scene workflow tests use deterministic material evidence; classifier
+        # integration is exercised separately with the real service boundary.
+        def material(image, row):
+            label=row.get('material','unknown_unsupported')
+            if label=='unknown_unsupported':
+                return {'label':label,'status':'not_applicable','basis':'outside test dataset scope'}
+            return {'label':label,'raw_class':label,'confidence':row['score'],'threshold':.1,
+                    'model_version':'dataset-candidate-unverified-test','status':'classified','basis':'test dataset model'}
+        classifier=patch('predictions.scene_views.classify_detected_material',side_effect=material)
+        classifier.start();self.addCleanup(classifier.stop)
 
     def upload(self, request_id='scene_request_123', frame=None):
         image = BytesIO(); Image.new('RGB',(200,100),'white').save(image,format='JPEG')
@@ -84,7 +94,8 @@ class SceneApiTests(TestCase):
         self.assertEqual(item['suggested_group'],'recyclable')
         self.assertTrue(item['prediction']['needs_verification'])
         self.assertEqual(item['prediction']['recommendation_choices'],[])
-        self.assertEqual(item['prediction']['image_quality'],{'alternatives':[]})
+        self.assertEqual(item['prediction']['image_quality']['alternatives'],[])
+        self.assertEqual(item['prediction']['image_quality']['material_prediction']['label'],'paper')
         self.assertTrue(item['display_box'])
         self.assertEqual(item['display_group'],'review')
 
@@ -133,9 +144,35 @@ class SceneApiTests(TestCase):
         self.assertFalse(PredictionRecord.objects.exists())
 
     def test_detector_missing_and_bad_frame_return_actionable_errors(self):
-        with patch('predictions.scene_detector.available',return_value=False):
+        with patch('predictions.scene_detector.available',return_value=False), patch('predictions.scene_views.model_status',return_value={'loaded':False}):
             self.assertEqual(self.upload().status_code,503)
         self.assertEqual(self.create(frame={'aspect':1,'x':1,'y':1,'width':1,'height':1}).status_code,400)
+
+    def test_dataset_model_can_classify_the_whole_photo_without_fabricating_a_detection_score(self):
+        material={'label':'cardboard','raw_class':'cardboard','confidence':.93,'threshold':.8,
+                  'model_version':'dataset-candidate-unverified-test','status':'classified','basis':'Model trained on SNAPTURE_ML/data'}
+        with patch('predictions.scene_detector.available',return_value=False), patch('predictions.scene_views.model_status',return_value={'loaded':True}), patch('predictions.scene_views.classify_material',return_value=material):
+            response=self.upload()
+        self.assertEqual(response.status_code,201)
+        item=response.json()['scene']['items'][0]
+        self.assertEqual(item['prediction']['decision'],'cardboard')
+        self.assertEqual(item['prediction']['confidence'],.93)
+        self.assertIsNone(item['identification']['object_prediction']['confidence'])
+        self.assertEqual(item['identification']['object_prediction']['source'],'whole_image_classifier')
+        self.assertEqual(item['identification']['material_prediction']['confidence'],.93)
+        self.assertFalse(item['display_box'])
+        self.assertNotIn('edge_item',[flag['code'] for flag in response.json()['scene']['quality']['flags']])
+
+    def test_scene_uses_crop_classifier_even_when_its_label_disagrees_with_the_detector(self):
+        material={'label':'cardboard','raw_class':'cardboard','confidence':.93,'threshold':.8,
+                  'model_version':'dataset-candidate-unverified-test','status':'classified','basis':'Model trained on SNAPTURE_ML/data'}
+        with patch('predictions.scene_views.classify_detected_material',return_value=material):
+            response=self.create()
+        item=response.json()['scene']['items'][0]
+        self.assertEqual(item['name'],'paper scrap')
+        self.assertEqual(item['score'],.22)
+        self.assertEqual(item['prediction']['decision'],'cardboard')
+        self.assertEqual(item['identification']['material_prediction']['confidence'],.93)
 
     def test_negative_category_is_not_mistaken_for_recyclable(self):
         prediction = {'previous_contents':'','assessment':{'segregation':{'status':'available','category':'Non-recyclable'}}}
@@ -185,7 +222,7 @@ class SceneApiTests(TestCase):
         self.assertEqual(corrected['name'], 'wallet')
         self.assertEqual(corrected['identification']['user_object_name'],'cellphone')
         self.assertEqual(corrected['handling']['route'],'special_handling')
-        self.assertEqual(corrected['prediction']['confidence'],.8)
+        self.assertEqual(corrected['prediction']['confidence'],0)
         self.assertEqual(corrected['prediction']['decision'],'unknown_unsupported')
         unknown = self.select(scene,[item['id']],{str(item['id']):''}).json()['scene']['items'][0]
         self.assertEqual(unknown['handling']['route'],'no_verified_method')

@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import tensorflow as tf
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from scripts.model_selection import resolve_model_paths
@@ -159,6 +158,7 @@ class ModelPredictor:
 
         # The training script places MobileNetV2 preprocessing inside the model.
         # Therefore inference must pass raw RGB pixels in the 0-255 range.
+        import tensorflow as tf
         self.model = tf.keras.models.load_model(self.model_path)
         if self.model.output_shape[-1] != len(self.labels):
             raise ValueError("Model output count does not match labels.json.")

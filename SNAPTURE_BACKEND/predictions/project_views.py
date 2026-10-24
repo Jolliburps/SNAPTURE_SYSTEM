@@ -63,10 +63,15 @@ def projects(request):
     record = PredictionRecord.objects.filter(user=request.api_user, pk=payload["prediction_id"]).first()
     if record is None:
         return JsonResponse({"detail": "Saved scan not found."}, status=404)
-    selected = record.selected_recommendation
+    selected = payload.get('recommendation_id', record.selected_recommendation)
+    if not isinstance(selected, str) or len(selected) > 160:
+        return JsonResponse({'detail':'Choose a valid upcycling task.'},status=400)
     refresh(record)
+    choices = record.recommendation_choices
+    if 'recommendation_id' in payload:
+        choices = [*choices, *record.assessment['upcycling'].get('suggested_ideas', [])]
     choice = next(
-        (item for item in record.recommendation_choices if isinstance(item, dict) and item.get("id") == selected),
+        (item for item in choices if isinstance(item, dict) and item.get("id") == selected),
         None,
     )
     if not selected or choice is None:
@@ -86,7 +91,10 @@ def projects(request):
                 "materials": choice.get("materials") if isinstance(choice.get("materials"), list) else [],
                 "steps": steps,
                 "safety_note": str(choice.get("safety_note", "")),
-                "reference": choice.get('review', {}),
+                "reference": choice.get('review', {}) if choice.get('basis') != 'educational_catalog' else {
+                    'review_level':'educational', 'catalog_version':'v1',
+                    'source':'SNAPTURE built-in upcycling idea catalog',
+                },
             },
         )
     return JsonResponse({"project": _serialize(project)}, status=201 if created else 200)
@@ -129,7 +137,10 @@ def restart_project(request, project_id):
     if record is None:
         return JsonResponse({'detail':'Assess a suitable item again before starting another project.'},status=400)
     refresh(record)
-    if not any(choice['id']==project.recommendation_id for choice in record.recommendation_choices):
+    choices = record.recommendation_choices
+    if project.reference.get('review_level') == 'educational':
+        choices = [*choices, *record.assessment['upcycling'].get('suggested_ideas', [])]
+    if not any(choice['id']==project.recommendation_id for choice in choices):
         return JsonResponse({'detail':'This project no longer matches current guidance. Assess the material again.'},status=400)
     project.completed_steps = []
     project.save(update_fields=['completed_steps','updated_at'])

@@ -4,6 +4,7 @@ import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import { imageUrl, type SceneItem } from './api';
 import WasteRecommendations from './WasteRecommendations';
+import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
 
 function CardAction({title,onPress,disabled=false}:{title:string;onPress:()=>void;disabled?:boolean}) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[s.action,disabled && s.disabled]}><Text style={s.actionText}>{title}</Text></Pressable>;
@@ -47,6 +48,7 @@ export default function DetectionItemCard({item,number,category,color,explanatio
       <Text style={s.section}>Preparation</Text>
       {instructions.length?instructions.map((line,index)=><Text key={index} style={s.body}>{line}</Text>):<Text style={s.body}>{fallbackPreparation}</Text>}
       {onReview?<CardAction title={`Review item ${number}`} onPress={onReview}/>:null}
+      <ScanUpcyclingIdeas key={item.prediction.id} prediction={item.prediction}/>
       <Text style={s.section}>Reuse / recycling options</Text>
       {ideas.length?ideas.map(idea=><View key={idea.id}><Text style={s.body}>{idea.title}</Text>{onOpenGuide?<CardAction title={openingGuide===idea.id?'Opening guide...':`Open guide: ${idea.title}`} disabled={guidesBusy} onPress={()=>onOpenGuide(idea.id)}/>:null}</View>):<>
         <Text style={s.reference}>General reference, not item-specific approval:</Text>
