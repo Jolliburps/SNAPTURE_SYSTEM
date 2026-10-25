@@ -22,7 +22,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from acquire_public_datasets import ROOT, SOURCES, save_json
 
 DATA=ROOT.parent
-TARGETS={'pete_bottles','hdpe_containers','cardboard','paper','fabric_scraps','dry_untreated_wood_scraps'}
+TARGETS={'pete_bottles','hdpe_containers','cardboard','paper','fabric_scraps','dry_untreated_wood_scraps','coconut_shells'}
 EXTENSIONS={'.jpg','.jpeg','.png','.bmp','.webp','.tif','.tiff'}
 BROAD={'plastic':'plastic_unspecified','glass':'glass','metal':'metal','trash':'mixed_trash',
        'miscellaneous trash':'mixed_trash',
@@ -37,6 +37,7 @@ def mapped_label(source, relative, metadata=None):
     if source=='legacy':
         return ('classification/'+parts[0]) if parts[0] in TARGETS else 'excluded_scope/coconut_shells'
     if source=='realdirt':return 'detection/realdirt'
+    if source in {'indoor_waste','wasteinsight','packwise'}:return 'detection/'+source
     if source=='zerowaste':return 'detection/zerowaste'
     if source in {'reclaim_pet','reclaim_hdpe'}:
         return 'classification/'+('pete_bottles' if source=='reclaim_pet' else 'hdpe_containers')
@@ -82,6 +83,13 @@ def discover():
         if not inventory_file.exists():
             skipped.append({'source':name,'reason':'Missing verified inventory'});continue
         details={}
+        if name=='packwise':
+            for annotation_file in sorted((folder/'extracted'/'data').glob('*.json')):
+                coco=json.loads(annotation_file.read_text(encoding='utf-8'))
+                for image in coco['images']:
+                    details[Path(image['file_name']).name]={'image_id':image['id'],
+                        'annotation_file':str(annotation_file.resolve()),'source_split':annotation_file.stem,
+                        'source_group':Path(image['file_name']).stem}
         if name=='mmorwad_rgb':
             metadata=json.loads((folder/'coco_annotations.json').read_text(encoding='utf-8'))
             categories={c['id']:c for c in metadata['categories']}
@@ -97,8 +105,10 @@ def discover():
                     'source_split':splits.get(image['id'],{}).get('split','unassigned')}
         for entry in json.loads(inventory_file.read_text(encoding='utf-8'))['images']:
             relative=entry['path'];path=folder/'extracted'/relative
+            if name=='packwise' and path.name not in details:
+                skipped.append({'source':name,'reason':'Publisher illustration, not an annotated dataset photo','path':relative});continue
             # Do not treat segmentation masks/depth images as waste photographs.
-            if any(token in part.lower() for part in Path(relative).parts[:-1] for token in ['mask','semantic','depth','label']):
+            if any(token in part.lower() for part in Path(relative).parts[:-1] for token in ['mask','semantic','depth','label','sem_seg']):
                 skipped.append({'source':name,'reason':'Non-photo annotation image','path':relative});continue
             extra=details.get(path.name,{})
             parts=Path(relative).parts
@@ -106,8 +116,13 @@ def discover():
             row={'source':name,'source_path':str(path.resolve()),'source_relative':relative,
                  'destination':mapped_label(name,relative,extra),'license':SOURCES[name]['license'],
                  'source_split':extra.get('source_split',split),'source_group':extra.get('source_group','unassigned'),**extra}
+            if name=='indoor_waste':row['source_group']=path.stem.rsplit('_',1)[0]
+            if name=='zerowaste':row['source_group']=path.stem.split('_frame_',1)[0]
             sidecar=path.with_suffix('.txt')
             if name=='realdirt':sidecar=path.parent.parent/'labels'/(path.stem+'.txt')
+            if name=='indoor_waste':sidecar=path.with_suffix('.json')
+            if name=='wasteinsight':sidecar=path.parent/'_annotations.coco.json'
+            if name=='zerowaste':sidecar=path.parent.parent/'labels.json'
             if sidecar.exists():row['annotation_file']=str(sidecar.resolve())
             records.append(row)
     return records,skipped
@@ -157,9 +172,12 @@ def conflicts(rows):
     return len(families)>1
 
 
-def create_view(rows,output):
+def create_view(rows,output,friendly=False):
     if output.exists():raise ValueError('Use a new run folder; previous outputs are never overwritten')
     output.mkdir(parents=True)
+    if friendly:
+        for label in sorted(TARGETS): (output/label).mkdir()
+        (output/'Object detection datas').mkdir()
     groups=defaultdict(list);errors=[]
     for row in rows:
         if 'error' in row:errors.append(row)
@@ -172,7 +190,8 @@ def create_view(rows,output):
         primary=group[0]
         route='needs_label_review/conflicting_targets' if conflicts(group) else primary['destination']
         if conflicts(group):conflict_groups.append({'group':digest,'labels':sorted({r['destination'] for r in group}),'sources':[r['source_relative'] for r in group]})
-        destination=output/route/(digest+Path(primary['source_path']).suffix.lower())
+        directory=(route.split('/',1)[1] if route.startswith('classification/') else 'Object detection datas/'+route) if friendly else route
+        destination=output/directory/(digest+Path(primary['source_path']).suffix.lower())
         destination.parent.mkdir(parents=True,exist_ok=True)
         try:
             os.link(primary['source_path'],destination);methods['hardlink']+=1
@@ -196,7 +215,7 @@ def create_view(rows,output):
                      or (row.get('raw_width'),row.get('raw_height'))!=(primary.get('raw_width'),primary.get('raw_height')))
             alias['encoded_sha256']=row['encoded_sha256'];aliases.append(alias)
         splits={r['source_split'] for r in group if r['source_split']!='unassigned'}
-        record={**primary,'path':str(destination.resolve()),'destination':route,'aliases':aliases,
+        record={**primary,'path':str(destination.resolve()),'destination':route,'directory':directory,'aliases':aliases,
                 'split_conflict':len(splits)>1,'review_status':'label_conflict' if conflicts(group) else 'unreviewed',
                 'training_eligible':False,'physical_item_group':'unassigned'}
         manifest.append(record)

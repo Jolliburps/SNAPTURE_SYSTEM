@@ -1,6 +1,50 @@
 from django.contrib import admin
 
-from .models import PredictionRecord, IdentificationReview
+from .models import PredictionRecord, IdentificationReview, ScanScene, SceneItem, UserProject
+
+
+class SavedRecordAdmin(admin.ModelAdmin):
+    """Inspect shared resident records without corrupting saved progress/results.
+
+    Normal Django model-view permissions still apply. CESD content access does
+    not automatically grant access to these private records.
+    """
+    actions = None
+
+    def get_readonly_fields(self, request, obj=None):
+        return tuple(field.name for field in self.model._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ScanScene)
+class ScanSceneAdmin(SavedRecordAdmin):
+    list_display = ('id', 'user', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    list_select_related = ('user',)
+    search_fields = ('user__username', 'request_id')
+
+
+@admin.register(SceneItem)
+class SceneItemAdmin(SavedRecordAdmin):
+    list_display = ('id', 'scene_id', 'name', 'score', 'prediction_id')
+    list_select_related = ('scene', 'prediction')
+    search_fields = ('name',)
+
+
+@admin.register(UserProject)
+class UserProjectAdmin(SavedRecordAdmin):
+    list_display = ('id', 'user', 'title', 'material', 'source_prediction_id', 'updated_at')
+    list_filter = ('material', 'created_at')
+    list_select_related = ('user', 'source_prediction')
+    search_fields = ('title', 'user__username', 'recommendation_id')
 
 
 @admin.register(PredictionRecord)

@@ -1,6 +1,71 @@
 {
-  "generated_at_utc": "2026-10-21T22:05:44Z",
+  "generated_at_utc": "2026-10-25T09:29:04Z",
   "datasets": [
+    {
+      "dataset": "indoor_waste",
+      "source": "https://data.mendeley.com/datasets/dy7smxr93r/1",
+      "license": "CC-BY-4.0",
+      "annotation": "Publisher object annotations; preserve exact labels, not resin subtypes.",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "paper",
+        "plastic",
+        "cap",
+        "shell (not confirmed coconut)"
+      ],
+      "image_files": 4000,
+      "archive_bytes": null,
+      "archive_sha256": null,
+      "exact_duplicate_extra_files": 0,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        ".": 4000
+      }
+    },
+    {
+      "dataset": "wasteinsight",
+      "source": "https://data.mendeley.com/datasets/p8n7nbxyw3/1",
+      "license": "CC-BY-4.0",
+      "annotation": "COCO bounding boxes for bags; contents and segregation are unknown.",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "trash bag"
+      ],
+      "image_files": 447,
+      "archive_bytes": null,
+      "archive_sha256": null,
+      "exact_duplicate_extra_files": 25,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "test": 90,
+        "train": 267,
+        "valid": 90
+      }
+    },
+    {
+      "dataset": "packwise",
+      "source": "https://fordatis.fraunhofer.de/handle/fordatis/463.2",
+      "license": "CC-BY-4.0",
+      "annotation": "COCO instance masks and bounding boxes, original train/val/test splits.",
+      "status": "downloaded_unreviewed",
+      "used_for_training": false,
+      "classes": [
+        "23 publisher packaging categories; inspect annotations"
+      ],
+      "image_files": 587,
+      "archive_bytes": 363767710,
+      "archive_sha256": "026f5ac422c6a52994311b2a2dd6f28d977e60e7db7a39a718720709b95e37f7",
+      "exact_duplicate_extra_files": 0,
+      "unreadable_images": [],
+      "image_folder_counts": {
+        "data/test": 88,
+        "data/train": 410,
+        "data/val": 88,
+        ".": 1
+      }
+    },
     {
       "dataset": "kaggle_drinking",
       "source": "https://www.kaggle.com/datasets/arkadiyhacks/drinking-waste-classification",
@@ -229,6 +294,6 @@
       }
     }
   ],
-  "verified_image_files_total": 82482,
+  "verified_image_files_total": 87516,
   "note": "Files are not unique physical objects or approved training samples. No training or inference change performed."
 }

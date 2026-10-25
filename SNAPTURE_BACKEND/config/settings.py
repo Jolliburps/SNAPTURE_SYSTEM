@@ -84,6 +84,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 #
 # SQLite remains the safe local default. Set SNAPTURE_DB_ENGINE=mysql and the
 # MYSQL_* variables in the environment when a MySQL server is ready.
+SQLITE_OPTIONS = {'timeout': 20, 'transaction_mode': 'IMMEDIATE'}
 if os.getenv('SNAPTURE_DB_ENGINE', 'sqlite').strip().lower() == 'mysql':
     DATABASES = {
         'default': {
@@ -104,6 +105,9 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            # Reserve writes at atomic entry rather than failing a deferred
+            # read-to-write upgrade when mobile/admin requests overlap.
+            'OPTIONS': SQLITE_OPTIONS.copy(),
         }
     }
 

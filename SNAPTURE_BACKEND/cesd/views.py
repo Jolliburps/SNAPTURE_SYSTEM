@@ -371,7 +371,10 @@ def file_view(request, resource, pk):
     if resource not in {'policies', 'materials'}:
         raise Http404()
     row = get_object_or_404(RESOURCES[resource][0], pk=pk)
-    if row.status != 'Published' and not (request.user.is_authenticated and request.user.is_active and StaffAccess.objects.filter(user=request.user).exists()):
+    permitted = request.user.is_authenticated and request.user.is_active and (
+        StaffAccess.objects.filter(user=request.user).exists() or
+        request.user.has_perm(f'cesd.view_{row._meta.model_name}'))
+    if row.status != 'Published' and not permitted:
         raise Http404()
     if not row.attachment:
         raise Http404()

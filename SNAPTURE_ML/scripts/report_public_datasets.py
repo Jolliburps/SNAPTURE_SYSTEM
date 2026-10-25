@@ -16,8 +16,8 @@ def build_report():
         row={'dataset':name,'source':source['page'],'license':source['license'],
              'annotation':source['annotation'],'status':state.get('status','queued'),
              'used_for_training':False,'classes':source['labels']}
-        partial=folder/(source['filename']+'.part')
-        if partial.exists():row['partial_download_bytes']=partial.stat().st_size
+        partials=list(folder.glob('*.part'))
+        if partials:row['partial_download_bytes']=sum(path.stat().st_size for path in partials)
         if state.get('status')=='downloaded_unreviewed':
             for key in ('image_files','archive_bytes','archive_sha256','exact_duplicate_extra_files','unreadable_images'):
                 row[key]=state.get(key)
@@ -28,7 +28,7 @@ def build_report():
         if state.get('error'):row['error']=state['error']
         rows.append(row)
     return {'generated_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),
-            'datasets':rows,'verified_image_files_total':sum(r.get('image_files',0) for r in rows),
+            'datasets':rows,'verified_image_files_total':sum(r.get('image_files') or 0 for r in rows),
             'note':'Files are not unique physical objects or approved training samples. No training or inference change performed.'}
 
 

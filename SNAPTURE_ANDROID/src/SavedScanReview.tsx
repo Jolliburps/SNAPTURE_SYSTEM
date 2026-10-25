@@ -7,7 +7,7 @@ import SceneResults from './SceneResults';
 import WasteRecommendations from './WasteRecommendations';
 
 /** Read-only history: load by the selected ID, never reuse the last camera URI. */
-export default function SavedScanReview({id,onBack,onRetry,onBrowseIdeas}:{id:number;onBack:()=>void;onRetry:()=>void;onBrowseIdeas?:()=>void}) {
+export default function SavedScanReview({id,onBack,onRetry,onBrowseIdeas,onOpenGuide}:{id:number;onBack:()=>void;onRetry:()=>void;onBrowseIdeas?:()=>void;onOpenGuide?:(prediction:Prediction,id:string)=>Promise<void>}) {
   const [result,setResult]=useState<{prediction:Prediction;scene:ScanScene|null}|null>(null);
   const [error,setError]=useState('');
   const [attempt,setAttempt]=useState(0);
@@ -22,7 +22,7 @@ export default function SavedScanReview({id,onBack,onRetry,onBrowseIdeas}:{id:nu
     const subscription=BackHandler.addEventListener('hardwareBackPress',()=>{onBack();return true;});
     return ()=>subscription.remove();
   },[onBack]);
-  if(result?.scene)return <SceneResults key={result.scene.id} initial={result.scene} historical selectedPredictionId={result.prediction.id} onBack={onBack} onRetry={onRetry} onBrowseIdeas={onBrowseIdeas}/>;
+  if(result?.scene)return <SceneResults key={result.scene.id} initial={result.scene} historical selectedPredictionId={result.prediction.id} onBack={onBack} onRetry={onRetry} onBrowseIdeas={onBrowseIdeas} onOpenGuide={onOpenGuide}/>;
   const prediction=result?.prediction;
   const assessment=prediction?.assessment;
   const photo=prediction?.original_image_url || prediction?.image_url;

@@ -24,7 +24,7 @@ test('choosing a task saves a project and opens its persistent guide',async()=>{
   await Renderer.act(()=>tree.unmount());
 });
 
-test('scan result shows ideas before disposal selection or any review questionnaire',async()=>{
+test('scan result keeps general ideas out of the action selection so belongings are not treated as craft supplies',async()=>{
   const scene={id:8,image_url:'',width:200,height:200,status:'complete',quality:{flags:[]},items:[
     {id:1,name:'Paper',box:[0,0,1,1],score:0,display_box:false,prediction,route:{reason:'Review the item.'}},
   ]} as unknown as ScanScene;
@@ -32,7 +32,11 @@ test('scan result shows ideas before disposal selection or any review questionna
   let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onRetry={jest.fn()}/>);});
   expect(action(tree,'Continue with 0 selected items').props.disabled).toBe(true);
-  expect(action(tree,'Choose task: Gift wrapping')).toBeDefined();
+  expect(action(tree,'Choose task: Gift wrapping')).toBeUndefined();
+  await press(tree,'Show uncertain suggestions (1)');
+  expect(action(tree,'Keep item 1')).toBeUndefined();
+  expect(action(tree,'Recycle / upcycle item 1')).toBeUndefined();
+  expect(action(tree,'Select item 1: Paper')).toBeDefined();
   await Renderer.act(()=>tree.unmount());
 });
 

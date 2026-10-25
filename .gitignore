@@ -54,6 +54,10 @@ SNAPTURE_ML/data/_download_failures.json
 SNAPTURE_ML/data/candidates/
 SNAPTURE_ML/data/public_sources/
 SNAPTURE_ML/data/organized_candidates/
+SNAPTURE_ML/data/recognition_basis/
+# User-requested local-only dataset copy; not a source-code backup.
+SNAPTURE_ML/data/New folder/
+SNAPTURE_ML/data/storage_compaction_*.json
 SNAPTURE_ML/models/candidates/snapture-drive-20261006/
 
 # Local visual review artifacts; the dataset and manifests themselves may be tracked.

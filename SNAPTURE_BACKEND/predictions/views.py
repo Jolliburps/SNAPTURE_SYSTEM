@@ -90,6 +90,13 @@ def _serialize(record, saved=False):
     recommendations = assessment.get('upcycling', {}).get('recommendations', []) if assessment else []
     scene_item = getattr(record, 'scene_item', None)
     scene = scene_item.scene if scene_item and scene_item.scene.user_id == record.user_id else None
+    if scene_item and record.image_quality.get('automatic_routing'):
+        from .item_actions import automatic_route
+        route = automatic_route(scene_item, {'assessment':assessment})
+        if route['action'] != 'recover' or route['confirmation_required']:
+            recommendations = []
+            if assessment:
+                assessment = {**assessment, 'upcycling':{**assessment['upcycling'], 'recommendations':[], 'suggested_ideas':[]}}
     from core.waste_taxonomy import identity
     return {
         "id": record.id,

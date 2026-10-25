@@ -114,5 +114,9 @@ def snapshot(record):
     if item is None:
         return
     from .views import _serialize
+    from .item_actions import advice, automatic_route
+    if record.image_quality.get('automatic_routing') and record.image_quality.get('selected_for_disposal'):
+        record.image_quality = {**record.image_quality, 'item_action':automatic_route(item, _serialize(record, saved=True))['action']}
     # _serialize reads assessment snapshots; does not call this function.
     record.image_quality = {**record.image_quality, 'handling_snapshot': handling(item, _serialize(record, saved=True))}
+    record.image_quality['action_snapshot'] = advice(item, _serialize(record, saved=True), record.image_quality['handling_snapshot'])

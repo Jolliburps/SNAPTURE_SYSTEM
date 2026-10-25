@@ -47,10 +47,11 @@ test('every item starts compact with its full name and group visible, then expan
   await Renderer.act(()=>tree.unmount());
 });
 
-test('numbered boxes expand the correct item and all existing actions retain their data', async()=>{
+test('accepted boxes and weak review cards retain their own data and actions', async()=>{
   const openGuide=jest.fn().mockResolvedValue(undefined);
   const {tree,scene,onReview,onBack,onRetry}=await render(sampleScene(),openGuide);
-  await press(tree,'Select box 2');
+  expect(action(tree,'Select box 2')).toBeUndefined();
+  await press(tree,'Select item 2 card');
   expect(action(tree,'Select item 2 card').props.accessibilityState).toMatchObject({expanded:true,selected:true});
   await press(tree,'Review item 2');
   expect(onReview).toHaveBeenCalledWith(scene.items[1].prediction);
@@ -93,7 +94,7 @@ test('empty and processing results keep their existing feedback without empty ac
   const empty={...sampleScene(),items:[]};
   const {tree}=await render(empty);
   expect(tree.root.findAllByType(DetectionItemCard)).toHaveLength(0);
-  expect(JSON.stringify(tree.toJSON())).toContain('No recognizable objects found');
+  expect(JSON.stringify(tree.toJSON())).toContain('No reliable object match');
   expect(JSON.stringify(tree.toJSON())).not.toContain('Detected items');
   await Renderer.act(()=>tree.unmount());
   const processing={...empty,status:'processing'} as ScanScene;

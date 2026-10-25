@@ -6,6 +6,7 @@ import { PageHeading } from '../components/ui'
 import { Badge, EmptyState, Modal, Pagination } from '../components/ManagementUI'
 import { api, message, prettyDate } from '../lib/api'
 import type { Page, StaffUser } from '../lib/api'
+import SystemConnection from '../components/SystemConnection'
 
 function Profile() {
   const { user, refresh } = useAuth()
@@ -91,5 +92,5 @@ function StaffAccess() {
 export default function Settings() {
   const { user } = useAuth()
   const [tab, setTab] = useState<'profile' | 'staff'>('profile')
-  return <><PageHeading title="Settings" description={user?.access === 'owner' ? 'Manage your account settings and staff access.' : 'Manage your account settings.'} /><div className="settings-tabs" role="tablist" aria-label="Settings"><button id="profile-tab" role="tab" aria-selected={tab === 'profile'} aria-controls="settings-content" onClick={() => setTab('profile')}>My Profile</button>{user?.access === 'owner' && <><button id="staff-tab" role="tab" aria-selected={tab === 'staff'} aria-controls="settings-content" onClick={() => setTab('staff')}>Staff Access</button><span className="owner-label"><LockKeyhole size={15} />Owner only</span></>}</div><div id="settings-content" role="tabpanel" aria-labelledby={tab === 'profile' ? 'profile-tab' : 'staff-tab'}>{tab === 'staff' && user?.access === 'owner' ? <StaffAccess /> : <Profile />}</div></>
+  return <><PageHeading title="Settings" description={user?.access === 'owner' ? 'Manage your account settings and staff access.' : 'Manage your account settings.'} /><div className="settings-tabs" role="tablist" aria-label="Settings"><button id="profile-tab" role="tab" aria-selected={tab === 'profile'} aria-controls="settings-content" onClick={() => setTab('profile')}>My Profile</button>{user?.access === 'owner' && <><button id="staff-tab" role="tab" aria-selected={tab === 'staff'} aria-controls="settings-content" onClick={() => setTab('staff')}>Staff Access</button><span className="owner-label"><LockKeyhole size={15} />Owner only</span></>}</div><div id="settings-content" role="tabpanel" aria-labelledby={tab === 'profile' ? 'profile-tab' : 'staff-tab'}>{tab === 'staff' && user?.access === 'owner' ? <StaffAccess /> : <><Profile /><SystemConnection /></>}</div></>
 }

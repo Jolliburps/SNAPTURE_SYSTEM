@@ -43,10 +43,24 @@ Mobile activity counts select scans/projects by creation date. Project active/co
 
 ## Compatibility-test handoff
 
+Update (2026-10-26): the missing Django content/scan/project views and shared
+session link are implemented. Web **Settings → My Profile → Connected system**
+provides a live-query connection check and `/admin/` link. Staff content can be
+managed in either panel; private scans/projects remain read-only and require
+separate Django model-view permissions. See
+`research/THREE_PANEL_CONNECTION_20261026.md` for implementation and verification.
+
 Existing test assertions were left unchanged. `cesd` test files moved with their module into the backend. Test infrastructure now isolates Playwright's API at port 8001 and its frontend at port 5174, with a separate database/media/mail directory. It will not reuse a normal Vite server connected to live local data.
 
-The current dashboard tests have two methods needing updated expectations: `test_defaults_empty_validation_and_permissions` and `test_month_lengths_and_exact_local_boundaries`. Their exact `counts` comparisons omit the new `announcements` key (six reported assertion failures including month subtests). Dashboard draft totals now also include announcement drafts. Reports include announcements and `mobile_activity`; dashboard also returns `mobile_activity`.
+The previously stale dashboard assertions now include announcement publications
+and drafts, and the boundary tests exercise all three published content types.
+All 239 backend tests and both isolated browser suites pass. Reports include
+announcements and `mobile_activity`; dashboard also returns `mobile_activity`.
 
-Checks performed: Django system/migration checks, web production build/lint, Android TypeScript, selected mobile tests including `CatalogProjectFlow`, existing CESD/content/project backend tests, all 12 photo-privacy tests, and a rolled-back API smoke check for publication/unpublication, attachment ranges/access, barangay schedules/cancellations, permissions, aggregates, and project access. The broader compatibility suite and physical-device/browser acceptance remain for follow-up.
+Checks performed: Django system/migration checks, full backend suite, web
+production build/lint, both isolated browser suites, responsive screenshot
+inspection and existing mobile regression tests. Physical-phone acceptance of
+newly published local content remains a manual check; tests did not create
+publications or change project progress in the normal local database.
 
 For acceptance, publish and edit each content type in the web panel, refresh mobile, verify draft/unpublished records disappear, open PDF/image/video attachments on the phone, change barangay/month, cancel a schedule, and complete/restart a project while checking admin aggregates. Verify separate resident/staff permissions and empty/offline states.

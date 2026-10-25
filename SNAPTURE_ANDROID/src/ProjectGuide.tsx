@@ -9,13 +9,15 @@ type Props = {
   onRestart: (id: number) => Promise<UserProject>;
   onDone: () => void;
   directCompletion?: boolean;
+  onChangeIdea?: (project:UserProject)=>void;
+  onBusyChange?: (busy:boolean)=>void;
 };
 
 function Button({ title, onPress, secondary = false, disabled = false }: { title: string; onPress: () => void; secondary?: boolean; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[secondary ? s.secondary : s.primary, disabled && s.disabled]}><Text style={secondary ? s.link : s.primaryText}>{title}</Text></Pressable>;
 }
 
-export default function ProjectGuide({ project, onStep, onRestart, onDone, directCompletion=false }: Props) {
+export default function ProjectGuide({ project, onStep, onRestart, onDone, directCompletion=false, onChangeIdea, onBusyChange }: Props) {
   const [index, setIndex] = useState(() => Math.max(0, project.steps.findIndex((_, i) => !project.completed_steps.includes(i))));
   const [summary, setSummary] = useState(project.status === 'completed');
   const [busy, setBusy] = useState(false);
@@ -23,6 +25,7 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone, direc
   const [error, setError] = useState('');
   const [expandedSafety, setExpandedSafety] = useState(false);
   const [details,setDetails]=useState(false);
+  const [started,setStarted]=useState(Boolean(project.completed_steps.length));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alive = useRef(true);
   const transitionVersion = useRef(0);
@@ -43,10 +46,11 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone, direc
   const changeStep = async (completed: boolean) => {
     if (busy || transitioning) return;
     if(directCompletion && completed && index===project.steps.length-1 && project.steps.some((_,i)=>i<index && !project.completed_steps.includes(i)))return;
-    setBusy(true); setError('');
+    setBusy(true);onBusyChange?.(true); setError('');
     const version = transitionVersion.current;
     try {
       const updated = await onStep(project.id, index, completed);
+      if(alive.current && completed)setStarted(true);
       if (!alive.current || version !== transitionVersion.current || !completed) return;
       if(directCompletion && updated.status==='completed'){onDone();return;}
       setTransitioning(true);
@@ -60,22 +64,23 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone, direc
         } else jump(index + 1);
       }, 500);
     } catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : 'Unable to save this step.'); }
-    finally { if (alive.current) setBusy(false); }
+    finally { onBusyChange?.(false);if (alive.current) setBusy(false); }
   };
   const restart = () => Alert.alert('Do this project again?', 'This resets the saved checklist to 0 completed steps. Use suitable material and reassess it if its condition has changed.', [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Reset progress', onPress: () => {
-      setBusy(true); setError('');
+      setBusy(true);onBusyChange?.(true); setError('');
       onRestart(project.id).then(() => { if (alive.current) { setSummary(false); jump(0); } })
         .catch(reason => { if (alive.current) setError(reason instanceof Error ? reason.message : 'Unable to restart.'); })
-        .finally(() => { if (alive.current) setBusy(false); });
+        .finally(() => { onBusyChange?.(false);if (alive.current) setBusy(false); });
     } },
   ]);
   const done = project.completed_steps.includes(index);
   const last = index === project.steps.length - 1;
   const earlierComplete = project.steps.every((_,i)=>i>=index || project.completed_steps.includes(i));
-  if (!project.steps.length) return <ScrollView contentContainerStyle={s.page}><Text style={s.title}>Guide unavailable</Text><Text style={s.body}>This older project has no usable steps. Choose a project with published instructions.</Text><Button title="Back to projects" onPress={onDone} /></ScrollView>;
-  return <ScrollView ref={scroll} contentContainerStyle={s.page} showsVerticalScrollIndicator={false}>
+  const canChange=Boolean(onChangeIdea && project.can_change_idea!==false && !started && !project.completed_steps.length && project.status!=='completed');
+  if (!project.steps.length) return <ScrollView style={s.viewport} contentContainerStyle={s.page}><Text style={s.title}>Guide unavailable</Text><Text style={s.body}>This older project has no usable steps. Choose a project with published instructions.</Text><Button title="Back to projects" onPress={onDone} /></ScrollView>;
+  return <ScrollView testID="project-guide-scroll" ref={scroll} style={s.viewport} contentContainerStyle={s.page} showsVerticalScrollIndicator>
     <Pressable accessibilityRole="button" accessibilityLabel="Project information and source" accessibilityState={{expanded:details}} onPress={()=>setDetails(value=>!value)} style={s.secondary}><Text style={s.link}>Project information and source</Text></Pressable>
     {details?<View style={s.card}>
       <Text style={s.heading}>{project.title}</Text><Text style={s.body}>Input material: {project.material}</Text>
@@ -98,6 +103,7 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone, direc
       <Button title="Do it again" secondary onPress={restart} disabled={busy} />
     </> : <>
       <Text style={s.projectTitle}>{project.title}</Text><Text style={s.small}>{project.material} · {project.completed_count}/{project.total_steps} steps checked</Text>
+      {canChange?<Button title="Change idea" secondary onPress={()=>onChangeIdea?.(project)} disabled={busy || transitioning}/>:null}
       <View style={s.track}><View style={[s.fill, { width: `${project.progress_percent}%` }]} /></View>
       {project.safety_note ? <View style={s.safety}><Text style={s.safetyLabel}>Caution</Text><Text style={s.safetyText} numberOfLines={expandedSafety ? undefined : 2}>{project.safety_note}</Text><Pressable accessibilityRole="button" accessibilityLabel={expandedSafety ? 'Hide full caution' : 'Read full caution'} onPress={() => setExpandedSafety(value => !value)}><Text style={s.link}>{expandedSafety ? 'Show less' : 'Read full caution'}</Text></Pressable></View> : null}
       <Text accessibilityRole="header" style={s.title}>Step {index + 1} of {project.total_steps}</Text>
@@ -115,7 +121,7 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone, direc
 }
 
 const s = StyleSheet.create({
-  page: { padding: 20, paddingBottom: 35 }, title: { color: '#143f30', fontSize: 26, fontWeight: '800', marginVertical: 16 }, projectTitle: { color: '#143f30', fontSize: 21, fontWeight: '800', marginBottom: 10 },
+  viewport:{flex:1,minHeight:0},page: { flexGrow:1,padding: 20, paddingBottom: 40 }, title: { color: '#143f30', fontSize: 26, fontWeight: '800', marginVertical: 16 }, projectTitle: { color: '#143f30', fontSize: 21, fontWeight: '800', marginBottom: 10 },
   heading: { color: '#143f30', fontSize: 16, fontWeight: '700', marginBottom: 7 }, body: { color: '#35483e', fontSize: 15, lineHeight: 23 }, small: { color: '#63756a', fontSize: 12, lineHeight: 19, marginVertical: 8 },
   instruction: { borderWidth: 1, borderColor: '#dce9df', borderRadius: 16, padding: 18, marginVertical: 10 }, instructionText: { color: '#20392c', fontSize: 18, lineHeight: 28 }, card: { backgroundColor: '#edf6ef', padding: 18, borderRadius: 16, marginTop: 14 },
   primary: { backgroundColor: '#176b45', borderRadius: 12, padding: 16, minHeight: 50, alignItems: 'center', marginTop: 14 }, primaryText: { color: '#fff', fontSize: 16, fontWeight: '700' }, secondary: { minHeight: 46, justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8 }, link: { color: '#176b45', fontSize: 14, fontWeight: '700', paddingVertical: 4 }, disabled: { opacity: .4 },

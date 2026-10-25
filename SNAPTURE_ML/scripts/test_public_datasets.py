@@ -59,7 +59,8 @@ class PublicDatasetTests(unittest.TestCase):
             self.assertFalse((root/'out/HSI_HDPE_waste.zip').exists())
 
     def test_all_sources_are_https_and_do_not_change_model_configuration(self):
-        self.assertTrue(all(source['url'].startswith('https://') for source in SOURCES.values()))
+        self.assertTrue(all(source.get('url', source['page']).startswith('https://') for source in SOURCES.values()))
+        self.assertTrue(all(source['provider']=='mendeley' and source['dataset_id'] and source['version'] for source in SOURCES.values() if 'url' not in source))
         self.assertIn('RESEARCH_ONLY',SOURCES['zerowaste']['license'])
 
     def test_unsatisfiable_resume_restarts_only_temporary_file(self):

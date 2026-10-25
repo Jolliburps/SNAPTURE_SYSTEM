@@ -32,18 +32,21 @@ test('failed manual box save retains the region and retry id', async () => {
   await Renderer.act(() => tree.unmount());
 });
 
-test('all valid unidentified regions keep boxes and selectable object rows', async () => {
+test('weak unidentified regions remain reviewable but do not flood the photo by default', async () => {
   const prediction = { id:1, assessment:{material:{status:'needs_confirmation'},missing_information:['condition'],segregation:{instructions:[]}},recommendation_choices:[] };
   const scene = { id:8,image_url:'/scene.jpg',width:200,height:100,status:'complete',quality:{flags:[]},items:[1,2,3,4,5,6,7].map(id=>({id,box:[.1,.1,.3,.4],name:'Unidentified object',score:.1,display_box:false,display_group:'review',prediction,route:{key:'review',label:'Needs review',reason:'Unknown'}})) } as unknown as ScanScene;
   (getScene as jest.Mock).mockResolvedValue({scene});
   let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(async () => { tree = Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onRetry={jest.fn()} onReview={jest.fn()} />); });
-  expect(tree.root.findAllByProps({accessibilityLabel:'Select box 7'}).length).toBeGreaterThan(0);
-  expect(tree.root.findAllByProps({accessibilityLabel:'Discard item 7: Unidentified object'}).length).toBeGreaterThan(0);
-  await Renderer.act(() => { tree.root.findAllByProps({accessibilityLabel:'Select box 7'}).find(node=>node.props.onPress)?.props.onPress(); });
-  expect(tree.root.findAllByProps({accessibilityLabel:'Select box 7'})[0].props.accessibilityState.checked).toBe(true);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Select box 7'})).toHaveLength(0);
+  await Renderer.act(()=>{tree.root.findAllByProps({accessibilityLabel:'Show uncertain suggestions (7)'}).find(node=>node.props.onPress)?.props.onPress();});
+  expect(tree.root.findAllByProps({accessibilityLabel:'Select box 7'})).toHaveLength(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Select item 7: Unidentified object'}).length).toBeGreaterThan(0);
+  await Renderer.act(() => { tree.root.findAllByProps({accessibilityLabel:'Select item 7: Unidentified object'}).find(node=>node.props.onPress)?.props.onPress(); });
+  expect(tree.root.findAllByProps({accessibilityLabel:'Select box 7'})).toHaveLength(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Select item 7: Unidentified object'})[0].props.accessibilityState.checked).toBe(true);
   expect(JSON.stringify(tree.toJSON())).toContain('Continue with 1 selected item');
-  expect(JSON.stringify(tree.toJSON())).not.toContain('Hide review items');
+  expect(JSON.stringify(tree.toJSON())).toContain('Hide uncertain suggestions (7)');
   await Renderer.act(() => tree.unmount());
 });
 

@@ -1,0 +1,116 @@
+{
+  "model_retrained": false,
+  "accuracy_evaluation": false,
+  "note": "Three deterministic source samples; execution smoke test only, no accuracy claim. No scans saved.",
+  "samples": [
+    {
+      "source": "indoor_waste",
+      "file": "video_20230201_091804_00004.jpg",
+      "objects_proposed": 2,
+      "first_three": [
+        {
+          "object": "paper scrap",
+          "object_score": 0.138,
+          "material": "unknown_unsupported",
+          "material_status": "classified"
+        },
+        {
+          "object": "mobile phone",
+          "object_score": 0.106,
+          "material": "unknown_unsupported",
+          "material_status": "not_applicable"
+        }
+      ],
+      "truncated": false,
+      "seconds": 40.8
+    },
+    {
+      "source": "wasteinsight",
+      "file": "train/IMG-20240307-WA0048_jpg.rf.33f8625471e75c8e95d605b1d404bc00.jpg",
+      "objects_proposed": 4,
+      "first_three": [
+        {
+          "object": "plastic bag or plastic wrapper",
+          "object_score": 0.754,
+          "material": "unknown_unsupported",
+          "material_status": "not_applicable"
+        },
+        {
+          "object": "cloth or fabric scrap",
+          "object_score": 0.128,
+          "material": "unknown_unsupported",
+          "material_status": "classified"
+        },
+        {
+          "object": "cardboard box or cardboard scrap",
+          "object_score": 0.108,
+          "material": "unknown_unsupported",
+          "material_status": "classified"
+        }
+      ],
+      "truncated": false,
+      "seconds": 5.8
+    },
+    {
+      "source": "packwise",
+      "file": "data/train/Vollstrom2_frame00095_Probe00048_00049.jpg",
+      "objects_proposed": 9,
+      "first_three": [
+        {
+          "object": "plastic bag or plastic wrapper",
+          "object_score": 0.606,
+          "material": "unknown_unsupported",
+          "material_status": "not_applicable"
+        },
+        {
+          "object": "plastic bag or plastic wrapper",
+          "object_score": 0.479,
+          "material": "unknown_unsupported",
+          "material_status": "not_applicable"
+        },
+        {
+          "object": "paint can",
+          "object_score": 0.298,
+          "material": "unknown_unsupported",
+          "material_status": "not_applicable"
+        }
+      ],
+      "truncated": false,
+      "seconds": 6.2
+    }
+  ],
+  "existing_history_reads": [
+    {
+      "scene_id": 28,
+      "items": 1
+    },
+    {
+      "scene_id": 27,
+      "items": 3
+    },
+    {
+      "scene_id": 26,
+      "items": 8
+    },
+    {
+      "scene_id": 25,
+      "items": 0
+    },
+    {
+      "scene_id": 24,
+      "items": 3
+    },
+    {
+      "scene_id": 23,
+      "items": 6
+    },
+    {
+      "scene_id": 22,
+      "items": 13
+    },
+    {
+      "scene_id": 21,
+      "items": 7
+    }
+  ]
+}

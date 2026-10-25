@@ -4,7 +4,6 @@ import { addSceneRegion, confirmDisposalSelection, getScene, imageUrl, type Imag
 import MarkObjectModal from './MarkObjectModal';
 import DetectionItemCard from './DetectionItemCard';
 import DisposalObjectRow from './DisposalObjectRow';
-import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
 
 export const GROUP_COLORS: Record<string, string> = { biodegradable: '#247544', recyclable: '#19739c', non_biodegradable: '#715a98', special: '#a24432', review: '#896322' };
 const GROUP_NAMES: Record<string, string> = { biodegradable: 'Biodegradable', recyclable: 'Recyclable / reusable', non_biodegradable: 'Residual', special: 'Special / hazardous', review: 'Unidentified / needs review' };
@@ -41,6 +40,11 @@ function itemGroup(item: SceneItem) {
 function canDraw(item: SceneItem) {
   return item.box.length === 4 && item.box.every(value => Number.isFinite(value) && value >= 0 && value <= 1) && item.box[2] > item.box[0] && item.box[3] > item.box[1];
 }
+function needsReview(item:SceneItem) {
+  if(item.detection_status)return item.detection_status==='review';
+  return item.score<.28 && item.prediction.input_method!=='manual' && !item.identification?.user_object_name && item.identification?.object_prediction.source!=='whole_image_classifier';
+}
+function suppressed(item:SceneItem) {return item.detection_status==='excluded' || item.detection_status==='duplicate';}
 export function containRect(width: number, height: number, boxWidth: number, boxHeight: number) {
   const scale = Math.min(boxWidth / width, boxHeight / height);
   return { x: (boxWidth - width * scale) / 2, y: (boxHeight - height * scale) / 2, width: width * scale, height: height * scale };
@@ -52,6 +56,7 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
   const [phase,setPhase]=useState<'selection'|'handling'>(initial.disposal_selection?.confirmed?'handling':'selection');
   const [discardIds,setDiscardIds]=useState<number[]>(initial.disposal_selection?.item_ids || []);
   const [objectNames,setObjectNames]=useState<Record<number,string>>(()=>Object.fromEntries(initial.items.map(item=>[item.id,item.identification?.user_object_name || ''])));
+  const [itemConditions,setItemConditions]=useState<Record<number,string>>(()=>Object.fromEntries(initial.items.map(item=>[item.id,initial.disposal_selection?.item_conditions?.[item.id] || item.prediction.condition || 'Not sure'])));
   const [confirming,setConfirming]=useState(false);
   const [refreshing,setRefreshing]=useState(!historical);
   const edited=useRef(false), busy=useRef(false), mounted=useRef(true);
@@ -64,6 +69,8 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
   const [starting, setStarting] = useState('');
   const [photoWidth, setPhotoWidth] = useState(300);
   const [photoError,setPhotoError]=useState(false);
+  const [showUncertain,setShowUncertain]=useState(false);
+  const [nameConfirmationId,setNameConfirmationId]=useState<number|null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
   const photoY = useRef(0);
   const cardY = useRef<Record<number, number>>({});
@@ -84,6 +91,7 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
         if(!edited.current){
           setDiscardIds(result.scene.disposal_selection?.item_ids || []);
           setObjectNames(Object.fromEntries(result.scene.items.map(item=>[item.id,item.identification?.user_object_name || ''])));
+          setItemConditions(Object.fromEntries(result.scene.items.map(item=>[item.id,result.scene.disposal_selection?.item_conditions?.[item.id] || item.prediction.condition || 'Not sure'])));
           if(result.scene.disposal_selection?.confirmed)setPhase('handling');
         }
         setRefreshing(false);
@@ -94,18 +102,26 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     return () => { active = false; if (timer) clearTimeout(timer); };
   }, [initial.id,historical]);
   const checked = scene.items.filter(item => item.prediction.assessment?.quick_check?.user_reviewed || item.prediction.assessment?.quick_check?.sorting_complete || item.prediction.assessment?.segregation.status === 'available').length;
-  const candidateCount = scene.items.length;
+  const candidateCount = scene.items.filter(item=>!needsReview(item) && !suppressed(item)).length;
   const single = candidateCount === 1;
+  const singleFrame=Boolean(scene.single_item?.enabled);
+  const recommendationItem=!historical && onReview && singleFrame && scene.items.length===1 &&
+    !needsReview(scene.items[0]) && !suppressed(scene.items[0]) &&
+    (scene.items[0].automatic_route?.action==='recover' || scene.items[0].identification?.object_prediction.source==='whole_image_classifier')
+    ? scene.items[0] : undefined;
   const wholePhoto = scene.items.some(item=>item.identification?.object_prediction.source==='whole_image_classifier');
   const numbers = new Map([...scene.items].sort((a,b) => a.id-b.id).map((item,index) => [item.id,index+1]));
-  const eligible = scene.items.filter(canDraw);
+  const uncertainCount=scene.items.filter(needsReview).length;
+  const visibleItems=scene.items.filter(item=>!suppressed(item) && (!needsReview(item) || showUncertain || discardIds.includes(item.id)));
+  // Opening the review list must never turn a weak guess back into a photo box.
+  const eligible = scene.items.filter(item=>canDraw(item) && item.display_box!==false && !needsReview(item) && !suppressed(item) && item.identification?.object_prediction.source!=='whole_image_classifier');
   const drawn = eligible;
   const stageHeight = single ? 280 : 360;
   const rect = containRect(scene.width,scene.height,photoWidth,stageHeight);
   const chooseBox = (item: SceneItem) => {
     if(phase==='selection'){
       edited.current=true;
-      setDiscardIds(old=>old.includes(item.id)?old.filter(id=>id!==item.id):[...old,item.id]);
+      setDiscardIds(old=>old.includes(item.id)?old.filter(id=>id!==item.id):singleFrame?[item.id]:[...old,item.id]);
     }
     setSelected(item.id); setExpanded(old => ({ ...old,[item.id]:true }));
     requestAnimationFrame(() => scroll.current?.scrollTo({ y: Math.max(0,(cardY.current[item.id] || 0)-12), animated:true }));
@@ -118,6 +134,12 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     setSelected(item.id);
     if (canDraw(item)) scroll.current?.scrollTo({ y:photoY.current,animated:true });
   };
+  const reviewItem = (item:SceneItem) => {
+    if(item.name_confirmation_required && needsReview(item)){
+      edited.current=true;setPhase('selection');setShowUncertain(true);setSelected(item.id);setNameConfirmationId(item.id);
+      requestAnimationFrame(()=>scroll.current?.scrollTo({y:Math.max(0,(cardY.current[item.id] || 0)-12),animated:true}));
+    }else onReview?.(item.prediction);
+  };
   const openGuide = async (item: SceneItem, ideaId: string) => {
     if (!onOpenGuide || starting) return;
     setStarting(ideaId); setError('');
@@ -125,26 +147,34 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to open this guide.'); }
     finally { setStarting(''); }
   };
-  const confirm = async()=>{
-    if(busy.current || !discardIds.length || scene.status!=='complete')return;
+  const confirm = async(review?:SceneItem)=>{
+    const ids=review?[review.id]:discardIds;
+    if(busy.current || !ids.length || scene.status!=='complete')return;
+    edited.current=true;
     busy.current=true;setConfirming(true);setError('');
     try{
-      const result=await confirmDisposalSelection(scene.id,discardIds,objectNames);
+      const result=await confirmDisposalSelection(scene.id,ids,objectNames,
+        undefined,
+        Object.fromEntries(ids.map(id=>[id,itemConditions[id] || 'Not sure'])),true);
       if(!mounted.current)return;
-      setScene(result.scene);changed.current?.(result.scene);setPhase('handling');setExpanded({});
+      setScene(result.scene);changed.current?.(result.scene);setDiscardIds(ids);setPhase('handling');setExpanded({});setNameConfirmationId(null);
       scroll.current?.scrollTo({y:0,animated:true});
+      if(review){
+        const updated=result.scene.items.find(item=>item.id===review.id);
+        if(updated)reviewItem(updated);
+      }
     }catch(reason){if(mounted.current)setError(reason instanceof Error?reason.message:'Unable to confirm items. Your selection has been kept.');}
     finally{busy.current=false;if(mounted.current)setConfirming(false);}
   };
   return <View style={s.screen}><ScrollView ref={scroll} contentContainerStyle={s.page}>
     <Action title="Back" onPress={onBack} secondary />
-    <Text style={s.title}>{phase==='selection'?'Which items do you want to discard?':single?'Item handling':'Handling recommendations'}</Text>
+    <Text style={s.title}>{phase==='selection'?(singleFrame?'Check framed item':'Check detected items'):'Your next steps'}</Text>
     {scene.created_at?<Text style={[s.body,s.resultBody]}>{new Date(scene.created_at).toLocaleString()}</Text>:null}
     {historical?<Text style={[s.small,s.resultBody]}>Saved photo · no new detection.</Text>:null}
-    <Text style={[s.body,s.resultBody]}>{candidateCount} {wholePhoto?'material result':'object suggestions'} · {discardIds.length} selected · {checked} reviewed</Text>
-    <Text style={s.small}>Select only items you plan to discard. {wholePhoto?'The whole photo was classified. Use one item per photo; object locations were not detected.':'Detection can miss or confuse objects; a box is not a confirmed waste category.'}</Text>
+    <Text style={[s.body,s.resultBody]}>{candidateCount} {wholePhoto?'material result':'object matches'}{uncertainCount?` · ${uncertainCount} need review`:''} · {discardIds.length} selected · {checked} reviewed</Text>
+    <Text style={s.small}>{phase==='selection'?'Seven-category materials go to recycling / upcycling confirmation. Other items get disposal guidance. ':''}{wholePhoto?'Use one item per photo; object locations were not detected.':'Check the object name; a box is not a confirmed waste category.'}</Text>
     <View onLayout={event => { photoY.current = event.nativeEvent.layout.y; setPhotoWidth(event.nativeEvent.layout.width); }} style={[s.photo,{height:stageHeight}]}>
-      {scene.image_url && !photoError?<Image source={{ uri:imageUrl(scene.image_url) }} onError={()=>setPhotoError(true)} accessibilityLabel="Original scanned photo" resizeMode="contain" style={StyleSheet.absoluteFill} />:<Text style={s.missingPhoto}>The photo is unavailable or privacy processing is not ready. Saved item results are still shown below.</Text>}
+      {scene.image_url && !photoError?<Image source={{ uri:imageUrl(scene.image_url) }} onError={()=>setPhotoError(true)} accessibilityLabel={singleFrame?'Scanned area inside border':'Original scanned photo'} resizeMode="contain" style={StyleSheet.absoluteFill} />:<Text style={s.missingPhoto}>The photo is unavailable or privacy processing is not ready. Saved item results are still shown below.</Text>}
       {scene.image_url && !photoError?drawn.map(item => {
         const color = OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length];
         const left=rect.x+item.box[0]*rect.width, top=rect.y+item.box[1]*rect.height;
@@ -155,18 +185,20 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
       }):null}
     </View>
     <QualityFeedback quality={scene.quality} />
-    <Text style={[s.small,s.resultBody]}>{phase==='selection'?wholePhoto?'Use the checkbox below to select this item for disposal. Review the suggested material before following any advice.':'Tap a box or checkbox to select or deselect an item. Unselected belongings are not treated as waste. Colors distinguish objects, not confirmed bins.':'Tap an item below to expand its saved handling advice. You can change the selected items without running detection again.'}</Text>
+    <Text style={[s.small,s.resultBody]}>{phase==='selection'?'Select the items you want guidance for, then continue. Uncertain objects still need review.':'Follow the suggested route. Confirm material and condition before choosing an upcycling idea.'}</Text>
     {scene.truncated ? <Text style={s.low}>The detector reached its proposal limit. Some regions are not shown. Use a separate photo or mark a missed item.</Text> : null}
-    {phase==='selection' && !historical && scene.status === 'complete' ? <Action title="Mark a missed item" secondary disabled={confirming} onPress={() => setMarking(true)} /> : null}
+    {phase==='selection' && !historical && !singleFrame && scene.status === 'complete' ? <Action title="Mark a missed item" secondary disabled={confirming} onPress={() => setMarking(true)} /> : null}
     {phase==='handling'?<Action title="Change selected items" secondary onPress={()=>{edited.current=true;setPhase('selection');}}/>:null}
     {error || scene.error ? <Text accessibilityRole="alert" style={s.error}>{error || scene.error}</Text> : null}
     {scene.status==='processing' ? <View style={s.card}><Text style={s.heading}>Analyzing this photo...</Text><Text style={s.body}>This result updates automatically when analysis finishes.</Text></View> : null}
-    {scene.status==='complete' && !scene.items.length ? <View style={s.card}><Text style={s.heading}>No recognizable objects found</Text><Text style={s.body}>This does not mean no waste is present. Mark a missed item or try fewer separated items.</Text></View> : null}
+    {scene.status==='complete' && !candidateCount ? <View style={s.card}><Text style={s.heading}>No reliable object match</Text><Text style={s.body}>Try a closer photo of the intended item, or mark it manually. People and body parts are not waste items.</Text></View> : null}
     {scene.items.length ? <Text accessibilityRole="header" style={s.itemsTitle}>{wholePhoto?'Material result':'Detected items'}</Text> : null}
-    {phase==='selection'?<View pointerEvents={confirming?'none':'auto'}>{[...scene.items].sort((a,b)=>a.id-b.id).map(item=><View key={item.id} onLayout={event=>{cardY.current[item.id]=event.nativeEvent.layout.y;}}>
+    {phase==='selection' && uncertainCount?<><Action title={`${showUncertain?'Hide':'Show'} uncertain suggestions (${uncertainCount})`} secondary disabled={confirming} onPress={()=>setShowUncertain(value=>!value)}/><Text style={s.small}>Review-only guesses are not counted as matched objects and are not drawn on the photo.</Text></>:null}
+    {phase==='selection'?<View pointerEvents={confirming?'none':'auto'}>{[...visibleItems].sort((a,b)=>a.id-b.id).map(item=><View key={item.id} onLayout={event=>{cardY.current[item.id]=event.nativeEvent.layout.y;}}>
       <DisposalObjectRow item={item} number={numbers.get(item.id)!} color={OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length]} checked={discardIds.includes(item.id)} name={objectNames[item.id] || ''}
+        condition={itemConditions[item.id] || 'Not sure'} requestNameConfirmation={nameConfirmationId===item.id}
+        onCondition={condition=>{edited.current=true;setItemConditions(old=>({...old,[item.id]:condition}));}}
         onToggle={()=>chooseBox(item)} onName={name=>{edited.current=true;setObjectNames(old=>({...old,[item.id]:name}));}} onDetails={()=>showPhoto(item)}/>
-      <ScanUpcyclingIdeas key={`ideas-${item.prediction.id}`} prediction={item.prediction}/>
     </View>)}</View>:null}
     {phase==='handling'?[...scene.items].filter(item=>discardIds.includes(item.id)).sort((a,b)=>a.id-b.id).map(item=>{
       const group=itemGroup(item);
@@ -174,8 +206,8 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
         category={GROUP_NAMES[group] || GROUP_NAMES.review} color={GROUP_COLORS[group] || GROUP_COLORS.review}
         explanation={GROUP_REASONS[group] || GROUP_REASONS.review} recoveryOptions={RECOVERY_OPTIONS[group] || RECOVERY_OPTIONS.review}
         fallbackPreparation={group==='special'?'Keep suspected hazardous items separate. Ask CESD for handling instructions; do not mix, burn or empty unknown contents.':'Confirm the item and its contents first. Preparation such as rinsing or flattening is shown only when published guidance applies.'}
-        expanded={scene.items.filter(value=>discardIds.includes(value.id)).length===1?expanded[item.id]!==false:Boolean(expanded[item.id])} selected={selected===item.id}
-        onToggle={()=>chooseCard(item)} onShowPhoto={scene.image_url && !photoError?()=>showPhoto(item):undefined} onReview={!historical && onReview?()=>onReview(item.prediction):undefined}
+        expanded={item.action_advice?.chosen_action?Boolean(expanded[item.id]):scene.items.filter(value=>discardIds.includes(value.id)).length===1?expanded[item.id]!==false:Boolean(expanded[item.id])} selected={selected===item.id}
+        onToggle={()=>chooseCard(item)} onShowPhoto={scene.image_url && !photoError?()=>showPhoto(item):undefined} onReview={!historical && onReview?()=>reviewItem(item):undefined}
         onOpenGuide={onOpenGuide ? ideaId=>{openGuide(item,ideaId);} : undefined} openingGuide={starting} guidesBusy={Boolean(starting)}
         onLayout={y=>{cardY.current[item.id]=y;}} />;
     }):null}
@@ -183,7 +215,7 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     {onBrowseIdeas?<><Action title="Browse general reuse ideas" secondary onPress={onBrowseIdeas}/><Text style={s.small}>The idea library is not an assessment or approval for the items in this scan.</Text></>:null}
     <Action title="Scan another photo" onPress={onRetry} />
     {marking ? <MarkObjectModal image={scene.image_url} width={scene.width} height={scene.height} onClose={() => setMarking(false)} onSave={async (box, requestId) => { const result = await addSceneRegion(scene.id, box, requestId); setScene(result.scene);changed.current?.(result.scene); }} /> : null}
-  </ScrollView>{phase==='selection'?<View style={s.footer}><Action title={confirming?'Confirming...':`Continue with ${discardIds.length} selected item${discardIds.length===1?'':'s'}`} disabled={!discardIds.length || confirming || refreshing || scene.status!=='complete'} onPress={confirm}/></View>:null}</View>;
+  </ScrollView>{phase==='selection'?<View style={s.footer}><Action title={confirming?'Confirming...':recommendationItem?'Recycling / upcycling ideas':`Continue with ${discardIds.length} selected item${discardIds.length===1?'':'s'}`} disabled={(!recommendationItem && !discardIds.length) || confirming || refreshing || scene.status!=='complete'} onPress={()=>confirm(recommendationItem)}/></View>:null}</View>;
 }
 
 

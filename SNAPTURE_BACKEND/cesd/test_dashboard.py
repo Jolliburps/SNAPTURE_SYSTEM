@@ -6,7 +6,7 @@ from django.db import DatabaseError
 from django.test import TestCase
 from django.utils import timezone
 from accounts.models import Profile
-from .models import Material, Policy, Schedule, StaffAccess
+from .models import Announcement, Material, Policy, Schedule, StaffAccess
 
 
 class DashboardTests(TestCase):
@@ -18,7 +18,10 @@ class DashboardTests(TestCase):
 
     def content(self, model=Policy, status='Draft'):
         fields = dict(title='Saved content', category='Guidelines', description='Description', status=status, updated_by=self.staff)
-        fields.update(dict(effective_date='2026-10-01', content='Policy text') if model == Policy else dict(material_type='PDF Guide', attachment='test.pdf'))
+        if model == Policy:
+            fields.update(effective_date='2026-10-01', content='Policy text')
+        elif model == Material:
+            fields.update(material_type='PDF Guide', attachment='test.pdf')
         return model.objects.create(**fields)
 
     def dashboard(self, month):
@@ -32,18 +35,19 @@ class DashboardTests(TestCase):
             with self.subTest(month=month):
                 Policy.objects.all().delete()
                 Material.objects.all().delete()
+                Announcement.objects.all().delete()
                 Schedule.objects.all().delete()
                 start = datetime.fromisoformat(month + '-01').replace(tzinfo=zone)
                 end = start + timedelta(days=days)
                 for stamp in [start - timedelta(microseconds=1), start, end - timedelta(microseconds=1), end]:
-                    for model in [Policy, Material]:
+                    for model in [Policy, Material, Announcement]:
                         published = self.content(model, 'Published')
                         model.objects.filter(pk=published.pk).update(published_at=stamp, updated_at=stamp)
                         draft = self.content(model)
                         model.objects.filter(pk=draft.pk).update(updated_at=stamp)
                     Schedule.objects.create(updated_by=self.staff, waste_type='Recyclable', barangay='Molino 1', collection_date=stamp.date(), start_time='08:00', end_time='12:00')
                 data = self.dashboard(month)
-                self.assertEqual(data['counts'], {'policies': 2, 'materials': 2, 'drafts': 4, 'schedules': 2})
+                self.assertEqual(data['counts'], {'policies': 2, 'materials': 2, 'announcements': 2, 'drafts': 6, 'schedules': 2})
                 self.assertEqual(data['end'], month + '-' + str(days))
                 self.assertEqual(data['timezone'], 'Asia/Manila')
                 self.assertEqual(len(data['drafts']), 3)
@@ -83,7 +87,7 @@ class DashboardTests(TestCase):
     def test_defaults_empty_validation_and_permissions(self):
         response = self.client.get('/api/cesd/dashboard/')
         self.assertEqual(response.json()['month'], timezone.localdate().strftime('%Y-%m'))
-        self.assertEqual(response.json()['counts'], dict(policies=0, materials=0, schedules=0, drafts=0))
+        self.assertEqual(response.json()['counts'], dict(policies=0, materials=0, announcements=0, schedules=0, drafts=0))
         for month in ['2026-13', '2026-2', 'invalid', '0000-01', '9999-12']:
             self.assertEqual(self.client.get('/api/cesd/dashboard/', {'month': month}).status_code, 400)
         self.client.logout()

@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "..\\SNAPTURE_ML\\.venv\\Scripts\\python.exe ..\\SNAPTURE_BACKEND\\manage.py runserver 0.0.0.0:8000 --noreload",
-    "db:migrate": ".venv\\Scripts\\python.exe server/manage.py migrate",
-    "owner:create": ".venv\\Scripts\\python.exe server/manage.py create_cesd_owner",
-    "test:server": ".venv\\Scripts\\python.exe server/manage.py test cesd --verbosity 1",
-    "test:ui": ".venv\\Scripts\\python.exe server/seed_e2e.py && playwright test",
+    "db:migrate": "..\\SNAPTURE_ML\\.venv\\Scripts\\python.exe server/manage.py migrate",
+    "owner:create": "..\\SNAPTURE_ML\\.venv\\Scripts\\python.exe server/manage.py create_cesd_owner",
+    "test:server": "..\\SNAPTURE_ML\\.venv\\Scripts\\python.exe server/manage.py test cesd --verbosity 1",
+    "test:ui": "..\\SNAPTURE_ML\\.venv\\Scripts\\python.exe server/seed_e2e.py && playwright test",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"

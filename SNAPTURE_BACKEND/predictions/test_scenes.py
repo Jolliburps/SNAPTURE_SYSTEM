@@ -96,17 +96,19 @@ class SceneApiTests(TestCase):
         self.assertEqual(item['prediction']['recommendation_choices'],[])
         self.assertEqual(item['prediction']['image_quality']['alternatives'],[])
         self.assertEqual(item['prediction']['image_quality']['material_prediction']['label'],'paper')
-        self.assertTrue(item['display_box'])
+        self.assertFalse(item['display_box'])
+        self.assertEqual(item['detection_status'],'review')
         self.assertEqual(item['display_group'],'review')
 
     def test_no_detections_are_not_replaced_with_fake_boxes(self):
         result = self.create(rows=[]).json()['scene']
         self.assertEqual(result['items'],[]); self.assertEqual(PredictionRecord.objects.count(),0)
 
-    def test_background_detections_stay_boxed_but_unconfirmed(self):
+    def test_background_detections_stay_reviewable_without_waste_boxes(self):
         result = self.create(rows=[{'name':'computer keyboard','material':'unknown_unsupported','score':.6,'box':[.1,.1,.8,.8]}]).json()['scene']
         self.assertEqual(len(result['items']),1)
         self.assertTrue(result['items'][0]['background'])
+        self.assertFalse(result['items'][0]['display_box'])
         self.assertEqual(result['items'][0]['display_group'],'special')
         self.assertEqual(result['background_objects'],[{'name':'computer keyboard','count':1}])
         self.assertEqual(PredictionRecord.objects.count(),1)
@@ -118,7 +120,7 @@ class SceneApiTests(TestCase):
         record.save()
         refreshed = self.client.get(f"/api/scenes/{result['id']}/",**self.auth).json()['scene']
         self.assertEqual(refreshed['items'][0]['display_group'],'special')
-        self.assertTrue(refreshed['items'][0]['display_box'])
+        self.assertFalse(refreshed['items'][0]['display_box'])
 
     def test_request_retry_is_idempotent_and_reads_are_owner_only(self):
         first = self.create().json()['scene']

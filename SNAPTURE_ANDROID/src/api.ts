@@ -70,6 +70,7 @@ export type UserProject = {
   total_steps: number;
   progress_percent: number;
   status: 'active' | 'completed';
+  can_change_idea?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -120,7 +121,7 @@ export type WasteIdentity = {
   top_predictions: { label: string; score: number }[]; handling_steps: string[];
   general_guidance?: { status: string; instructions: string[]; source: { name: string; url: string; section: string; date: string | null } };
 };
-export type ImageQuality = { flags: { code: string; message: string }[]; limitations: string };
+export type ImageQuality = { flags: { code: string; message: string }[]; limitations: string; automatic_routing?:boolean };
 export type CaptureFrame = { aspect: number; x: number; y: number; width: number; height: number };
 export type ObjectIdentification = {
   object_prediction: {name:string;confidence:number|null;source:string;score_kind:string};
@@ -132,8 +133,10 @@ export type HandlingAdvice = ObjectIdentification & {
   sources:Array<{title?:string;url?:string;source?:string;review_level?:string}>;
   upcycling_eligible:boolean;recommendations:Recommendation[];verification_status:string;
 };
-export type SceneItem = { id: number; box: number[]; name: string; score: number; prediction: Prediction; route: { key: string; label: string; reason: string }; suggested_group?: string; display_box?: boolean; display_group?: string; low_confidence?: boolean; background?: boolean; review_reason?: string;identification?:ObjectIdentification;handling?:HandlingAdvice };
-export type ScanScene = { id: number; image_url: string; created_at?: string; width: number; height: number; frame: number[]; status: string; error: string; quality: ImageQuality; items: SceneItem[]; truncated: boolean; detector: string; limitations: string; background_objects?: { name: string; count: number }[];disposal_selection?:{confirmed:boolean;item_ids:number[];confirmed_at?:string} };
+export type ItemAction='keep'|'discard'|'recover';
+export type ActionAdvice={version:string;chosen_action:ItemAction|null;condition:string;suggested_action:string;title:string;steps:string[];caution:string;status:string;waste_group:string;projects:Recommendation[];sources:Array<{title:string;url?:string;status?:string}>;composition_note?:string};
+export type SceneItem = { id: number; box: number[]; name: string; display_name?:string; name_confirmation_required?:boolean; score: number; prediction: Prediction; route: { key: string; label: string; reason: string }; suggested_group?: string; display_box?: boolean; display_group?: string; low_confidence?: boolean; background?: boolean; review_reason?: string;detection_status?:'accepted'|'review'|'excluded'|'duplicate'|'material_only';duplicate_of?:number;identification?:ObjectIdentification;handling?:HandlingAdvice;action_advice?:ActionAdvice;automatic_route?:{enabled?:boolean;action:'discard'|'recover';needs_review:boolean;confirmation_required:boolean;label:string;note:string} };
+export type ScanScene = { id: number; image_url: string; created_at?: string; width: number; height: number; frame: number[]; single_item?:{enabled:boolean;status?:string}; status: string; error: string; quality: ImageQuality; items: SceneItem[]; truncated: boolean; detector: string; limitations: string; background_objects?: { name: string; count: number }[];disposal_selection?:{confirmed:boolean;item_ids:number[];confirmed_at?:string;item_actions?:Record<number,ItemAction>;item_conditions?:Record<number,string>} };
 export const imageUrl = (uri: string) => {
   const url=uri.startsWith('/') ? `${API_BASE_URL.replace(/\/api$/, '')}${uri}` : uri;
   // Avoid reusing pre-privacy cached originals from an older app installation.
@@ -156,12 +159,12 @@ export async function addSceneRegion(id: number, box: number[], requestId: strin
   }));
 }
 
-export async function confirmDisposalSelection(id:number,itemIds:number[],objectNames:Record<number,string>) {
+export async function confirmDisposalSelection(id:number,itemIds:number[],objectNames:Record<number,string>,itemActions?:Record<number,ItemAction>,itemConditions?:Record<number,string>,automaticRouting=false) {
   const token=await getStoredToken();
   if(!token)throw new Error('Please log in before confirming items.');
   return parseResponse<{scene:ScanScene}>(await fetchWithTimeout(`${API_BASE_URL}/scenes/${id}/disposal-selection/`,{
     method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-    body:JSON.stringify({item_ids:itemIds,object_names:objectNames}),
+    body:JSON.stringify({item_ids:itemIds,object_names:objectNames,...(itemActions?{item_actions:itemActions}:{}),...(itemConditions?{item_conditions:itemConditions}:{}),...(automaticRouting?{automatic_routing:true}:{})}),
   }));
 }
 
@@ -174,13 +177,14 @@ export async function contributeIdentification(id: number, withdraw = false) {
   }));
 }
 
-export async function createScene(uri: string, requestId: string, frame?: CaptureFrame) {
+export async function createScene(uri: string, requestId: string, frame?: CaptureFrame, singleItem=false) {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in before analyzing.');
   const data = new FormData();
   data.append('image', { uri: /^(file|content):/.test(uri) ? uri : `file://${uri}`, name: 'capture.jpg', type: 'image/jpeg' } as unknown as Blob);
   data.append('request_id', requestId);
   if (frame) data.append('frame', JSON.stringify(frame));
+  if (singleItem) data.append('single_item','1');
   const response = await fetchWithTimeout(`${API_BASE_URL}/scenes/`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: data }, 180000);
   return parseResponse<{ scene: ScanScene }>(response);
 }
@@ -428,6 +432,21 @@ export async function restartProject(projectId: number) {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in to restart a project.');
   return parseResponse<{ project: UserProject }>(await fetchWithTimeout(`${API_BASE_URL}/projects/${projectId}/restart/`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }));
+}
+
+export async function getProjectIdeas(projectId:number) {
+  const token=await getStoredToken();
+  if(!token)throw new Error('Please log in to change a project idea.');
+  return parseResponse<{ideas:Array<Recommendation & {existing_project_id?:number;existing_project_status?:'active'|'completed'}>;source?:{prediction_id:number;material:string;object_name:string;image_url:string|null}}>(await fetchWithTimeout(`${API_BASE_URL}/projects/${projectId}/ideas/`,{headers:{Authorization:`Bearer ${token}`}}));
+}
+
+export async function changeProjectIdea(projectId:number,recommendationId:string) {
+  const token=await getStoredToken();
+  if(!token)throw new Error('Please log in to change a project idea.');
+  return parseResponse<{project:UserProject}>(await fetchWithTimeout(`${API_BASE_URL}/projects/${projectId}/ideas/`,{
+    method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+    body:JSON.stringify({recommendation_id:recommendationId}),
+  }));
 }
 
 export async function getAdminOverview() {

@@ -4,6 +4,19 @@ React + TypeScript + Vite administration for CESD personnel. Policies, materials
 
 ## Shared backend integration
 
+The Django database panel is linked from **Settings → My Profile → Connected
+system**. It uses the same session and database as this web panel, through
+`/admin/`. CESD policies, educational uploads, announcements and schedules can
+be edited there using the same validation/publication rules; changes appear in
+the existing mobile APIs after refresh. Staff account setup and activation stay
+in **Staff Access**. Private scans/projects remain permission-restricted and
+read-only in Django; CESD content access does not grant resident-record access.
+
+The connection card runs a real database query and shows shared content/activity
+totals. A failed refresh removes the previous green status. This is fetch-based
+synchronization, not a live subscription, notification service or model-training
+connection.
+
 Normal development now uses the **same API on port 8000, database, and media folder as Android**. The canonical CESD module is `SNAPTURE_BACKEND/cesd`. `server/admin_config` is a compatibility launcher; only browser-test settings use an isolated database.
 
 Start one API process using either `SNAPTURE_BACKEND/manage.py runserver 0.0.0.0:8000` or `npm.cmd run dev:api` here. Start the web frontend with `npm.cmd run dev` and open `http://127.0.0.1:5173`. Do not run both API launchers simultaneously. Vite proxies `/api` to port 8000; `SNAPTURE_API_PROXY` can override the target for isolated testing.
@@ -30,8 +43,11 @@ Use Node.js 22.12 or newer, Python 3.13, and keep the sibling backend and ML fol
 
 ```powershell
 npm.cmd ci
-py -3.13 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r .\server\requirements.txt
+# Reuse the shared Python environment; create it only on a new installation.
+if (-not (Test-Path ..\SNAPTURE_ML\.venv\Scripts\python.exe)) {
+    py -3.13 -m venv ..\SNAPTURE_ML\.venv
+}
+..\SNAPTURE_ML\.venv\Scripts\python.exe -m pip install -r .\server\requirements.txt
 npm.cmd run db:migrate
 # Only if no owner was imported or previously created:
 npm.cmd run owner:create

@@ -21,6 +21,26 @@ ROOT = Path(__file__).resolve().parents[1] / 'data' / 'public_sources'
 RESERVE = 12 * 1024**3
 MAX_FILE = 9 * 1024**3
 SOURCES = {
+    'indoor_waste': {
+        'provider':'mendeley','dataset_id':'dy7smxr93r','version':1,
+        'page':'https://data.mendeley.com/datasets/dy7smxr93r/1',
+        'license':'CC-BY-4.0','labels':['paper','plastic','cap','shell (not confirmed coconut)'],
+        'annotation':'Publisher object annotations; preserve exact labels, not resin subtypes.',
+    },
+    'wasteinsight': {
+        'provider':'mendeley','dataset_id':'p8n7nbxyw3','version':1,
+        'page':'https://data.mendeley.com/datasets/p8n7nbxyw3/1',
+        'license':'CC-BY-4.0','labels':['trash bag'],
+        'annotation':'COCO bounding boxes for bags; contents and segregation are unknown.',
+    },
+    'packwise': {
+        'page':'https://fordatis.fraunhofer.de/handle/fordatis/463.2',
+        'url':'https://fordatis.fraunhofer.de/bitstream/fordatis/463.2/3/PackWISE_dataset_v2.zip',
+        'filename':'PackWISE_dataset_v2.zip','license':'CC-BY-4.0',
+        'labels':['23 publisher packaging categories; inspect annotations'],
+        'annotation':'COCO instance masks and bounding boxes, original train/val/test splits.',
+        'use':'Industrial conveyor scenes; not a guarantee of household recognition or safe reuse.',
+    },
     'kaggle_drinking': {
         'page':'https://www.kaggle.com/datasets/arkadiyhacks/drinking-waste-classification',
         'metadata':'https://www.kaggle.com/api/v1/datasets/view/arkadiyhacks/drinking-waste-classification',
@@ -252,6 +272,9 @@ def inventory(root):
 
 def acquire(name):
     source=SOURCES[name]
+    if source.get('provider') == 'mendeley':
+        from acquire_supplemental_datasets import acquire_mendeley
+        return acquire_mendeley(name, source)
     root=ROOT/name
     root.mkdir(parents=True,exist_ok=True)
     state={'dataset':name,**source,'retrieved_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),

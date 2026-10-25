@@ -5,6 +5,8 @@ import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import { imageUrl, type SceneItem } from './api';
 import WasteRecommendations from './WasteRecommendations';
 import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
+import ItemActionAdvice from './ItemActionAdvice';
+import { sceneItemTitle } from './detectionPresentation';
 
 function CardAction({title,onPress,disabled=false}:{title:string;onPress:()=>void;disabled?:boolean}) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[s.action,disabled && s.disabled]}><Text style={s.actionText}>{title}</Text></Pressable>;
@@ -17,22 +19,25 @@ export default function DetectionItemCard({item,number,category,color,explanatio
   onOpenGuide?:(id:string)=>void;openingGuide:string;guidesBusy:boolean;onLayout:(y:number)=>void;
 }) {
   const assessment=item.prediction.assessment;
+  const title=sceneItemTitle(item);
   const low=item.low_confidence || item.display_box===undefined && item.score<.28;
   const instructions=assessment?.segregation.instructions || [];
   const handling=item.handling;
   const special=handling?.route==='special_handling';
-  const ideas=handling?handling.recommendations:item.prediction.recommendation_choices || [];
+  const ideas=item.automatic_route?.enabled && item.automatic_route.confirmation_required?[]:handling?handling.recommendations:item.prediction.recommendation_choices || [];
   return <View onLayout={event=>onLayout(event.nativeEvent.layout.y)} style={[s.card,selected && s.selected]}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`Select item ${number} card`} accessibilityValue={{text:`${item.name}. ${category}`}} accessibilityState={{expanded,selected}} accessibilityHint={expanded?'Collapse item details':'Expand classification and sorting details'} onPress={onToggle} style={s.header}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Select item ${number} card`} accessibilityValue={{text:`${title}. ${category}`}} accessibilityState={{expanded,selected}} accessibilityHint={expanded?'Collapse item details':'Expand classification and sorting details'} onPress={onToggle} style={s.header}>
       <View style={[s.number,{backgroundColor:color}]}><Text style={s.numberText}>{number}</Text></View>
       <View style={s.copy}>
-        <Text style={s.name}>{item.identification?.user_object_name || item.name}</Text>
-        <Text style={[s.category,{color}]}>{handling?.title || category}</Text>
+        <Text style={s.name}>{title}</Text>
+        {item.name_confirmation_required?<Text style={s.status}>Exact object needs confirmation</Text>:null}
+        <Text style={[s.category,{color}]}>{item.action_advice?.chosen_action?({keep:'Keep',discard:'Disposal guidance',recover:'Recycle / upcycle'}[item.action_advice.chosen_action]):handling?.title || category}</Text>
         {low?<Text style={s.status}>Unconfirmed suggestion</Text>:null}
         {item.background?<Text style={s.status}>Possible background object</Text>:null}
       </View>
       <View accessible={false} importantForAccessibility="no-hide-descendants">{expanded?<ChevronUp size={24} color="#176b45"/>:<ChevronDown size={24} color="#176b45"/>}</View>
     </Pressable>
+    <ItemActionAdvice item={item} onReview={onReview} onOpenGuide={guidesBusy?undefined:onOpenGuide}/>
     {expanded?<View style={s.details}>
       {item.prediction.image_url?<Image source={{uri:imageUrl(item.prediction.image_url)}} resizeMode="contain" style={s.crop} accessibilityLabel={`Detected item ${number} crop for review`}/>:null}
       {handling?<View><Text style={s.section}>{handling.title}</Text><Text style={s.body}>{handling.explanation}</Text>
@@ -48,7 +53,7 @@ export default function DetectionItemCard({item,number,category,color,explanatio
       <Text style={s.section}>Preparation</Text>
       {instructions.length?instructions.map((line,index)=><Text key={index} style={s.body}>{line}</Text>):<Text style={s.body}>{fallbackPreparation}</Text>}
       {onReview?<CardAction title={`Review item ${number}`} onPress={onReview}/>:null}
-      <ScanUpcyclingIdeas key={item.prediction.id} prediction={item.prediction}/>
+      {!item.action_advice?.chosen_action?<ScanUpcyclingIdeas key={item.prediction.id} prediction={item.prediction}/>:null}
       <Text style={s.section}>Reuse / recycling options</Text>
       {ideas.length?ideas.map(idea=><View key={idea.id}><Text style={s.body}>{idea.title}</Text>{onOpenGuide?<CardAction title={openingGuide===idea.id?'Opening guide...':`Open guide: ${idea.title}`} disabled={guidesBusy} onPress={()=>onOpenGuide(idea.id)}/>:null}</View>):<>
         <Text style={s.reference}>General reference, not item-specific approval:</Text>

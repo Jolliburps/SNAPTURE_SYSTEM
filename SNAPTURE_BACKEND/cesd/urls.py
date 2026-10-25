@@ -1,5 +1,6 @@
 from django.urls import path
 from cesd import views
+from cesd import integration
 
 urlpatterns = [
     path('api/cesd/csrf/', views.csrf),
@@ -14,7 +15,8 @@ urlpatterns = [
     path('api/cesd/metadata/', views.metadata),
     path('api/cesd/reports/', views.reports),
     path('api/cesd/dashboard/', views.dashboard),
-    path('api/cesd/files/<str:resource>/<int:pk>/', views.file_view),
+    path('api/cesd/integration/', integration.status),
+    path('api/cesd/files/<str:resource>/<int:pk>/', views.file_view, name='cesd-file'),
     path('api/cesd/<str:resource>/', views.records),
     path('api/cesd/<str:resource>/<int:pk>/', views.records),
     path('api/learning/', views.learning),

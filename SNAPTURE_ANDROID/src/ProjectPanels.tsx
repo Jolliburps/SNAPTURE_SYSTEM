@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import Bookmark from 'lucide-react-native/icons/bookmark';
@@ -10,6 +10,7 @@ import X from 'lucide-react-native/icons/x';
 
 import type { UserProject } from './api';
 import ProjectGuide from './ProjectGuide';
+import ProjectIdeaPicker from './ProjectIdeaPicker';
 import { activeProjectsSorted, type SavedEntry } from './projectData';
 
 type Props = {
@@ -26,6 +27,7 @@ type Props = {
   onStep: (projectId: number, stepIndex: number, completed: boolean) => Promise<UserProject>;
   onRestart: (projectId: number) => Promise<UserProject>;
   onShowProjects: () => void;
+  onProjectChange?: (project:UserProject,replacedId:number)=>void;
 };
 
 const GREEN = '#176b45';
@@ -53,15 +55,18 @@ function BlankState({ title, body }: { title: string; body: string }) {
   return <View style={styles.empty}><FolderOpen size={28} color={GREEN} /><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.muted}>{body}</Text></View>;
 }
 
-export default function ProjectPanels({ section, initialFilter = 'all', projects, projectsLoading, projectsError, saved, savedLoading, savedError, onClose, onStart, onStep, onRestart, onShowProjects }: Props) {
+export default function ProjectPanels({ section, initialFilter = 'all', projects, projectsLoading, projectsError, saved, savedLoading, savedError, onClose, onStart, onStep, onRestart, onShowProjects, onProjectChange }: Props) {
   const [detail, setDetail] = useState<SavedEntry | null>(null);
   const [guideId, setGuideId] = useState<number | null>(null);
+  const [changingProject,setChangingProject]=useState<UserProject|null>(null);
+  const ideaBusy=useRef(false);
+  const [ideaSaving,setIdeaSaving]=useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>(initialFilter);
   const [search, setSearch] = useState('');
   const [materialFilter, setMaterialFilter] = useState('All');
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
-  useEffect(() => { setDetail(null); setGuideId(null); setFilter(initialFilter); setSearch(''); setMaterialFilter('All'); setActionError(''); }, [section, initialFilter]);
+  useEffect(() => { setDetail(null); setGuideId(null); setChangingProject(null); setFilter(initialFilter); setSearch(''); setMaterialFilter('All'); setActionError(''); }, [section, initialFilter]);
 
   const active = useMemo(() => activeProjectsSorted(projects), [projects]);
   const completed = useMemo(() => projects.filter((project) => project.status === 'completed').slice().sort((a, b) => b.updated_at.localeCompare(a.updated_at)), [projects]);
@@ -79,6 +84,8 @@ export default function ProjectPanels({ section, initialFilter = 'all', projects
     setActionError('');
   };
   const back = () => {
+    if(ideaBusy.current)return;
+    if(changingProject){setGuideId(changingProject.id);setChangingProject(null);return;}
     if (guideId !== null) { setGuideId(null); setActionError(''); return; }
     if (detail) { setDetail(null); setActionError(''); return; }
     onClose();
@@ -92,19 +99,19 @@ export default function ProjectPanels({ section, initialFilter = 'all', projects
   };
 
 
-  const title = project ? 'Step-by-Step Guide' : detail ? 'Saved idea' : section === 'projects' ? filter==='completed'?'Projects completed':'My projects' : 'Saved ideas';
+  const title = changingProject?'Upcycling ideas':project ? 'Step-by-Step Guide' : detail ? 'Saved idea' : section === 'projects' ? filter==='completed'?'Projects completed':'My projects' : 'Saved ideas';
   return <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={back}>
     <View style={styles.scrim}>
       <View style={styles.scrimTouch} />
-      <View style={styles.sheet}>
+      <View style={[styles.sheet,(project || changingProject) && styles.flowSheet]}>
         <View style={styles.handle} />
         <View style={styles.header}>
-          {project || detail ? <Pressable onPress={back} accessibilityLabel="Back" hitSlop={10}><ArrowLeft size={22} color={TEXT} /></Pressable> : <View style={styles.headerSpace} />}
+          {project || detail || changingProject ? <Pressable onPress={back} disabled={ideaSaving} accessibilityLabel="Back" hitSlop={10}><ArrowLeft size={22} color={TEXT} /></Pressable> : <View style={styles.headerSpace} />}
           <Text style={styles.title}>{title}</Text>
-          <Pressable onPress={onClose} accessibilityLabel="Close" hitSlop={10}><X size={22} color={TEXT} /></Pressable>
+          <Pressable onPress={()=>{if(!ideaBusy.current)onClose();}} disabled={ideaSaving} accessibilityLabel="Close" hitSlop={10}><X size={22} color={TEXT} /></Pressable>
         </View>
 
-        {project ? <ProjectGuide directCompletion key={project.id} project={project} onStep={onStep} onRestart={onRestart} onDone={() => { setGuideId(null); setDetail(null); setFilter('completed'); if (section !== 'projects') onShowProjects(); }} /> : detail ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {changingProject?<ScrollView testID="project-panel-ideas-scroll" style={styles.flowViewport} contentContainerStyle={[styles.body,styles.flowContent]} showsVerticalScrollIndicator><ProjectIdeaPicker project={changingProject} onCancel={back} onBusyChange={value=>{ideaBusy.current=value;setIdeaSaving(value);}} onChanged={updated=>{onProjectChange?.(updated,changingProject.id);setChangingProject(null);setGuideId(updated.id);}}/></ScrollView>:project ? <ProjectGuide directCompletion key={project.id} project={project} onStep={onStep} onRestart={onRestart} onBusyChange={value=>{ideaBusy.current=value;setIdeaSaving(value);}} onChangeIdea={onProjectChange?value=>{setChangingProject(value);setGuideId(null);}:undefined} onDone={() => { setGuideId(null); setDetail(null); setFilter('completed'); if (section !== 'projects') onShowProjects(); }} /> : detail ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           <View style={styles.detailArtwork}><Lightbulb size={45} color={GREEN} /></View>
           <Text style={styles.detailTitle}>{detail.idea?.title || 'Saved recommendation'}</Text>
           <Text style={styles.smallGreen}>From {detail.record.title}</Text>
@@ -131,6 +138,7 @@ export default function ProjectPanels({ section, initialFilter = 'all', projects
 }
 
 const styles = StyleSheet.create({
+  flowSheet:{height:'89%'},flowViewport:{flex:1,minHeight:0},flowContent:{flexGrow:1},
   scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#09191299' },
   scrimTouch: { flex: 1 },
   sheet: { maxHeight: '89%', minHeight: 380, backgroundColor: '#fff', borderTopLeftRadius: 23, borderTopRightRadius: 23, paddingTop: 9 },

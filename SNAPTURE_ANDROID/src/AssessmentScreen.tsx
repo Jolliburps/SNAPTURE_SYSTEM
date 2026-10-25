@@ -18,7 +18,10 @@ const CONDITION_PRESETS = [
 const CATEGORY_NAMES:Record<string,string>={A:'Biodegradable',B1:'Recyclable / reusable',B2:'Residual',C:'Special / hazardous',UNIDENTIFIED:'Not sure / unidentified'};
 type Catalog={questions:AssessmentQuestion[];quick_check?:Assessment['quick_check']};
 function fromPrediction(value:Prediction|null):Catalog { return {questions:value?.assessment?.questions || [],quick_check:value?.assessment?.quick_check}; }
-function canShowAdvice(value:Prediction|null) { return Boolean(value && (value.assessment?.quick_check?.user_reviewed || value.assessment?.segregation?.status==='available' || value.waste_identifier?.category==='C' || value.recommendation_choices?.length || value.condition || value.previous_contents || value.answers?.other_material || value.answers?.contamination)); }
+function canShowAdvice(value:Prediction|null) {
+  if(value?.image_quality?.automatic_routing && value.assessment?.material.status!=='user_selected')return false;
+  return Boolean(value && (value.assessment?.quick_check?.user_reviewed || value.assessment?.segregation?.status==='available' || value.waste_identifier?.category==='C' || value.recommendation_choices?.length || value.condition || value.previous_contents || value.answers?.other_material || value.answers?.contamination));
+}
 function Button({title,onPress,disabled=false,secondary=false}:{title:string;onPress:()=>void;disabled?:boolean;secondary?:boolean}) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[secondary ? s.secondary : s.button,disabled && s.disabled]}><Text style={secondary ? s.link : s.buttonText}>{title}</Text></Pressable>;
 }

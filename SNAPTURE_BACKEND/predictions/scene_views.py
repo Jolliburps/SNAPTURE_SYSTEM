@@ -40,13 +40,18 @@ def routing(prediction):
 def serialize_scene(scene, saved=False):
     from .views import _serialize
     from .disposal_workflow import describe, handling
+    from .item_actions import advice, automatic_route, confirmed_framed_material
     items = []
     stored = {item.id:item for item in scene.items.select_related('prediction').order_by('id') if item.prediction}
-    # Deduplication happens during detection. Do not re-suppress saved/confirmed objects.
-    cleaned = [
+    # Re-evaluate presentation for legacy guesses, without changing saved data,
+    # coordinates, selected items or project progress.
+    cleaned = scene_detector.presentation([
         {'source_id':item.id,'name':item.name,'score':item.score,'box':item.box,
-         'user_confirmed':item.prediction.answers.get('user_confirmed_material') == item.prediction.decision and item.prediction.decision != 'unknown_unsupported'}
-        for item in stored.values()]
+         'source':item.prediction.image_quality.get('object_source'),
+         'alternatives':item.prediction.image_quality.get('alternatives',[]),
+         'stored_review_reason':item.prediction.image_quality.get('detection_filter',{}).get('reason',''),
+         'object_confirmed':bool(item.prediction.image_quality.get('user_object_name') or item.prediction.input_method == 'manual')}
+        for item in stored.values()])
     for row in cleaned:
         item = stored[row['source_id']]
         prediction = _serialize(item.prediction, saved=saved)
@@ -58,26 +63,54 @@ def serialize_scene(scene, saved=False):
         identifier['box'] = item.box
         low = identifier['needs_confirmation']
         whole_photo = item.prediction.image_quality.get('object_source') == 'whole_image_classifier'
-        draw = not whole_photo
+        draw = not whole_photo and row['detection_status'] == 'accepted'
         display_group = 'special' if identifier['category']=='C' else 'review' if identifier['category']=='UNIDENTIFIED' else {'A':'biodegradable','B1':'recyclable','B2':'non_biodegradable'}.get(identifier['category'],'review')
-        reason = ('The complete photo was classified. Object locations were not detected; use one item per photo.' if whole_photo else 'Possible background object. Not included in waste sorting unless you identify it as a discarded item.' if background else 'Low detector score. Review this item before sorting.' if low else 'The region is too broad for a clear object box. Review it separately.' if row.get('ambiguous_large') else route['reason'])
+        reason = row['detection_reason'] or route['reason']
+        textile_name_unconfirmed = item.name in scene_detector.TEXTILE_NAMES and not row['object_confirmed']
         workflow = (item.prediction.image_quality or {}).get('handling_snapshot') if saved else None
         workflow = workflow or handling(item, prediction)
+        material_confirmed = confirmed_framed_material(item)
+        display_name = item.prediction.image_quality.get('user_object_name') or (
+            f"{material_info(item.prediction.decision)['title']} (confirmed by you)" if material_confirmed else
+            'Possible fabric item' if textile_name_unconfirmed else item.name)
+        action_snapshot = (item.prediction.image_quality or {}).get('action_snapshot') if saved else None
+        # Older framed scans saved the redundant "correct object name" blocker.
+        # Render their own saved material guidance without writing history or
+        # borrowing recommendations from another prediction or a newer scan.
+        if material_confirmed:
+            action_snapshot = advice(item, prediction, workflow)
         items.append({'id':item.id,'box':row['box'],'name':item.name,'score':item.score,'prediction':prediction,'route':route,'suggested_group':group,
+                      'display_name':display_name,
+                      'name_confirmation_required':textile_name_unconfirmed,
                       'display_box':draw,'display_group':display_group,'low_confidence':low,'background':background,'review_reason':reason,
-                      'waste_identifier':identifier, 'identification':describe(item, prediction), 'handling':workflow})
-    flags = [flag for flag in scene.quality.get('flags',[]) if flag['code'] not in {'edge_item','crowded'}]
+                      'detection_status':row['detection_status'], 'duplicate_of':row.get('duplicate_of'),
+                      'waste_identifier':identifier, 'identification':describe(item, prediction), 'handling':workflow,
+                      'automatic_route':automatic_route(item, prediction),
+                      'action_advice':action_snapshot or advice(item, prediction, workflow)})
+    stale_region_flags = {'edge_item','crowded','multiple_items'}
+    if scene.quality.get('detection_filter',{}).get('version') != scene_detector.FILTER_VERSION:
+        stale_region_flags.add('busy_background')
+    flags = [flag for flag in scene.quality.get('flags',[]) if flag['code'] not in stale_region_flags]
     frame = scene.frame or [0,0,1,1]
     drawn = [item for item in items if item['display_box']]
     if any(min(abs(item['box'][0]-frame[0]),abs(item['box'][1]-frame[1]),abs(frame[2]-item['box'][2]),abs(frame[3]-item['box'][3])) < .012 for item in drawn):
         flags.append({'code':'edge_item','message':'A detected item touches the edge of the analyzed photo and may be cut off. Leave space around it if it is incomplete.'})
     if len(drawn)>8:
         flags.append({'code':'crowded','message':'Several item regions overlap or crowd this photo. Spread the items out for clearer detection.'})
+    selection = scene.quality.get('disposal_selection', {'confirmed':False,'item_ids':[]})
+    if selection.get('automatic_routing'):
+        selected = [item for item in stored.values() if item.id in selection.get('item_ids', [])]
+        selection = {**selection, 'item_actions':{str(item.id):item.prediction.image_quality.get('item_action') for item in selected},
+                     'item_conditions':{str(item.id):item.prediction.condition for item in selected}}
     return {'id':scene.id,'image_url':scene.image.url if scene.image else '', 'created_at':scene.created_at.isoformat(),'width':scene.width,'height':scene.height,'frame':scene.frame,
             'status':scene.status,'error':scene.error,'quality':{**scene.quality,'flags':flags},'items':items,'truncated':scene.truncated,
-            'display_threshold':scene_detector.DISPLAY_THRESHOLD,'suppressed_count':len(stored)-len(items),
+            'display_threshold':scene_detector.DISPLAY_THRESHOLD,'suppressed_count':sum(item['detection_status'] in {'duplicate','excluded'} for item in items),
+            'detection_filter_version':scene_detector.FILTER_VERSION,
+            'accepted_count':sum(item['detection_status']=='accepted' for item in items),
+            'review_count':sum(item['detection_status']=='review' for item in items),
+            'single_item':scene.quality.get('single_item',{'enabled':False}),
             'background_objects':scene.quality.get('background_objects',[]),
-            'disposal_selection':scene.quality.get('disposal_selection', {'confirmed':False,'item_ids':[]}),
+            'disposal_selection':selection,
             'detector':scene.quality.get('identification_mode', 'OWL-ViT base patch32, experimental zero-shot'),
             'limitations':'Boxes are model suggestions. Hidden, small or unfamiliar objects may be missed or mislabeled. Review every item; not all objects are guaranteed to be detected.'}
 
@@ -85,12 +118,15 @@ def serialize_scene(scene, saved=False):
 @require_api_user
 @require_http_methods(['GET'])
 def capabilities(request):
+    from .item_actions import VERSION, COMPOSITION
     model = model_status()
     return JsonResponse({'available':scene_detector.available() or model['loaded'],'experimental':True,'maximum_items':30,
                          'object_queries':[name for name, _ in scene_detector.PROMPTS],
                          'object_detection_available':scene_detector.available(),
                          'material_confidence_available':model['loaded'],'material_model':model,
-                         'disposal_selection_required':True})
+                         'disposal_selection_required':True,
+                         'action_workflow':VERSION,
+                         'waste_composition_reference':{'groups':COMPOSITION,'basis':'Interview excerpt supplied by the project team; not a current acceptance list or class probabilities.'}})
 
 
 @csrf_exempt
@@ -111,8 +147,20 @@ def scenes(request):
     if uploaded.size > 12*1024*1024:
         return JsonResponse({'detail':'Choose an image smaller than 12 MB.'},status=413)
     try:
+        single = request.POST.get('single_item','0')
+        if single not in {'0','1'}: raise ValueError()
+        single = single == '1'
+        if single and not request.POST.get('frame'): raise ValueError()
         image = oriented_image(uploaded.read())
-        frame = frame_bounds(image,json.loads(request.POST.get('frame','null')))
+        frame_data = json.loads(request.POST.get('frame','null'))
+        if single and not isinstance(frame_data,dict): raise ValueError()
+        frame = frame_bounds(image,frame_data)
+        input_frame = [frame[0]/image.width,frame[1]/image.height,frame[2]/image.width,frame[3]/image.height]
+        if single:
+            # Waste inference, privacy processing and stored previews all see
+            # only the visible guide crop. Outside pixels are not retained.
+            image = image.crop(frame)
+            frame = (0,0,image.width,image.height)
     except (ValueError,OSError,UnidentifiedImageError,Image.DecompressionBombError):
         return JsonResponse({'detail':'The image or guide frame is invalid. Retake or choose another photo.'},status=400)
     detector_available = scene_detector.available()
@@ -126,11 +174,6 @@ def scenes(request):
     started = time.monotonic()
     try:
         protected, privacy = privacy_copy(image)
-        scene = ScanScene(user=request.api_user,request_id=request_id,width=image.width,height=image.height,
-                          frame=[frame[0]/image.width,frame[1]/image.height,frame[2]/image.width,frame[3]/image.height])
-        if protected is not None:
-            scene.image.save(f'{uuid4().hex}.jpg',ContentFile(jpeg_bytes(protected)),save=False)
-        scene.save()
         focused = image.crop(frame)
         protected_focused = protected.crop(frame) if protected is not None else None
         if detector_available:
@@ -141,11 +184,47 @@ def scenes(request):
             rows, truncated = [{'name':material_info(material['label'])['title'],
                                 'material':material['label'], 'score':0, 'box':[0,0,1,1],
                                 'source':'whole_image_classifier', 'material_prediction':material}], False
+        rows = scene_detector.presentation(rows)
+        single_status = 'one_object'
+        if single:
+            if truncated:
+                return JsonResponse({'detail':'The frame is too crowded to isolate one item. Retake with one whole item inside the border.',
+                                     'code':'uncertain_single_item'},status=422)
+            reliable = [row for row in rows if row['detection_status']=='accepted' or (
+                row['name'] in scene_detector.BACKGROUND_NAMES - scene_detector.HUMAN_NAMES and
+                row['score'] >= scene_detector.DISPLAY_THRESHOLD and not scene_detector.conflicting_query(row))]
+            if len(reliable)>1:
+                return JsonResponse({'detail':'More than one item was found inside the border. Retake with one whole item inside it.',
+                                     'code':'multiple_items_in_frame'},status=422)
+            if reliable:
+                rows = reliable
+                if rows[0]['detection_status'] != 'accepted': single_status = 'needs_review'
+            else:
+                if any(row['name'] in scene_detector.HUMAN_NAMES and row['score']>=scene_detector.DISPLAY_THRESHOLD for row in rows):
+                    return JsonResponse({'detail':'Place one object inside the border, keeping people and body parts outside it.',
+                                         'code':'person_in_frame'},status=422)
+                # This is a real material classification of the user's frame,
+                # NOT a fabricated detected object or object confidence score.
+                material = rows[0]['material_prediction'] if not detector_available else classify_material(focused)
+                rows = [{'name':material_info(material['label'])['title'],'material':material['label'],'score':0,
+                         'box':[0,0,1,1],'source':'whole_image_classifier','material_prediction':material}]
+                rows = scene_detector.presentation(rows)
+                single_status = 'needs_review'
         background = [row for row in rows if row['name'] in scene_detector.BACKGROUND_NAMES]
-        quality = quality_report(focused,[row['box'] for row in rows] if detector_available else [])
+        excluded_count = sum(row['detection_status'] in {'excluded','duplicate'} for row in rows)
+        rows = [row for row in rows if row['detection_status'] not in {'excluded','duplicate'}]
+        quality = quality_report(focused,[row['box'] for row in rows if row['detection_status']=='accepted'] if detector_available else [])
+        quality['detection_filter'] = {'version':scene_detector.FILTER_VERSION,'excluded_count':excluded_count,'tiled':False}
+        if single:
+            quality['single_item'] = {'enabled':True,'status':single_status,'input_frame':input_frame}
         quality['photo_privacy'] = privacy
         quality['identification_mode'] = 'object detection with dataset-trained material classification' if detector_available else 'whole-photo dataset-trained material classification; object locations are not detected'
         quality['background_objects'] = [{'name':name,'count':sum(row['name']==name for row in background)} for name in sorted({row['name'] for row in background})]
+        scene = ScanScene(user=request.api_user,request_id=request_id,width=image.width,height=image.height,
+                          frame=[frame[0]/image.width,frame[1]/image.height,frame[2]/image.width,frame[3]/image.height])
+        if protected is not None:
+            scene.image.save(f'{uuid4().hex}.jpg',ContentFile(jpeg_bytes(protected)),save=False)
+        scene.save()
         with transaction.atomic():
             for row in rows:
                 bx = row['box']
@@ -156,6 +235,8 @@ def scenes(request):
                     title=material_info(label)['title'],confidence=material.get('confidence', 0),threshold=material.get('threshold', 1),
                     model_version=material.get('model_version', 'material-model-unavailable'),
                     image_quality={'alternatives':row.get('alternatives',[]), 'material_prediction':material,
+                                   'detection_filter':{'version':scene_detector.FILTER_VERSION,'status':row['detection_status'],
+                                                       'reason':row['detection_reason'] if row['detection_status']=='review' else ''},
                                    'object_source':row.get('source', 'model'),
                                    'raw_material_class':material.get('raw_class', 'unknown_unsupported')})
                 refresh(record)
@@ -213,6 +294,8 @@ def add_region(request, scene_id):
         return JsonResponse({'detail':'Scan not found.'}, status=404)
     if scene.status != 'complete':
         return JsonResponse({'detail':'Wait until analysis has finished.'}, status=409)
+    if scene.quality.get('single_item',{}).get('enabled'):
+        return JsonResponse({'detail':'This scan is limited to one framed item. Check that item or take a new photo.'},status=409)
     try:
         payload = json.loads(request.body)
         box = payload['box']
@@ -256,11 +339,17 @@ def add_region(request, scene_id):
 def disposal_selection(request, scene_id):
     """Explicit full selection, owner scoped; never changes a model prediction."""
     from .disposal_workflow import snapshot
+    from .item_actions import CHOICES, CONDITIONS, automatic_route
+    from .views import _serialize
     from django.utils import timezone
     try:
         payload = json.loads(request.body)
         if not isinstance(payload, dict): raise ValueError()
         ids, corrections = payload.get('item_ids'), payload.get('object_names', {})
+        actions, conditions = payload.get('item_actions', {}), payload.get('item_conditions', {})
+        automatic = payload.get('automatic_routing', False)
+        if type(automatic) is not bool or automatic and 'item_actions' in payload:
+            raise ValueError()
         if (not isinstance(ids, list) or not ids or len(ids) > 60 or
             any(type(value) is not int or value < 1 for value in ids) or len(set(ids)) != len(ids)):
             raise ValueError()
@@ -268,6 +357,11 @@ def disposal_selection(request, scene_id):
             not str(key).isdigit() or str(int(key)) != str(key) or not isinstance(value, str) or len(value.strip()) > 120 or
             any(ord(char) < 32 for char in value) for key, value in corrections.items()
         ): raise ValueError()
+        for values, options in ((actions, CHOICES), (conditions, CONDITIONS)):
+            if not isinstance(values, dict) or any(not str(key).isdigit() or str(int(key)) != str(key) or not isinstance(value,str) or value not in options for key,value in values.items()):
+                raise ValueError()
+            if not {int(key) for key in values}.issubset(set(ids)): raise ValueError()
+        if 'item_actions' in payload and {int(key) for key in actions} != set(ids): raise ValueError()
     except (ValueError, TypeError, UnicodeDecodeError):
         return JsonResponse({'detail':'Select at least one item and use object names of at most 120 characters.'}, status=400)
     with transaction.atomic():
@@ -275,6 +369,8 @@ def disposal_selection(request, scene_id):
         if not scene: return JsonResponse({'detail':'Scan not found.'}, status=404)
         if scene.status != 'complete':
             return JsonResponse({'detail':'Wait for detection to finish.'}, status=409)
+        if scene.quality.get('single_item',{}).get('enabled') and len(ids)!=1:
+            return JsonResponse({'detail':'Choose only the single item inside this scan frame.'},status=400)
         items = list(scene.items.select_related('prediction'))
         allowed = {item.id for item in items if item.prediction and item.prediction.user_id == request.api_user.id}
         if not set(ids).issubset(allowed) or not {int(key) for key in corrections}.issubset(allowed):
@@ -282,14 +378,27 @@ def disposal_selection(request, scene_id):
         for item in items:
             if not item.prediction: continue
             record = item.prediction
-            metadata = {**record.image_quality, 'selected_for_disposal':item.id in ids}
+            chosen = actions.get(str(item.id)) if item.id in ids else None
+            metadata = {**record.image_quality, 'selected_for_disposal':item.id in ids and chosen != 'keep', 'item_action':chosen,
+                        'automatic_routing':automatic}
+            if str(item.id) in conditions:
+                metadata['action_condition'] = conditions[str(item.id)]
+                record.condition = conditions[str(item.id)]
             if str(item.id) in corrections:
                 metadata['user_object_name'] = corrections[str(item.id)].strip()
             record.image_quality = metadata
+            if str(item.id) in conditions:
+                refresh(record)
+            if automatic and item.id in ids:
+                metadata['item_action'] = automatic_route(item, _serialize(record))['action']
+                actions[str(item.id)] = metadata['item_action']
             snapshot(record)
-            record.save(update_fields=['image_quality'])
+            record.save(update_fields=['image_quality','condition','assessment','recommendation_choices','selected_recommendation'])
         scene.quality = {**scene.quality, 'disposal_selection':{
             'confirmed':True, 'item_ids':sorted(ids), 'confirmed_at':timezone.now().isoformat(),
+            'automatic_routing':automatic,
+            'item_actions':{str(pk):actions[str(pk)] for pk in ids if str(pk) in actions},
+            'item_conditions':{str(pk):conditions[str(pk)] for pk in ids if str(pk) in conditions},
         }}
         scene.save(update_fields=['quality'])
     return JsonResponse({'scene':serialize_scene(scene, saved=True)})

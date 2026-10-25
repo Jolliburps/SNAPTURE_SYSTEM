@@ -12,6 +12,36 @@ const press=async(tree:Renderer.ReactTestRenderer,label:string)=>{const target=t
 const render=async(prediction:Prediction,onBack=jest.fn())=>{let tree!:Renderer.ReactTestRenderer;await Renderer.act(()=>{tree=Renderer.create(<AssessmentScreen prediction={prediction} onBack={onBack} onRetry={jest.fn()} onSaved={jest.fn()} onChange={jest.fn()}/>);});return tree;};
 beforeEach(()=>jest.clearAllMocks());
 
+test('automatic route opens the material confirmation even when a condition was already selected',async()=>{
+  const routed={...paper,condition:'Clean and dry',image_quality:{flags:[],limitations:'',automatic_routing:true}} as Prediction;
+  const tree=await render(routed);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Yes, this is Paper'}).length).toBeGreaterThan(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Show sorting advice'}).length).toBeGreaterThan(0);
+  expect(updatePrediction).not.toHaveBeenCalled();
+  await Renderer.act(()=>tree.unmount());
+});
+
+test('saving a framed fabric confirmation immediately shows its own upcycling choices',async()=>{
+  const fabric={...paper,id:277,label:'fabric_scraps',title:'Fabric scraps',condition:'',
+    image_quality:{flags:[],limitations:'',automatic_routing:true,object_source:'whole_image_classifier'},
+    assessment:{...paper.assessment,material:{label:'fabric_scraps',title:'Fabric scraps',status:'needs_confirmation'},questions:questions.slice(0,3)},
+  } as unknown as Prediction;
+  const updated={...fabric,condition:'Clean and dry',upcycling_ideas:[
+    {id:'fabric_cleaning_cloth',title:'Cleaning cloth',summary:'Reuse suitable clean fabric.',steps:['Inspect fabric.','Prepare cloth.','Store dry.']},
+    {id:'fabric_pouch',title:'Fabric pouch',summary:'Fold suitable fabric.',steps:['Select fabric.','Fold.','Secure.']},
+  ],assessment:{...fabric.assessment,material:{label:'fabric_scraps',title:'Fabric scraps',status:'user_selected'}}} as Prediction;
+  (updatePrediction as jest.Mock).mockResolvedValue({prediction:updated});
+  const tree=await render(fabric);
+  await press(tree,'Yes, this is Fabric scraps');
+  await press(tree,'Clean, dry and no residue');
+  await press(tree,'Show sorting advice');
+  expect(updatePrediction).toHaveBeenCalledWith(277,expect.objectContaining({condition:'Clean and dry',answers:expect.objectContaining({material_confirmation:'fabric_scraps'})}));
+  expect(tree.root.findAllByProps({accessibilityLabel:'Choose task: Cleaning cloth'}).length).toBeGreaterThan(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Choose task: Fabric pouch'}).length).toBeGreaterThan(0);
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Gift wrapping');
+  await Renderer.act(()=>tree.unmount());
+});
+
 test('one explicit condition choice replaces three questions; sorting never requires quantity',async()=>{
   const tree=await render(paper);expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
   expect(tree.root.findAllByProps({accessibilityLabel:'Clean, dry and no residue'})[0].props.accessibilityState.checked).toBe(false);

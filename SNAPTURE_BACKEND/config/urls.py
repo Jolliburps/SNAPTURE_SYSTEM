@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.conf import settings
 from django.urls import include, path, re_path
 from predictions import scene_views
 from predictions import photo_privacy
@@ -47,3 +48,4 @@ urlpatterns += [
 admin.site.site_header = 'SNAPTURE Administration'
 admin.site.site_title = 'SNAPTURE Admin'
 admin.site.index_title = 'Manage users, predictions, and dataset images'
+admin.site.site_url = settings.ADMIN_WEB_URL

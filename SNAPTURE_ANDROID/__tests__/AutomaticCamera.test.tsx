@@ -5,6 +5,7 @@ import App from '../App';
 import { createScene, createPrediction, getScene, type ScanScene } from '../src/api';
 import * as api from '../src/api';
 import * as cameraApi from 'react-native-vision-camera';
+import {launchImageLibrary} from 'react-native-image-picker';
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: { children: React.ReactNode }) => children,
@@ -30,7 +31,7 @@ beforeEach(() => {
   (api.listSavedPredictions as jest.Mock).mockResolvedValue([]);
 });
 
-test.each([1,2])('camera automatically presents %i detections for disposal selection without a mode selector', async count => {
+test.each([1,2])('camera sends one framed-item request and keeps legacy result compatibility (%i)', async count => {
   const scene = { id: 5, width: 200, height: 200, image_url: '/test-scene.jpg', status: 'complete', quality: { flags: [] }, items: Array.from({ length: Number(count) }, (_, index) => ({ id: index+1, name: 'paper scrap', score: .7, box: [.1+index*.3,.1,.3+index*.3,.4], suggested_group: 'recyclable', route: { key: 'review', label: 'Needs review', reason: 'Confirm the material.' }, prediction: { id: index+1, image_url: null, title: 'Paper', recommendation_choices: [], assessment: { material: { status: 'needs_confirmation' }, missing_information: [], segregation: { status: 'needs_information', instructions: [] } } } })) } as unknown as ScanScene;
   (createScene as jest.Mock).mockResolvedValue({ scene }); (getScene as jest.Mock).mockResolvedValue({ scene });
   let tree!: Renderer.ReactTestRenderer;
@@ -39,21 +40,26 @@ test.each([1,2])('camera automatically presents %i detections for disposal selec
   await press('Camera');
   let json = JSON.stringify(tree.toJSON());
   expect(json).not.toContain('Single item'); expect(json).not.toContain('Mixed items');
-  expect(json).not.toContain('Only the guide area is analyzed');
+  expect(json).toContain('One item inside the border. Only this area is analyzed.');
   const camera = tree.root.findAll(node=>typeof node.props.onStarted==='function')[0];
   await Renderer.act(async () => { camera.props.onStarted(); });
+  await Renderer.act(()=>tree.root.findAllByProps({accessibilityLabel:'Camera framing area'}).find(node=>node.props.onLayout)!.props.onLayout({nativeEvent:{layout:{width:400,height:600}}}));
   await press('Take photo');
   // PrimaryButton exposes its visible label rather than a separate accessibility label.
   const analyze = tree.root.findAll(node=>typeof node.props.onPress==='function' && node.findAllByType(Text).some(child=>child.props.children==='Analyze image'))[0];
   expect(analyze).toBeDefined();
   await Renderer.act(async () => { await analyze.props.onPress(); });
-  json = JSON.stringify(tree.toJSON()); expect(json).toContain('Which items do you want to discard?');
+  json = JSON.stringify(tree.toJSON()); expect(json).toContain('Check detected items');
   expect(tree.root.findAllByProps({accessibilityLabel:'Select box 1'})[0].props.accessibilityState.checked).toBe(false);
   await press('Select box 1');
   expect(tree.root.findAllByProps({accessibilityLabel:'Select box 1'})[0].props.accessibilityState.checked).toBe(true);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Discard item 1'})).toHaveLength(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Keep item 1'})).toHaveLength(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Recycle / upcycle item 1'})).toHaveLength(0);
   expect(tree.root.findAllByProps({accessibilityLabel:'Review item 1'})).toHaveLength(0);
   expect(createScene).toHaveBeenCalled(); expect(createPrediction).not.toHaveBeenCalled();
-  expect((createScene as jest.Mock).mock.calls[0][2]).toBeUndefined();
+  expect((createScene as jest.Mock).mock.calls[0][2]).toEqual({aspect:400/600,x:.1,y:140/600,width:.8,height:320/600});
+  expect((createScene as jest.Mock).mock.calls[0][3]).toBe(true);
   await Renderer.act(async () => { tree.unmount(); });
 });
 
@@ -88,4 +94,23 @@ test('flash status is hidden initially, lasts 2.5 seconds after taps and resets 
     await press('Flash: Off');
     await Renderer.act(async () => { tree.unmount(); jest.advanceTimersByTime(3000); });
   } finally { device.mockRestore(); jest.useRealTimers(); }
+});
+
+test.each([false,true])('gallery keeps its reviewed center-square crop and handles a multiple-item retake (error=%s)',async fail=>{
+  const scene={id:51,width:200,height:200,image_url:'/crop.jpg',single_item:{enabled:true},status:'complete',quality:{flags:[]},items:[]} as unknown as ScanScene;
+  (launchImageLibrary as jest.Mock).mockImplementationOnce((_options,callback)=>callback({assets:[{uri:'file:///gallery.jpg'}]}));
+  if(fail)(createScene as jest.Mock).mockRejectedValueOnce(new Error('More than one item was found inside the border. Retake with one whole item inside it.'));
+  else (createScene as jest.Mock).mockResolvedValueOnce({scene});
+  (getScene as jest.Mock).mockResolvedValue({scene});
+  let tree!:Renderer.ReactTestRenderer;
+  await Renderer.act(async()=>{tree=Renderer.create(<App/>);});
+  const press=async(label:string)=>Renderer.act(async()=>{await tree.root.findAllByProps({accessibilityLabel:label}).find(node=>node.props.onPress)!.props.onPress();});
+  await press('Camera');await press('Open gallery');
+  expect(JSON.stringify(tree.toJSON())).toContain('Only the area inside the border will be analyzed and saved.');
+  const analyze=tree.root.findAll(node=>typeof node.props.onPress==='function' && node.findAllByType(Text).some(child=>child.props.children==='Analyze image'))[0];
+  await Renderer.act(async()=>{await analyze.props.onPress();});
+  expect(createScene).toHaveBeenLastCalledWith('file:///gallery.jpg',expect.any(String),{aspect:1,x:0,y:0,width:1,height:1},true);
+  expect(JSON.stringify(tree.toJSON())).toContain(fail?'More than one item was found':'Check framed item');
+  if(fail)expect(JSON.stringify(tree.toJSON())).not.toContain('Check framed item');
+  await Renderer.act(()=>tree.unmount());
 });

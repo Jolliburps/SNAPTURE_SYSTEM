@@ -17,7 +17,7 @@ test('CESD management works across refreshes and respects staff permissions', as
   await page.goto('/policies')
   await expect(page).toHaveURL(/\/login$/)
   await login(page, 'owner')
-  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link')).toHaveCount(6)
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link')).toHaveCount(7)
   await expect(page.getByRole('link', { name: 'User Management' })).toHaveCount(0)
   await page.getByRole('link', { name: 'Policies & Guidelines', exact: true }).click()
   await page.getByRole('button', { name: 'Add Policy', exact: true }).click()

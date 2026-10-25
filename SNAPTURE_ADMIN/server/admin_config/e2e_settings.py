@@ -1,7 +1,7 @@
 from .settings import *  # noqa: F403
 
 LOCAL.mkdir(parents=True, exist_ok=True)
-DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': LOCAL / 'e2e.sqlite3'}}
+DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': LOCAL / 'e2e.sqlite3', 'OPTIONS': SQLITE_OPTIONS.copy()}}
 MEDIA_ROOT = LOCAL / 'e2e-media'
 EMAIL_FILE_PATH = LOCAL / 'e2e-mail'
 SESSION_COOKIE_NAME = 'snapture_cesd_e2e'
