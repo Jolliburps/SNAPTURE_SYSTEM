@@ -81,3 +81,7 @@ SNAPTURE_ML/data/*training_bundle*.zip
 .tools/
 SNAPTURE_ML/models/owlvit-base-patch32/
 
+
+# Local public source and deduplicated review images stay out of Git.
+SNAPTURE_ML/data/recognition_basis/
+SNAPTURE_ML/data/raw/trashnet/dataset-resized/

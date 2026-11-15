@@ -21,11 +21,32 @@ ROOT = Path(__file__).resolve().parents[1] / 'data' / 'public_sources'
 RESERVE = 12 * 1024**3
 MAX_FILE = 9 * 1024**3
 SOURCES = {
+    'indoor_waste': {
+        'provider':'mendeley','dataset_id':'dy7smxr93r','version':1,
+        'page':'https://data.mendeley.com/datasets/dy7smxr93r/1',
+        'license':'CC-BY-4.0','labels':['paper','plastic','cap','shell (not confirmed coconut)'],
+        'annotation':'Publisher object annotations; preserve exact labels, not resin subtypes.',
+    },
+    'wasteinsight': {
+        'provider':'mendeley','dataset_id':'p8n7nbxyw3','version':1,
+        'page':'https://data.mendeley.com/datasets/p8n7nbxyw3/1',
+        'license':'CC-BY-4.0','labels':['trash bag'],
+        'annotation':'COCO bounding boxes for bags; contents and segregation are unknown.',
+    },
+    'packwise': {
+        'version': 2,
+        'page':'https://fordatis.fraunhofer.de/handle/fordatis/463.2',
+        'url':'https://fordatis.fraunhofer.de/bitstream/fordatis/463.2/3/PackWISE_dataset_v2.zip',
+        'filename':'PackWISE_dataset_v2.zip','sha256':'026f5ac422c6a52994311b2a2dd6f28d977e60e7db7a39a718720709b95e37f7','license':'CC-BY-4.0',
+        'labels':['23 publisher packaging categories; inspect annotations'],
+        'annotation':'COCO instance masks and bounding boxes, original train/val/test splits.',
+        'use':'Industrial conveyor scenes; not a guarantee of household recognition or safe reuse.',
+    },
     'kaggle_drinking': {
         'page':'https://www.kaggle.com/datasets/arkadiyhacks/drinking-waste-classification',
         'metadata':'https://www.kaggle.com/api/v1/datasets/view/arkadiyhacks/drinking-waste-classification',
         'url':'https://www.kaggle.com/api/v1/datasets/download/arkadiyhacks/drinking-waste-classification?datasetVersionNumber=2',
-        'filename':'drinking-waste-v2.zip','license':'CC0 on Kaggle; incorporates TrashNet material: retain original MIT notices and attribution',
+        'filename':'drinking-waste-v2.zip','sha256':'2231be78c398a8606b29399ccc8797be0586d5c4894d610d4ff5e84494dd1449','license':'CC0 on Kaggle; incorporates TrashNet material: retain original MIT notices and attribution',
         'expected_metadata_license':'CC0: Public Domain','version':2,
         'labels':['Aluminium cans','Glass bottles','PET bottles','HDPE milk bottles'],
         'annotation':'Classification raw images and YOLO image/label pairs; inspect source class IDs',
@@ -35,7 +56,7 @@ SOURCES = {
         'page':'https://www.kaggle.com/datasets/techsash/waste-classification-data',
         'metadata':'https://www.kaggle.com/api/v1/datasets/view/techsash/waste-classification-data',
         'url':'https://www.kaggle.com/api/v1/datasets/download/techsash/waste-classification-data?datasetVersionNumber=1',
-        'filename':'waste-classification-v1.zip','license':'CC-BY-SA-4.0 per publisher; preserve attribution and share-alike conditions',
+        'filename':'waste-classification-v1.zip','sha256':'e2916687984e1f88e69fb3c1402d555e0d56b6829fbf397a08616f66eb2fad3c','license':'CC-BY-SA-4.0 per publisher; preserve attribution and share-alike conditions',
         'expected_metadata_license':'CC BY-SA 4.0','version':1,
         'labels':['O (publisher organic label)','R (publisher recyclable label)'],
         'annotation':'image classification; original TRAIN/TEST split must be preserved',
@@ -45,7 +66,7 @@ SOURCES = {
         'page': 'https://archive.ics.uci.edu/dataset/908/realwaste',
         'metadata': 'https://archive.ics.uci.edu/api/dataset?id=908',
         'url': 'https://archive.ics.uci.edu/static/public/908/realwaste.zip',
-        'filename': 'realwaste.zip', 'license': 'CC-BY-4.0',
+        'filename': 'realwaste.zip', 'sha256':'1ede08b32358ee62065bcc1c8cb47a2ece04e8dff5b1fb53342bb8750895b2f3','license': 'CC-BY-4.0',
         'labels': ['Cardboard','Food Organics','Glass','Metal','Miscellaneous Trash','Paper','Plastic','Textile Trash','Vegetation'],
         'annotation': 'image classification; not object boxes',
         'use': 'Broad material research; plastic is not resin-specific and no label proves contamination or local acceptance.',
@@ -55,16 +76,18 @@ SOURCES = {
         'metadata': 'https://zenodo.org/api/records/12517610',
         'url': 'https://zenodo.org/api/records/12517610/files/RealDirt.zip/content',
         'filename': 'RealDirt.zip', 'license': 'CC-BY-4.0',
-        'md5': 'bd8ddd318398188579dce65ce9adbdd5',
+        'md5': 'bd8ddd318398188579dce65ce9adbdd5', 'sha256':'15e146259cadf10155508f7bbd7d8a09cb8a3534dccc4bc4ab3c6b4b9a3565ac',
         'labels': ['Plastic bottle','Plastic bag','Carton'],
         'annotation': 'object detection',
         'use': 'Industrial sorting scenes; evaluate domain mismatch and annotation quality before household training.',
     },
     'zerowaste': {
+        'version': '1.2.1',
         'page': 'https://github.com/dbash/zerowaste/',
         'metadata': 'https://zenodo.org/api/records/6412647',
         'url': 'https://zenodo.org/api/records/6412647/files/zerowaste-f-final.zip/content',
-        'filename': 'zerowaste-f-final.zip',
+        'filename': 'zerowaste-f-final.zip', 'sha256':'9ce00fe12e0e4163d94f83e167e7d358211702d58fd6b82b9b9021615a80f117',
+        'password_env':'SNAPTURE_ZERO_WASTE_ARCHIVE_PASSWORD',
         'md5': 'e26e31a58080bca6782dca0e56074c5d',
         'license': 'RESEARCH_ONLY_PENDING_LICENSE_CONFLICT: author README CC-BY-NC-4.0; Zenodo metadata CC-BY-4.0',
         'labels': ['cardboard','soft plastic','rigid plastic','metal'],
@@ -75,7 +98,7 @@ SOURCES = {
         'page':'https://zenodo.org/records/11504415',
         'metadata':'https://zenodo.org/api/records/11504415',
         'url':'https://zenodo.org/api/records/11504415/files/PET_waste.zip/content',
-        'filename':'PET_waste.zip','md5':'e5aee9515c2351c52919af365b5a9438',
+        'filename':'PET_waste.zip','md5':'e5aee9515c2351c52919af365b5a9438','sha256':'f9809656436fe7c1f8aa4a70ae407c572a9d7df49376b3c4a420b6f6003c1e4d',
         'license':'CC-BY-4.0','labels':['PET recyclable waste'],
         'annotation':'Publisher material label; inspect actual per-object annotation availability',
         'use':'Conveyor scenes, not evidence of hidden contents. Extract RGB images and annotation files only, not hyperspectral cubes.',
@@ -85,7 +108,7 @@ SOURCES = {
         'page':'https://zenodo.org/records/11504453',
         'metadata':'https://zenodo.org/api/records/11504453',
         'url':'https://zenodo.org/api/records/11504453/files/HDPE_waste.zip/content',
-        'filename':'HDPE_waste.zip','md5':'523776a3aae2c1329e6848872f602e80',
+        'filename':'HDPE_waste.zip','md5':'523776a3aae2c1329e6848872f602e80','sha256':'5c4e569bf04ac511de8612d069f2db7d65caa4f706a384a8d2347ab7c4217826',
         'license':'CC-BY-4.0','labels':['HDPE recyclable waste'],
         'annotation':'Publisher material label; inspect actual per-object annotation availability',
         'use':'Conveyor scenes, not proof of safe reuse. Extract RGB images and annotation files only, not hyperspectral cubes.',
@@ -95,7 +118,7 @@ SOURCES = {
         'page':'https://zenodo.org/records/22226868',
         'metadata':'https://zenodo.org/api/records/22226868',
         'url':'https://zenodo.org/api/records/22226868/files/color_img.zip/content',
-        'filename':'color_img.zip','md5':'0dd9d57cbcdd9e1fd6a5b43f5d7b8c00',
+        'filename':'color_img.zip','md5':'0dd9d57cbcdd9e1fd6a5b43f5d7b8c00','sha256':'529cb1bec7374e49b6010e44b189c635952fb5451d97aead6ec29910bc1ae972',
         'license':'CC-BY-4.0','labels':['See publisher dataset.csv and COCO categories'],
         'annotation':'COCO segmentation/boxes and material/condition attributes; physical-object split metadata',
         'use':'RGB subset only. Preserve physical object groups to prevent leakage. Labels describe this study, not unseen chemical safety or local collection acceptance.',
@@ -152,7 +175,9 @@ def download(url, path):
     for attempt in range(4):
         offset = partial.stat().st_size if resume and partial.exists() else 0
         try:
-            headers = {'User-Agent': 'SNAPTURE-research-dataset-acquisition/1.0','Accept-Encoding':'identity'}
+            # Keep requests' default User-Agent: Zenodo's large-file endpoint stalls
+            # when given the custom research identifier used in the initial attempt.
+            headers = {'Accept-Encoding':'identity'}
             if offset:
                 headers['Range'] = f'bytes={offset}-'
             with requests.get(url, headers=headers, stream=True, timeout=(30,90)) as response:
@@ -201,7 +226,7 @@ def download(url, path):
                 raise
 
 
-def extract(archive, destination, rgb_only=False, depth=0):
+def extract(archive, destination, rgb_only=False, depth=0, password=None):
     if depth>2:
         raise ValueError('Nested archive depth exceeded')
     with zipfile.ZipFile(archive) as package:
@@ -221,13 +246,13 @@ def extract(archive, destination, rgb_only=False, depth=0):
                 continue
             target.parent.mkdir(parents=True,exist_ok=True)
             temporary = target.with_name(target.name+'.extracting')
-            with package.open(info) as source, temporary.open('wb') as output:
+            with package.open(info, pwd=password) as source, temporary.open('wb') as output:
                 shutil.copyfileobj(source,output)
             temporary.replace(target)
     if rgb_only:
         for info,target in members:
             if target.suffix.lower()=='.zip' and target.is_file():
-                extract(target,target.parent/target.stem,rgb_only=True,depth=depth+1)
+                extract(target,target.parent/target.stem,rgb_only=True,depth=depth+1,password=password)
 
 
 def inventory(root):
@@ -243,7 +268,9 @@ def inventory(root):
                            'width':width,'height':height,'sha256':checksum(path),
                            'review_status':'unreviewed','training_eligible':False})
         except Exception as error:
-            failures.append({'path':str(path.relative_to(root)),'error':str(error)[:160]})
+            relative_path=path.relative_to(root).as_posix()
+            message=str(error).replace(str(path),relative_path).replace(str(path.resolve()),relative_path)
+            failures.append({'path':relative_path,'error':message[:160]})
     hashes=Counter(image['sha256'] for image in images)
     return {'image_files':len(images),'unreadable_images':failures,
             'exact_duplicate_extra_files':sum(n-1 for n in hashes.values()),
@@ -252,6 +279,9 @@ def inventory(root):
 
 def acquire(name):
     source=SOURCES[name]
+    if source.get('provider') == 'mendeley':
+        from acquire_supplemental_datasets import acquire_mendeley
+        return acquire_mendeley(name, source)
     root=ROOT/name
     root.mkdir(parents=True,exist_ok=True)
     state={'dataset':name,**source,'retrieved_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),
@@ -269,7 +299,10 @@ def acquire(name):
                     metadata=response.json()
                     if source.get('expected_metadata_license') and metadata.get('licenseName')!=source['expected_metadata_license']:
                         raise ValueError('Publisher license changed; hold before image download')
-                    if source.get('version') and metadata.get('currentVersionNumber')!=source['version']:
+                    published_version = metadata.get('currentVersionNumber')
+                    if published_version is None:
+                        published_version = metadata.get('metadata', {}).get('version')
+                    if source.get('version') and str(published_version)!=str(source['version']):
                         raise ValueError('Publisher version changed; inspect the pinned release first')
         for filename in source.get('extra_files',[]):
             entry=next(row for row in metadata['files'] if row['key']==filename)
@@ -286,7 +319,11 @@ def acquire(name):
         if source.get('sha256') and state['archive_sha256'] != source['sha256']:
             raise ValueError('Publisher SHA256 mismatch; archive not extracted')
         state['archive_bytes']=archive.stat().st_size
-        extract(archive,root/'extracted',source.get('rgb_only',False))
+        password_env=source.get('password_env')
+        password=os.environ.get(password_env).encode() if password_env and os.environ.get(password_env) else None
+        if password_env and password is None:
+            raise ValueError(f'Official archive password must be supplied through {password_env}; archive preserved')
+        extract(archive,root/'extracted',source.get('rgb_only',False),password=password)
         result=inventory(root/'extracted')
         if not result['image_files']:
             raise ValueError('No readable image files extracted; inspect archive layout')

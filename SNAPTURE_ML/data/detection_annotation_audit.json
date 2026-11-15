@@ -1,0 +1,345 @@
+{
+  "datasets": {
+    "indoor_waste": {
+      "format": "LabelMe rectangles",
+      "images": 4000,
+      "boxes": 6968,
+      "categories": {
+        "cap": 1884,
+        "paper": 2311,
+        "shell": 1429,
+        "plastic": 1344
+      },
+      "geometry_errors": [],
+      "note": "Publisher shell label is not asserted to be coconut shell. Video sequence identity must be grouped before splitting."
+    },
+    "wasteinsight": [
+      {
+        "file": "public_sources/wasteinsight/extracted/test/_annotations.coco.json",
+        "format": "COCO",
+        "images": 90,
+        "boxes": 149,
+        "categories": {
+          "Plastic_Bag": 149
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      },
+      {
+        "file": "public_sources/wasteinsight/extracted/train/_annotations.coco.json",
+        "format": "COCO",
+        "images": 267,
+        "boxes": 434,
+        "categories": {
+          "Plastic_Bag": 434
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      },
+      {
+        "file": "public_sources/wasteinsight/extracted/valid/_annotations.coco.json",
+        "format": "COCO",
+        "images": 90,
+        "boxes": 141,
+        "categories": {
+          "Plastic_Bag": 141
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      }
+    ],
+    "packwise": [
+      {
+        "file": "public_sources/packwise/extracted/data/test.json",
+        "format": "COCO",
+        "images": 88,
+        "boxes": 1054,
+        "categories": {
+          "undefined": 83,
+          "plastic-foil/bag": 354,
+          "aluminium-coated-foil": 73,
+          "metal-can": 13,
+          "metal-foil": 6,
+          "net": 5,
+          "beverage-carton": 34,
+          "metal-lid": 28,
+          "foamed-plastic": 29,
+          "tissue": 74,
+          "plastic-cup/pot": 103,
+          "plastic-other": 61,
+          "plastic-lid": 23,
+          "plastic-bottle": 20,
+          "paper-other": 83,
+          "textile": 3,
+          "ribbon/tape": 13,
+          "blister": 15,
+          "paper-bag": 20,
+          "metal-other": 2,
+          "paper-cup/pot": 5,
+          "tube": 2,
+          "wood": 5
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      },
+      {
+        "file": "public_sources/packwise/extracted/data/train.json",
+        "format": "COCO",
+        "images": 410,
+        "boxes": 4669,
+        "categories": {
+          "plastic-foil/bag": 1511,
+          "paper-bag": 105,
+          "aluminium-coated-foil": 268,
+          "beverage-carton": 118,
+          "plastic-other": 335,
+          "plastic-cup/pot": 454,
+          "blister": 63,
+          "net": 21,
+          "metal-can": 76,
+          "undefined": 365,
+          "tissue": 335,
+          "wood": 22,
+          "paper-other": 339,
+          "foamed-plastic": 158,
+          "plastic-lid": 104,
+          "metal-lid": 122,
+          "textile": 25,
+          "plastic-bottle": 101,
+          "ribbon/tape": 56,
+          "metal-other": 11,
+          "metal-foil": 56,
+          "tube": 10,
+          "paper-cup/pot": 14
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      },
+      {
+        "file": "public_sources/packwise/extracted/data/val.json",
+        "format": "COCO",
+        "images": 88,
+        "boxes": 990,
+        "categories": {
+          "plastic-foil/bag": 364,
+          "paper-bag": 25,
+          "plastic-lid": 29,
+          "plastic-other": 62,
+          "beverage-carton": 27,
+          "plastic-cup/pot": 100,
+          "undefined": 73,
+          "metal-can": 15,
+          "aluminium-coated-foil": 50,
+          "metal-lid": 12,
+          "plastic-bottle": 22,
+          "tissue": 48,
+          "paper-other": 63,
+          "net": 6,
+          "textile": 6,
+          "tube": 2,
+          "foamed-plastic": 39,
+          "metal-foil": 11,
+          "blister": 17,
+          "ribbon/tape": 8,
+          "wood": 5,
+          "paper-cup/pot": 4,
+          "metal-other": 2
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      }
+    ],
+    "zerowaste": [
+      {
+        "file": "public_sources/zerowaste/extracted/splits_final_deblurred/test/labels.json",
+        "format": "COCO",
+        "images": 929,
+        "boxes": 5077,
+        "categories": {
+          "rigid_plastic": 315,
+          "soft_plastic": 1250,
+          "metal": 63,
+          "cardboard": 3449
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      },
+      {
+        "file": "public_sources/zerowaste/extracted/splits_final_deblurred/train/labels.json",
+        "format": "COCO",
+        "images": 3002,
+        "boxes": 18002,
+        "categories": {
+          "cardboard": 11941,
+          "metal": 259,
+          "soft_plastic": 4672,
+          "rigid_plastic": 1130
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      },
+      {
+        "file": "public_sources/zerowaste/extracted/splits_final_deblurred/val/labels.json",
+        "format": "COCO",
+        "images": 572,
+        "boxes": 3687,
+        "categories": {
+          "cardboard": 2361,
+          "rigid_plastic": 324,
+          "soft_plastic": 942,
+          "metal": 60
+        },
+        "missing_images": [],
+        "geometry_errors": []
+      }
+    ],
+    "realdirt": {
+      "format": "YOLO normalized boxes",
+      "images": 500,
+      "label_files": 500,
+      "boxes": 2398,
+      "categories": {
+        "1": 1467,
+        "2": 180,
+        "0": 751
+      },
+      "missing_images": [],
+      "labels_without_images": 0,
+      "geometry_errors": [],
+      "class_count": 3,
+      "note": "Publisher class ids are preserved; inspect data.yaml names before any training export."
+    },
+    "mmorwad_rgb": {
+      "format": "COCO segmentation with per-image attributes",
+      "images": 3300,
+      "boxes": 3300,
+      "categories": {
+        "Polyethylene Terephthalate (PET)": 1146,
+        "Aluminium (ALU)": 167,
+        "Polypropylene (PP)": 432,
+        "High Density Polyethylene (HDPE)": 488,
+        "Other Plastic (Other)": 103,
+        "Low Density Polyethylene (LDPE)": 35,
+        "Polystyrene (PS)": 14,
+        "Steel (FE)": 77,
+        "Paperboard (PAP)": 375,
+        "Cardboard (PAP)": 61,
+        "Paper (PAP)": 38,
+        "Paper/Cardboard + Plastic + Aluminum (C/PAP)": 96,
+        "Paper/Cardboard + Plastic (C/PAP)": 76,
+        "Polyvinyl Chloride (PVC)": 5,
+        "Plastic + Aluminium (C/PE)": 32,
+        "Clear Glass (GL)": 109,
+        "Brown Glass (GL)": 36,
+        "Green Glass (GL)": 10
+      },
+      "missing_images": [
+        "1359ic_M40H03T0L0C0D1.png",
+        "1362ic_M40H99T0L1C0D0.png",
+        "1682ic_M01H00T0L1C0D0.png",
+        "2160ic_M01H00T0L0C0D0.png",
+        "2161ic_M01H00T0L0C1D0.png",
+        "2162ic_M01H00T0L0C0D1.png",
+        "2597ic_M02H01T1L0C0D1.png",
+        "2636ic_M07H99T0L0C0D0.png",
+        "2637ic_M07H99T0L0C1D1.png",
+        "2660ic_M05H99T0L0C0D0.png",
+        "2668ic_M05H99T0L1C0D0.png",
+        "2944ic_M20H41T0L0C0D0.png"
+      ],
+      "unreferenced_images": [
+        "color_img/1359ic_M40H03T0L1C0D1.png",
+        "color_img/1362ic_M40H99T0L0C0D0.png",
+        "color_img/1682ic_M01H00T0L1C0D1.png",
+        "color_img/2160ic_M01H00T0L1C0D0.png",
+        "color_img/2161ic_M01H00T0L1C1D0.png",
+        "color_img/2162ic_M01H00T0L1C0D1.png",
+        "color_img/2597ic_M04H01T1L0C0D1.png",
+        "color_img/2636ic_M07H01T0L0C0D0.png",
+        "color_img/2637ic_M07H01T0L0C1D1.png",
+        "color_img/2660ic_M05H99T0L0C0D1.png",
+        "color_img/2668ic_M05H99T0L1C0D1.png",
+        "color_img/2944ic_M20H41T0L0C0D1.png"
+      ],
+      "filename_mismatch_candidates": [
+        {
+          "expected": "1359ic_M40H03T0L0C0D1.png",
+          "same_index_candidates": [
+            "color_img/1359ic_M40H03T0L1C0D1.png"
+          ]
+        },
+        {
+          "expected": "1362ic_M40H99T0L1C0D0.png",
+          "same_index_candidates": [
+            "color_img/1362ic_M40H99T0L0C0D0.png"
+          ]
+        },
+        {
+          "expected": "1682ic_M01H00T0L1C0D0.png",
+          "same_index_candidates": [
+            "color_img/1682ic_M01H00T0L1C0D1.png"
+          ]
+        },
+        {
+          "expected": "2160ic_M01H00T0L0C0D0.png",
+          "same_index_candidates": [
+            "color_img/2160ic_M01H00T0L1C0D0.png"
+          ]
+        },
+        {
+          "expected": "2161ic_M01H00T0L0C1D0.png",
+          "same_index_candidates": [
+            "color_img/2161ic_M01H00T0L1C1D0.png"
+          ]
+        },
+        {
+          "expected": "2162ic_M01H00T0L0C0D1.png",
+          "same_index_candidates": [
+            "color_img/2162ic_M01H00T0L1C0D1.png"
+          ]
+        },
+        {
+          "expected": "2597ic_M02H01T1L0C0D1.png",
+          "same_index_candidates": [
+            "color_img/2597ic_M04H01T1L0C0D1.png"
+          ]
+        },
+        {
+          "expected": "2636ic_M07H99T0L0C0D0.png",
+          "same_index_candidates": [
+            "color_img/2636ic_M07H01T0L0C0D0.png"
+          ]
+        },
+        {
+          "expected": "2637ic_M07H99T0L0C1D1.png",
+          "same_index_candidates": [
+            "color_img/2637ic_M07H01T0L0C1D1.png"
+          ]
+        },
+        {
+          "expected": "2660ic_M05H99T0L0C0D0.png",
+          "same_index_candidates": [
+            "color_img/2660ic_M05H99T0L0C0D1.png"
+          ]
+        },
+        {
+          "expected": "2668ic_M05H99T0L1C0D0.png",
+          "same_index_candidates": [
+            "color_img/2668ic_M05H99T0L1C0D1.png"
+          ]
+        },
+        {
+          "expected": "2944ic_M20H41T0L0C0D0.png",
+          "same_index_candidates": [
+            "color_img/2944ic_M20H41T0L0C0D1.png"
+          ]
+        }
+      ],
+      "geometry_errors": [],
+      "attribute_errors": [],
+      "note": "The publisher stores material/condition attributes per image, not COCO category_id. Same-index filename candidates are review hints only and are not remapped."
+    }
+  },
+  "visual_review_completed": false,
+  "approved_for_training": false
+}
