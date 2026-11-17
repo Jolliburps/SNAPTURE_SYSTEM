@@ -1,0 +1,35 @@
+{
+  "auth_user": {
+    "before_count": 1,
+    "after_count": 1,
+    "existing_rows_unchanged": true
+  },
+  "predictions_predictionrecord": {
+    "before_count": 0,
+    "after_count": 10,
+    "existing_rows_unchanged": true
+  },
+  "predictions_scanscene": {
+    "before_count": 0,
+    "after_count": 3,
+    "existing_rows_unchanged": true
+  },
+  "predictions_sceneitem": {
+    "before_count": 0,
+    "after_count": 10,
+    "existing_rows_unchanged": true
+  },
+  "predictions_userproject": {
+    "before_count": 0,
+    "after_count": 0,
+    "existing_rows_unchanged": true
+  },
+  "media": {
+    "before_count": 0,
+    "after_count": 13,
+    "existing_files_unchanged": true
+  },
+  "guidance_states": {
+    "draft": 21
+  }
+}

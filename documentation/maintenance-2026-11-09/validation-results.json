@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-09",
+  "timezone": "Asia/Manila",
+  "detector": {
+    "active": "owlvit",
+    "yolo_enabled": false,
+    "trained_yolo_weights_supplied": false,
+    "yolo_model_accuracy_validated": false
+  },
+  "camera": {
+    "existing_ratio_and_guide_preserved": true,
+    "new_scan_analysis_scope": "full_image",
+    "physical_all_control_acceptance_complete": false
+  },
+  "validation": {
+    "backend_full": {
+      "tests": 292,
+      "result": "passed",
+      "log": ".tools/maintenance/backend-full-final-errors.log"
+    },
+    "backend_serialization_targeted": {
+      "tests": 46,
+      "result": "passed"
+    },
+    "mobile": {
+      "suites": 48,
+      "tests": 240,
+      "result": "passed"
+    },
+    "mobile_types": "passed",
+    "mobile_lint": "passed",
+    "android_production_js_bundle": "passed",
+    "admin_browser": {
+      "scenarios": 5,
+      "result": "passed",
+      "final_project_details_scenario": "passed"
+    },
+    "admin_production_build": "passed",
+    "admin_lint": "passed",
+    "native_debug_build": {
+      "exitCode": 0,
+      "started": "2026-11-09T03:58:55.1890560+08:00",
+      "finished": "2026-11-09T03:59:50.0049071+08:00",
+      "apkExists": true,
+      "apkSHA256": "E51D1EEFA2DD915FC51FF591CD70B2B4A9FA1A17B7DF782BE9ACD6AC2B1F3AEB",
+      "apkPath": "C:\\Users\\Jude\\Desktop\\SNAPTURE\\SNAPTURE--main\\SNAPTURE_ANDROID\\android\\app\\build\\outputs\\apk\\debug\\app-debug.apk"
+    },
+    "owlvit_runtime": {
+      "local_weights_available": true,
+      "synthetic_image_inference_completed": true,
+      "returned_rows": 0,
+      "accuracy_validated": false
+    },
+    "phone_runtime_check": {
+      "app_process_running": true,
+      "app_in_foreground": true,
+      "system_input_overlay_visible": false,
+      "backend_http_status": 200,
+      "metro_http_status": 200
+    }
+  },
+  "content": {
+    "imported_legacy_drafts": 21,
+    "newly_published_projects": 0,
+    "cesd_owner_created": false
+  },
+  "limits": [
+    "Trained YOLO export and exact labels are required for model integration/evaluation.",
+    "Legacy project drafts need actual review and publication.",
+    "Flow tests and a static binding inventory do not prove every physical tap or native permission branch."
+  ]
+}

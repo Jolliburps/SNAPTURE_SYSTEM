@@ -1,0 +1,10 @@
+{
+  "before_files": 481,
+  "after_files": 499,
+  "changes": 58,
+  "production_interactive_bindings": 470,
+  "production_ui_files": 40,
+  "native_and_dependency_files_checked": 38,
+  "native_or_dependency_changes": [],
+  "excluded": "Generated dependencies, build outputs, .venv/.local/media, .env*, databases, keystores, OWL-ViT weights, and this report directory. Before snapshot retained privately in .tools/maintenance/before."
+}
