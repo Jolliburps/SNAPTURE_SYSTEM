@@ -3,7 +3,6 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import { imageUrl, type SceneItem } from './api';
-import WasteRecommendations from './WasteRecommendations';
 import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
 import ItemActionAdvice from './ItemActionAdvice';
 import { sceneItemTitle } from './detectionPresentation';
@@ -30,7 +29,7 @@ export default function DetectionItemCard({item,number,category,color,explanatio
       <View style={[s.number,{backgroundColor:color}]}><Text style={s.numberText}>{number}</Text></View>
       <View style={s.copy}>
         <Text style={s.name}>{title}</Text>
-        {item.name_confirmation_required?<Text style={s.status}>Exact object needs confirmation</Text>:null}
+        {assessment?.material.status==='user_selected'?<Text style={s.status}>Selected by you</Text>:null}
         <Text style={[s.category,{color}]}>{item.action_advice?.chosen_action?({keep:'Keep',discard:'Disposal guidance',recover:'Recycle / upcycle'}[item.action_advice.chosen_action]):handling?.title || category}</Text>
         {low?<Text style={s.status}>Unconfirmed suggestion</Text>:null}
         {item.background?<Text style={s.status}>Possible background object</Text>:null}
@@ -46,8 +45,8 @@ export default function DetectionItemCard({item,number,category,color,explanatio
         {handling.sources.map((source,index)=><Text selectable key={index} style={s.reference}>{source.title || source.source || 'Project review'}{source.url?`\n${source.url}`:''}{source.review_level?` · ${source.review_level}`:''}</Text>)}
       </View>:null}
       {!special?<>
-      <Text style={s.body}>{item.review_reason || item.route.reason}</Text>
-      <Text style={s.body}>{assessment?.material.status==='user_selected'?`${item.prediction.title} — selected by you, not AI verification.`:'Material not confirmed. Review the item before following sorting advice.'}</Text>
+      <Text style={s.body}>{item.route.reason}</Text>
+      <Text style={s.body}>{assessment?.material.status==='user_selected'?`${item.prediction.title} — selected by you, not AI verification.`:assessment?.material.status==='model_high_confidence'?item.prediction.title+' · High confidence camera match':'Material not confirmed. Review the item before following sorting advice.'}</Text>
       <Text style={s.section}>Why this group?</Text><Text style={s.body}>{explanation}</Text>
       <Text style={s.section}>Disposal route</Text><Text style={s.body}>{item.route.label}. {item.route.reason}</Text>
       <Text style={s.section}>Preparation</Text>
@@ -60,7 +59,6 @@ export default function DetectionItemCard({item,number,category,color,explanatio
         {recoveryOptions.map((line,index)=><Text key={index} style={s.body}>{line}</Text>)}
         {onReview?<Text style={s.reference}>Use Review item to check whether a reviewed project is available.</Text>:null}
       </>}
-      <WasteRecommendations key={item.prediction.id} prediction={item.prediction}/>
       </>:null}
       {onShowPhoto?<CardAction title={`Show item ${number} in photo`} onPress={onShowPhoto}/>:null}
     </View>:null}

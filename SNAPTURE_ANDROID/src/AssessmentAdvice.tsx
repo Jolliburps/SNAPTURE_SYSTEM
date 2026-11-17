@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { type Prediction } from './api';
-import WasteRecommendations from './WasteRecommendations';
 import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
+import {materialCategoryName} from './detectionPresentation';
 
 export function adviceSummary(prediction: Prediction) {
   const a = prediction.assessment;
@@ -25,18 +25,18 @@ export default function AssessmentAdvice({prediction, saved, onEdit, onDone, onR
   const a = prediction.assessment;
   const canExplore = Boolean(a?.quick_check?.has_reviewed_projects && summary.kind !== 'caution');
   return <>
-    <Text style={s.small}>Item: {a?.material.title || prediction.title}</Text>
+    <Text style={s.small}>Item: {materialCategoryName(prediction)}</Text>
     <ScanUpcyclingIdeas key={prediction.id} prediction={prediction}/>
     {saved ? <Text accessibilityLiveRegion="polite" style={s.saved}>Your answers are saved. Here is what to do next.</Text> : null}
     <View style={[s.card,summary.kind === 'ready' ? s.ready : s.caution]}>
       <Text accessibilityRole="header" style={s.title}>{summary.title}</Text>
       <Text style={s.body}>{summary.body}</Text>
       {a?.segregation.status === 'available' ? a.segregation.instructions.map(line=><Text key={line} style={s.body}>{line}</Text>) : null}
+      {a?.safety?.instructions.map(line=><Text key={line} style={s.body}>{line}</Text>)}
       <Text style={s.small}>Based on the photo and your answers, not a safety certification.</Text>
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel="Done with this item" disabled={busy} onPress={onDone} style={s.button}><Text style={s.buttonText}>Done</Text></Pressable>
     <Pressable accessibilityRole="button" accessibilityLabel="Change my answers" disabled={busy} onPress={onEdit}><Text style={s.link}>Change my answers</Text></Pressable>
-    <WasteRecommendations key={prediction.id} prediction={prediction}/>
     {(prediction.recommendation_choices || []).map(project=><View key={project.id} style={s.card}>
       <Text style={s.title}>{project.title}</Text><Text style={s.body}>{project.summary}</Text>
       <Text style={s.small}>{project.safety_note}</Text>
@@ -53,7 +53,6 @@ export default function AssessmentAdvice({prediction, saved, onEdit, onDone, onR
       <Text style={s.body}>{a?.segregation.explanation}</Text>
       {a?.segregation.sources?.map(source=><Text key={source.key} style={s.small}>{source.source}{'\n'}{source.review_note}</Text>)}
       {prediction.waste_identifier?.general_guidance ? <><Text style={s.small}>{prediction.waste_identifier.general_guidance.source.name}{'\n'}{prediction.waste_identifier.general_guidance.source.url}</Text>{prediction.waste_identifier.general_guidance.instructions.map(line=><Text key={line} style={s.body}>{line}</Text>)}</> : null}
-      {a?.safety?.instructions.map(line=><Text key={line} style={s.body}>{line}</Text>)}
     </View> : null}
   </>;
 }

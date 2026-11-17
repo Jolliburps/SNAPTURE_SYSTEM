@@ -1,24 +1,11 @@
-# Recoverable dataset quarantine — 2026-10-02
+# SNAPTURE dataset folder
 
-These folders were removed from the active SNAPTURE dataset after visual and
-label review. They were moved, not permanently deleted.
+- [Dataset index](DATASET_INDEX.md) lists the seven approved categories and candidate counts.
+- [Source register](SOURCE_REGISTER.md) identifies the original project collection and the retained publishers.
+- `public_sources/` holds extracted publisher files and a README for each source.
+- `phone_scans/` contains the capture and labeling template.
+- `active_manifest.json` records local candidate counts. `verified_manifest.json` records approved training exports.
+- `labels.json` stores the seven class labels. `_source_manifest.json` preserves the original Drive import record.
 
-- `pete_bottles_plastic_unclassified_2026-10-02/`: generic plastic images
-  were nested under PETE but are not verified PETE.
-- `fabric_scraps_textile_2026-10-02/`: textile-trash images include masks,
-  shoes, and other mixed items, so they are not verified fabric scraps.
-- `coconut_shells_commons_2026-10-02/`: search results include whole coconuts,
-  farms, food, and other scenes in addition to shells.
-- `dry_wood_non_recyclable_2026-10-02/`: images include paint, glue,
-  packaging, and other non-wood objects.
-- `cardboard1_unverified_2026-10-02/` and `paper1_unverified_2026-10-02/`:
-  alternate folders kept out of the canonical class folders until their
-  source and labels are reviewed.
-- `plastic_generic_2026-10-02/` and `textile_trash_2026-10-02/`: generic
-  source categories that cannot be used as PETE/HDPE or fabric-scrap labels.
-- `active_review_sheets_2026-10-02/` and `wood_direct_sample_review.jpg`:
-  temporary visual-audit files, not training data.
-
-The active dataset now contains only the seven canonical class directories.
-Restore an image only after checking the individual image, material label,
-source/license, and reviewer decision.
+Historical files moved during cleanup can be recovered through the relocation
+maps in `../dataset_archive/`.

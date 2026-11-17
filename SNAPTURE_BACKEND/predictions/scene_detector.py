@@ -6,7 +6,10 @@ from django.conf import settings
 MODEL_DIR = Path(settings.SNAPTURE_ML_DIR) / 'models' / 'owlvit-base-patch32'
 PROMPTS = [
     ('plastic bottle', 'unknown_unsupported'), ('plastic jug or container', 'unknown_unsupported'),
+    # Contrast examples are rejection evidence, not additional trained classes.
+    ('drinking cup or tumbler', 'unknown_unsupported'), ('foam food cup', 'unknown_unsupported'),
     ('cardboard box or cardboard scrap', 'cardboard'), ('paper scrap', 'paper'),
+    ('sheet of printed paper', 'paper'),
     ('cloth or fabric scrap', 'fabric_scraps'), ('wood scrap', 'dry_untreated_wood_scraps'),
     ('glass bottle or glass jar', 'unknown_unsupported'), ('metal can', 'unknown_unsupported'),
     ('food scraps or fruit peel', 'unknown_unsupported'), ('dry leaf', 'unknown_unsupported'),
@@ -18,11 +21,14 @@ PROMPTS = [
     ('computer keyboard', None), ('computer monitor', None), ('wristwatch', None),
     ('computer mouse', None), ('laptop computer', None), ('mobile phone', None),
     ('towel', 'fabric_scraps'), ('wallet', 'unknown_unsupported'),
+    ('fabric baseball cap', 'fabric_scraps'),
+    ('knitted hat or beanie', 'fabric_scraps'),
     ('comb', 'unknown_unsupported'), ('coconut shell', 'coconut_shells'),
     ('blanket', 'fabric_scraps'), ('bed sheet', 'fabric_scraps'), ('pillow', 'fabric_scraps'),
     # Contrast queries: these are never waste detections. They reduce forced
     # matches of skin/worn clothes to the waste prompts, not a person guarantee.
     ('person', None), ('human hand', None), ('human foot', None),
+    ('dog', None), ('cat', None), ('animal', None),
     ('human leg', None), ('human arm', None), ('clothing worn by a person', None),
 ]
 HUMAN_NAMES = {'person','human hand','human foot','human leg','human arm','clothing worn by a person'}
@@ -32,8 +38,8 @@ BACKGROUND_NAMES = {name for name, material in PROMPTS if material is None}
 OBJECT_NAMES = BACKGROUND_NAMES | {'towel', 'blanket', 'bed sheet', 'pillow', 'wallet', 'comb', 'coconut shell'}
 DISPLAY_THRESHOLD = .28  # Proposal-score cutoff, not a calibrated accuracy percentage.
 MIN_PROPOSAL_SCORE = .1
-FILTER_VERSION = 'conservative-object-filter-v3'
-TEXTILE_NAMES = {'cloth or fabric scrap','towel','blanket','bed sheet','pillow'}
+FILTER_VERSION = 'conservative-object-filter-v5'
+TEXTILE_NAMES = {'cloth or fabric scrap','towel','blanket','bed sheet','pillow','fabric baseball cap','knitted hat or beanie'}
 # Provisional abstention rules, not measured accuracy or a calibrated confidence
 # threshold. Exact textile names stay unconfirmed even above these cutoffs.
 TEXTILE_REVIEW_BELOW = .45
@@ -53,8 +59,9 @@ def iou(a, b):
 
 
 def family(name):
+    if name in {'paper scrap','sheet of printed paper'}: return 'paper'
     if name in {'plastic bottle','plastic jug or container'}: return 'plastic-container'
-    if name in {'cloth or fabric scrap','towel','blanket','bed sheet'}: return 'textile'
+    if name in TEXTILE_NAMES - {'pillow'}: return 'textile'
     return name
 
 
@@ -101,7 +108,7 @@ def presentation(rows):
                 status, reason = 'review', 'The object name is uncertain or competing matches disagree.'
             elif row.get('stored_review_reason'):
                 status, reason = 'review', row['stored_review_reason']
-            elif any(other['name'] in BACKGROUND_NAMES and other['name'] != 'person' and
+            elif any(other['name'] in BACKGROUND_NAMES and other['name'] not in {'person','human hand','human arm'} and
                      other['score'] >= max(DISPLAY_THRESHOLD,row['score']*.85) and
                      iou(row['box'],other['box']) > .5 for other in rows):
                 status, reason = 'review', 'This region overlaps a possible body part or background object.'
@@ -137,7 +144,10 @@ def clean_detections(rows, limit=30):
         if row['score'] < MIN_PROPOSAL_SCORE or box[2]-box[0] < .015 or box[3]-box[1] < .015:
             continue
         valid.append({**row,'box':box})
-    background = [row for row in valid if row['name'] in BACKGROUND_NAMES]
+    # A supporting hand must not delete the item before the single-item policy
+    # can distinguish a held object from a photograph of a person.
+    background = [row for row in valid if row['name'] in BACKGROUND_NAMES
+                  and row['name'] not in HUMAN_NAMES | {'dog','cat','animal'}]
     for row in sorted(valid,key=lambda value:(bool(value.get('user_confirmed')),value['score']),reverse=True):
         box = row['box']
         if row['name'] not in OBJECT_NAMES and not row.get('user_confirmed') and any(
@@ -160,6 +170,29 @@ def clean_detections(rows, limit=30):
         row['ambiguous_large'] = area(box)>.5
         chosen.append(row)
     return chosen[:limit], len(chosen)>limit
+
+
+def person_context(outputs):
+    """Keep strong person evidence even if a fabric query won the same patch.
+
+    OWL's usual postprocessor keeps only the highest query for each patch. Use
+    the same forward pass for these rejection checks; this is not a second
+    model or a guarantee that every person will be detected.
+    """
+    import torch
+    if not isinstance(getattr(outputs, 'logits', None), torch.Tensor) or not isinstance(getattr(outputs, 'pred_boxes', None), torch.Tensor):
+        return []
+    scores, boxes = outputs.logits[0].sigmoid(), outputs.pred_boxes[0]
+    rows = []
+    for index, (name, _) in enumerate(PROMPTS):
+        if name not in {'person', 'clothing worn by a person'}:
+            continue
+        for patch in (scores[:, index] >= DISPLAY_THRESHOLD).nonzero().flatten().tolist():
+            cx, cy, width, height = boxes[patch].tolist()
+            rows.append({'name':name, 'material':'unknown_unsupported',
+                         'score':float(scores[patch, index]),
+                         'box':[cx-width/2, cy-height/2, cx+width/2, cy+height/2]})
+    return rows
 
 
 def detect(image, tiled=False):
@@ -196,6 +229,12 @@ def detect(image, tiled=False):
             if (left>0 and box[0]<2) or (top>0 and box[1]<2) or (right<image.width and box[2]>region.width-2) or (bottom<image.height and box[3]>region.height-2):
                 continue
             rows.append({'name':name, 'material':material or 'unknown_unsupported', 'score':float(score), 'box':[(left+box[0])/image.width,(top+box[1])/image.height,(left+box[2])/image.width,(top+box[3])/image.height]})
+        for row in person_context(outputs):
+            x1, y1, x2, y2 = row['box']
+            rows.append({**row, 'box':[(left+x1*region.width)/image.width,
+                                     (top+y1*region.height)/image.height,
+                                     (left+x2*region.width)/image.width,
+                                     (top+y2*region.height)/image.height]})
     cleaned, truncated = clean_detections(rows)
     for row in cleaned:
         # Actual overlapping query outputs only; never fabricate three alternatives.

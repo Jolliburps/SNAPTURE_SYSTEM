@@ -83,7 +83,7 @@ class FilterSceneTests(TestCase):
         result = self.create(rows=[row('towel',.302,[.004,.258,.765,1],material='fabric_scraps')]).json()['scene']
         item = result['items'][0]
         self.assertEqual(item['name'],'towel')
-        self.assertEqual(item['display_name'],'Possible fabric item')
+        self.assertEqual(item['display_name'],'Fabric scraps')
         self.assertTrue(item['name_confirmation_required'])
         self.assertEqual(item['detection_status'],'review')
         self.assertFalse(item['display_box'])
@@ -112,7 +112,7 @@ class FilterSceneTests(TestCase):
         corrected = self.client.post(f"/api/scenes/{result['id']}/disposal-selection/",json.dumps({
             'item_ids':[item['id']], 'automatic_routing':True, 'object_names':{str(item['id']):'blanket'},
         }),content_type='application/json',**self.auth).json()['scene']['items'][0]
-        self.assertEqual(corrected['display_name'],'blanket')
+        self.assertEqual(corrected['display_name'],'Fabric scraps')
         self.assertFalse(corrected['name_confirmation_required'])
         self.assertEqual(corrected['name'],'towel')
         self.assertTrue(corrected['action_advice']['projects'])

@@ -62,6 +62,14 @@ class ScopeInferenceTests(unittest.TestCase):
         self.assertEqual(array[0, 0, 0].tolist(), [255, 0, 0])
         self.assertEqual(array[0, 1, 0].tolist(), [0, 0, 255])
 
+    def test_resize_matches_training_bilinear_rgb_without_double_normalizing(self):
+        image = Image.fromarray(np.arange(5*7*3, dtype=np.uint8).reshape(5,7,3))
+        predictor = self.predictor('paper', .99)
+        actual = predictor._prepare_image(image)
+        expected = np.asarray(image.resize((2,2), Image.Resampling.BILINEAR), dtype=np.float32)
+        np.testing.assert_array_equal(actual[0], expected)
+        self.assertEqual(actual.dtype, np.float32)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,16 +1,13 @@
-# Free, consent-aware six-material training
+# Free, consent-aware seven-material training
 
-Scope updated 2026-10-18: PETE bottles, HDPE containers, cardboard, paper,
-fabric scraps and dry untreated wood scraps. Coconut shells are excluded
-from current results, catalog and future training. Old images, old class
-orders and checkpoints are preserved; never relabel a seven-output checkpoint
-as a six-output model.
+The seven approved categories are PETE bottles, HDPE containers, cardboard,
+paper, fabric scraps, coconut shells, and dry untreated wood scraps.
 
 ## What is available now
 
-The app still uses the existing experimental checkpoint. Its coconut output
-is rejected, not reassigned to the next-best class. No new accuracy claim is
-made. A new trained model is a separate candidate until independently tested.
+The app uses the existing experimental seven-category checkpoint selected in
+`models/active_model.json`. A newly trained model should be saved as a separate
+candidate and independently evaluated on phone photos before activation.
 
 No hosted recognition API is necessary: Django can continue local inference.
 The current Windows TensorFlow environment has no usable GPU. For optional
@@ -28,7 +25,7 @@ Do not upload the entire repository, database, credentials or user histories.
 From SNAPTURE_ML with its virtual environment:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/reviewed_dataset.py inventory data --output data/review_manifest_six_materials.json
+.\.venv\Scripts\python.exe scripts/reviewed_dataset.py inventory data --output data/review_manifest_seven_materials.json
 ```
 
 The inventory is NOT a verified dataset. For each included record, confirm
@@ -39,9 +36,9 @@ history from a folder name. Omit excluded/unreviewed records from the training
 manifest. A different filename is not proof of a different physical item.
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/reviewed_dataset.py prepare data/review_manifest_six_materials.json --output data/prepared_six_materials_v1
-.\.venv\Scripts\python.exe scripts/reviewed_dataset.py validate data/prepared_six_materials_v1
-.\.venv\Scripts\python.exe scripts/reviewed_dataset.py package data/prepared_six_materials_v1 --output data/reviewed_training_bundle_v1.zip
+.\.venv\Scripts\python.exe scripts/reviewed_dataset.py prepare data/review_manifest_seven_materials.json --output data/prepared_seven_materials_v1
+.\.venv\Scripts\python.exe scripts/reviewed_dataset.py validate data/prepared_seven_materials_v1
+.\.venv\Scripts\python.exe scripts/reviewed_dataset.py package data/prepared_seven_materials_v1 --output data/reviewed_training_bundle_v1.zip
 ```
 
 Each class needs at least three distinct groups to form three partitions;
@@ -56,7 +53,7 @@ trains MobileNetV2 and downloads a separate candidate with per-class metrics.
 Alternatively train locally:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/train_model.py --data-dir data/prepared_six_materials_v1 --output-dir models/candidates/six_materials_reviewed_v1 --epochs 30
+.\.venv\Scripts\python.exe scripts/train_model.py --data-dir data/prepared_seven_materials_v1 --output-dir models/candidates/seven_materials_reviewed_v1 --epochs 30
 ```
 
 Neither path automatically replaces active_model.json. Inspect held-out

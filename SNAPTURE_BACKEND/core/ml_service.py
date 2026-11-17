@@ -23,7 +23,10 @@ def _load_predictor():
     try:
         from scripts.inference import ModelPredictor
 
-        _predictor = ModelPredictor()
+        predictor = ModelPredictor()
+        if len(predictor.labels) != len(SCOPE_LABELS) or set(predictor.labels) != set(SCOPE_LABELS):
+            raise ValueError("The active checkpoint must contain exactly the seven supported SNAPTURE categories.")
+        _predictor = predictor
     except (FileNotFoundError, OSError, ValueError, ImportError) as error:
         _startup_error = str(error)
     return _predictor

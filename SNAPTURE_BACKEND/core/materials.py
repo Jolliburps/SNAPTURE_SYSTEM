@@ -105,7 +105,7 @@ MATERIALS = {
         "disposal": "Do not burn painted or treated wood; use the appropriate local collection service.",
     },
     "unknown_unsupported": {
-        "title": "Unidentified or unsupported object",
+        "title": "Unsupported",
         "short_title": "Unsupported",
         "description": "The available evidence is not enough for a supported material decision.",
         "examples": [],

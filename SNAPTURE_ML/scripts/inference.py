@@ -184,7 +184,7 @@ class ModelPredictor:
 
     def _prepare_image(self, image: Image.Image) -> np.ndarray:
         resized = ImageOps.exif_transpose(image).convert("RGB").resize(
-            (self.image_size[1], self.image_size[0])
+            (self.image_size[1], self.image_size[0]), Image.Resampling.BILINEAR
         )
         image_array = np.asarray(resized, dtype=np.float32)
         return np.expand_dims(image_array, axis=0)

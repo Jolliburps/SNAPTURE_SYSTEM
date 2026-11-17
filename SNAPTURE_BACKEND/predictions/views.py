@@ -61,10 +61,12 @@ def _serialize(record, saved=False):
             safe_title = f"{safe_title} (user confirmed)"
         if "candidate-unverified" in str(record.model_version):
             safe_title = f"{safe_title} (prototype result)"
+    from core.assessment import high_confidence_scan_material
+    high_confidence = high_confidence_scan_material(record)
     plastic_confirmed = record.answers.get("user_confirmed_material") == safe_decision and safe_decision in PLASTIC_DECISIONS
     requires_verification = (
         safe_decision == "unknown_unsupported"
-        or ("candidate-unverified" in str(record.model_version) and record.answers.get("user_confirmed_material") != safe_decision)
+        or ("candidate-unverified" in str(record.model_version) and not high_confidence and record.answers.get("user_confirmed_material") != safe_decision)
         or (safe_decision in PLASTIC_DECISIONS and not plastic_confirmed)
         or (str(record.model_class).lower() in {"plastic", "metal", "glass", "trash"} and not plastic_confirmed)
     )
@@ -79,6 +81,14 @@ def _serialize(record, saved=False):
         and isinstance(snapshot.get('missing_information'), list)
     )
     assessment = (snapshot if has_snapshot else None) if saved else assess(record)
+    if saved and assessment and assessment['material']['status'] == 'model_high_confidence' and not high_confidence:
+        assessment = {
+            **assessment,
+            'material': {**assessment['material'], 'status': 'needs_confirmation'},
+            'segregation': {'status': 'needs_information', 'category': None, 'instructions': [],
+                            'explanation': 'Check the material before using this saved guidance.', 'sources': []},
+            'upcycling': {'status': 'needs_information', 'recommendations': [], 'suggested_ideas': []},
+        }
     if saved and assessment and 'management_guidance' not in assessment:
         # Legacy supplement uses only this item's saved snapshot, never a newer
         # scan or current catalogue. Do not rewrite historical records on GET.
@@ -98,9 +108,11 @@ def _serialize(record, saved=False):
             if assessment:
                 assessment = {**assessment, 'upcycling':{**assessment['upcycling'], 'recommendations':[], 'suggested_ideas':[]}}
     from core.waste_taxonomy import identity
+    from .material_classifier import recognition_result
     return {
         "id": record.id,
         "image_url": record.image.url if record.image else None,
+        "focus_box": (record.image_quality or {}).get('classification_crop') if (record.image_quality or {}).get('object_source') != 'whole_image_classifier' else None,
         "scene_id": scene.id if scene else None,
         "original_image_url": scene.image.url if scene and scene.image else (record.image.url if record.image else None),
         "saved_assessment_available": has_snapshot,
@@ -110,6 +122,7 @@ def _serialize(record, saved=False):
         "model_class": safe_decision,
         "raw_model_class": record.model_class,
         "decision": safe_decision,
+        "recognition": recognition_result(record),
         "label": safe_decision,
         "title": safe_title,
         "confidence": record.confidence,

@@ -20,8 +20,6 @@ def question_schema(label):
         fields.insert(0, {"id": "resin_mark", "label": "Read the recycling mark on the item. What code can you actually see?", "options": ["PET/PETE code 1", "HDPE code 2", "Another code", "Not sure"], "required": True})
     if label == "dry_untreated_wood_scraps":
         fields.append({"id": "wood_treatment", "label": "What do you know about the wood's history? Appearance alone cannot confirm treatment.", "options": WOOD, "required": True})
-    if label in {"paper", "cardboard"}:
-        fields.append({"id": "paper_surface", "label": "Is this plain, uncoated paper or cardboard? Exclude receipts and documents with personal details.", "options": ["Plain uncoated material without personal details", "Coated, laminated, mixed material or personal details", "Not sure"], "required": True})
     fields.extend([
         {'id': 'contamination', 'label': 'What residue or contamination is present?', 'options': CONTAMINATION, 'required': True},
         {'id': 'moisture', 'label': 'Is the material dry or wet?', 'options': MOISTURE, 'required': True},
@@ -44,18 +42,32 @@ def _matches(entry, context):
     return all(context.get(key) not in UNKNOWN and context.get(key) in values for key, values in entry.requirements.items())
 
 
+def high_confidence_scan_material(record):
+    data = record.image_quality or {}
+    evidence = data.get('high_confidence_material')
+    if (not isinstance(evidence, dict) or record.decision not in SCOPE_LABELS or
+            evidence.get('label') != record.decision or data.get('user_object_name')):
+        return False
+
+    from predictions.confidence_policy import approved_cutoffs
+    policy = approved_cutoffs(record.model_version, evidence.get('query'), record.decision)
+    return bool(policy and policy['digest'] == evidence.get('policy_digest'))
+
+
 def assess(record):
     answers = record.answers if isinstance(record.answers, dict) else {}
     label = record.decision if record.decision in SCOPE_LABELS else "unknown_unsupported"
     confirmed = answers.get("user_confirmed_material") == label and label in SCOPE_LABELS
-    identified = label in SCOPE_LABELS and (confirmed or record.confidence >= record.threshold)
-    if "candidate-unverified" in record.model_version and not confirmed:
+    high_confidence = high_confidence_scan_material(record)
+    identity_ready = confirmed or high_confidence
+    identified = label in SCOPE_LABELS and (identity_ready or record.confidence >= record.threshold)
+    if "candidate-unverified" in record.model_version and not identity_ready:
         identified = False
     if label in PLASTICS:
         identified = identified and answers.get("resin_mark") == {"pete_bottles": "PET/PETE code 1", "hdpe_containers": "HDPE code 2"}[label]
     context = {**answers, "condition": record.condition, "previous_contents": record.previous_contents}
     fields = question_schema(label)
-    if not confirmed or label in PLASTICS:
+    if not identity_ready or (confirmed and label in PLASTICS and not high_confidence):
         fields.insert(0, {"id": "material_confirmation", "label": "Select a material only if you can identify it. This is your selection, not an AI confirmation.",
                           "options": list(SCOPE_LABELS) + ["Not sure"], "required": True})
     pending = [field["id"] for field in fields if field.get('required', True) and field["id"] != "material_confirmation" and (context.get(field["id"], "") in UNKNOWN or context.get(field["id"]) not in field["options"])]
@@ -101,7 +113,7 @@ def assess(record):
     # A source citation alone is not expert verification of an exact DIY process.
     projects = [entry for entry in catalog_entries if entry.kind == "project" and entry.review_level == 'expert_reviewed' and entry.reviewed_by_id]
     eligible = []
-    if identified and confirmed and not pending and not blocked and record.quantity:
+    if identified and identity_ready and not pending and not blocked and record.quantity:
         for entry in projects:
             if _matches(entry, context) and record.quantity >= entry.minimum_quantity:
                 eligible.append({"id": f"{entry.key}:v{entry.version}", "title": entry.title, "summary": entry.summary,
@@ -111,7 +123,7 @@ def assess(record):
         project_status, explanation = "withheld", " ".join(reasons)
     elif label in SCOPE_LABELS and not projects:
         project_status, explanation = "awaiting_review", "No expert-reviewed project is published for this material yet. You do not need to answer extra project questions."
-    elif not identified or not confirmed or pending or not record.quantity:
+    elif not identified or not identity_ready or pending or not record.quantity:
         project_status, explanation = "needs_information", "Confirm the material, relevant history, condition and quantity. Unknown is not a safe answer."
     elif eligible:
         project_status, explanation = "available", "These published projects match the supplied details. This is not a safety certification."
@@ -128,16 +140,18 @@ def assess(record):
     sorting_keys = {key for entry in catalog_rules for key in entry.requirements}
     if catalog_rules:
         sorting_keys.update({'condition', 'contamination', 'moisture'})
-    if not confirmed:
+    if not identity_ready:
         sorting_keys.add('material_confirmation')
     if label in PLASTICS:
         sorting_keys.add('resin_mark')
-    if label == 'dry_untreated_wood_scraps' and catalog_rules:
+    if high_confidence:
+        sorting_keys.update({'condition', 'contamination', 'moisture', 'previous_contents'})
+    if label == 'dry_untreated_wood_scraps' and (catalog_rules or high_confidence):
         sorting_keys.add('wood_treatment')
     catalog_projects = [entry for entry in catalog_entries if entry.kind == 'project' and entry.review_level == 'expert_reviewed' and entry.reviewed_by_id]
     result = {
         "version": VERSION,
-        "material": {"label": label, "title": material_info(label)["title"], "status": "user_selected" if confirmed else "model_suggested" if identified else "needs_confirmation",
+        "material": {"label": label, "title": material_info(label)["title"], "status": "user_selected" if confirmed else "model_high_confidence" if high_confidence else "model_suggested" if identified else "needs_confirmation",
                      "input_method": record.input_method, "model_confidence": record.confidence, "model_version": record.model_version,
                      "explanation": "A material suggestion is not a segregation result or approval for a project."},
         "questions": fields, "missing_information": pending,

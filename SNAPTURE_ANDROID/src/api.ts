@@ -90,6 +90,8 @@ export type MaterialGuide = {
 };
 
 export type Prediction = PredictionSummary & {
+  focus_box?: number[] | null;
+  recognition?: {status:'supported'|'needs_review'|'unsupported';suggested_label:string|null;reason:string};
   waste_identifier?: WasteIdentity | null;
   review_contribution?: string | null;
   image_quality?: ImageQuality;

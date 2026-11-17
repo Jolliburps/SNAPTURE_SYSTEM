@@ -32,7 +32,7 @@ beforeEach(() => {
 });
 
 test.each([1,2])('camera sends one framed-item request and keeps legacy result compatibility (%i)', async count => {
-  const scene = { id: 5, width: 200, height: 200, image_url: '/test-scene.jpg', status: 'complete', quality: { flags: [] }, items: Array.from({ length: Number(count) }, (_, index) => ({ id: index+1, name: 'paper scrap', score: .7, box: [.1+index*.3,.1,.3+index*.3,.4], suggested_group: 'recyclable', route: { key: 'review', label: 'Needs review', reason: 'Confirm the material.' }, prediction: { id: index+1, image_url: null, title: 'Paper', recommendation_choices: [], assessment: { material: { status: 'needs_confirmation' }, missing_information: [], segregation: { status: 'needs_information', instructions: [] } } } })) } as unknown as ScanScene;
+  const scene = { id: 5, width: 200, height: 200, image_url: '/test-scene.jpg', status: 'complete', quality: { flags: [] }, items: Array.from({ length: Number(count) }, (_, index) => ({ id: index+1, name: 'paper scrap', score: .7, box: [.1+index*.3,.1,.3+index*.3,.4], suggested_group: 'recyclable', route: { key: 'review', label: 'Needs review', reason: 'Confirm the material.' }, prediction: { id: index+1, decision:'paper', image_url: null, title: 'Paper', recommendation_choices: [], assessment: { material: { label:'paper', status: 'needs_confirmation' }, missing_information: [], segregation: { status: 'needs_information', instructions: [] } } } })) } as unknown as ScanScene;
   (createScene as jest.Mock).mockResolvedValue({ scene }); (getScene as jest.Mock).mockResolvedValue({ scene });
   let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(async () => { tree = Renderer.create(<App />); });

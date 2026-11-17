@@ -22,14 +22,16 @@ COMPOSITION = [
 def confirmed_framed_material(item):
     """A user-reported material can unlock ideas, not an AI object identity.
 
-    This exception only applies to the single user-framed material fallback.
-    Weak detector boxes and legacy mixed-photo classifications still need review.
+    This applies to a single framed material suggestion after a user review.
+    Legacy mixed-photo classifications still need review.
     Condition, resin and hazard checks remain the responsibility of the route.
     """
     from core.materials import SCOPE_LABELS
     record = item.prediction
     data, answers = record.image_quality or {}, record.answers or {}
-    return bool(data.get('object_source') == 'whole_image_classifier' and
+    evidence = data.get('material_prediction') or {}
+    model_supported = evidence.get('label') in SCOPE_LABELS or evidence.get('status') in {'needs_review','conflicting_evidence','unavailable'}
+    return bool((data.get('object_source') == 'whole_image_classifier' or model_supported) and
                 data.get('selected_for_disposal') is True and
                 (item.scene.quality or {}).get('single_item', {}).get('enabled') is True and
                 record.decision in SCOPE_LABELS and
@@ -63,17 +65,25 @@ def automatic_route(item, prediction):
                answers.get('other_material') == 'Battery / electronic item')
     action = 'recover' if material.get('label') in SCOPE_LABELS and not special else 'discard'
     resin = {'pete_bottles':'PET/PETE code 1', 'hdpe_containers':'HDPE code 2'}
-    confirmed = material.get('status') == 'user_selected' and (
+    identity_ready = material.get('status') in {'user_selected', 'model_high_confidence'}
+    confirmed = identity_ready and (
         material.get('label') not in resin or answers.get('resin_mark') == resin[material['label']])
     needs_review = tentative_object(item)
+    from core.assessment import CONTENTS, WOOD, high_confidence_scan_material
+    safety_details_missing = high_confidence_scan_material(record) and (
+        record.previous_contents not in CONTENTS[:3] or
+        answers.get('contamination') != 'None known' or answers.get('moisture') != 'Dry' or
+        (record.decision == 'dry_untreated_wood_scraps' and answers.get('wood_treatment') != WOOD[0]) or
+        (record.decision in {'paper', 'cardboard'} and
+         answers.get('paper_surface') != 'Plain uncoated material without personal details'))
     confirmation_required = action == 'recover' and (not confirmed or not answers.get('assessment_checked_at') or
-                                                    record.condition != 'Clean and dry' or needs_review)
+                                                    record.condition != 'Clean and dry' or needs_review or safety_details_missing)
     return {'enabled':record.image_quality.get('automatic_routing') is True, 'action':action, 'needs_review':needs_review,
             'confirmation_required':confirmation_required,
-            'label':'Check object first' if needs_review else ('Recycling / upcycling — confirm material' if confirmation_required else 'Recycling / upcycling ideas') if action == 'recover' else 'Disposal guidance',
+            'label':'Check object first' if needs_review else ('Recycling / upcycling — check item details' if confirmation_required else 'Recycling / upcycling ideas') if action == 'recover' else 'Disposal guidance',
             'note':'Outside the seven project materials does not mean residual waste. Follow the appropriate collection route.' if action == 'discard' else
-                   'Confirm the material and condition before choosing an idea.' if confirmation_required else
-                   'Ideas use the material and condition you confirmed. Check suitability and local acceptance.'}
+                   ('Check condition and any required safety details.' if identity_ready else 'Confirm the material and condition before choosing an idea.') if confirmation_required else
+                   'Ideas use the material and the condition you reported. Check suitability and local acceptance.'}
 
 
 def advice(item, prediction, handling):
@@ -104,7 +114,7 @@ def advice(item, prediction, handling):
     container = any(any(word in value for word in ('metal can','aluminum can','aluminium can','plastic bottle','plastic jug','plastic container')) for value in names)
     tentative = tentative_object(item)
     unsafe = condition in {'Damaged or cracked','Moldy or contaminated'}
-    confirmed = material.get('status') == 'user_selected'
+    confirmed = material.get('status') in {'user_selected', 'model_high_confidence'}
     sources = [EPA]
     group = 'unconfirmed'
     suggestion = 'review' if tentative else 'keep' if (electronic or name in {'towel','wallet','comb'}) and not unsafe else 'discard' if hygiene or organic or hazardous else 'recover' if label in SCOPE_LABELS or glass or diversion or container else 'review'
@@ -188,8 +198,9 @@ def advice(item, prediction, handling):
         projects = []
         if not hazardous and not tentative:
             status = 'needs_information'
-            title = 'Confirm before recycling / upcycling'
-            steps = ['Check the material and condition using Confirm item details.',
+            title = 'Check details before recycling / upcycling'
+            steps = ['Check condition and any required safety details.' if material.get('status') == 'model_high_confidence'
+                     else 'Check the material and condition using Confirm item details.',
                      'Only clean, dry and suitable material can be used for a project.']
     return {'version':VERSION, 'chosen_action':action, 'condition':condition,
             'suggested_action':route['action'] if automatic else suggestion,

@@ -16,7 +16,7 @@ test('offers seven manual materials including restored coconut shells', async ()
   expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
   expect(JSON.stringify(tree.toJSON())).not.toContain('Use camera instead');
   expect(JSON.stringify(tree.toJSON())).not.toContain('CESD references');
-  expect(MATERIAL_NAMES.coconut_shells).toBe('Coconut shells');
+  expect(MATERIAL_NAMES.coconut_shells).toBe('Coconut Shells');
   expect(JSON.stringify(tree.toJSON())).toContain('Manual selection does not count as an AI prediction');
 });
 
@@ -77,7 +77,7 @@ test('failed assessment update leaves its inputs and shows no success confirmati
   const prediction = { id: 5, quantity: 2, confidence: .5, recommendation_choices: [], assessment:{material:{label:'paper'},questions:[{id:'condition',label:'Condition',options:['Clean and dry']}]} } as unknown as Prediction;
   let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(async () => { tree = Renderer.create(<AssessmentScreen prediction={prediction} onChange={jest.fn()} onBack={jest.fn()} onSaved={jest.fn()} onRetry={jest.fn()} />); });
-  const condition = () => tree.root.findAllByProps({ accessibilityLabel:'Clean, dry and no residue' }).find(node=>node.props.onPress)!;
+  const condition = () => tree.root.findAllByProps({ accessibilityLabel:'Clean and dry, with no known chemical contact' }).find(node=>node.props.onPress)!;
   await Renderer.act(async () => { condition().props.onPress(); });
   const save = tree.root.findAllByProps({ accessibilityLabel: 'Show sorting advice' }).find(node => typeof node.props.onPress === 'function')!;
   await Renderer.act(async () => { await save.props.onPress(); });

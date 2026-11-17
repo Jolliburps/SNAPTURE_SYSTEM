@@ -40,19 +40,14 @@ SNAPTURE_ML/.env*.local
 SNAPTURE_ML/dataset-resized/
 SNAPTURE_ML/models/backup-*/
 
-# Local, unverified Drive image candidates and source inventory.
-SNAPTURE_ML/data/pete_bottles/
-SNAPTURE_ML/data/hdpe_containers/
-SNAPTURE_ML/data/cardboard/
-SNAPTURE_ML/data/paper/
-SNAPTURE_ML/data/fabric_scraps/
-SNAPTURE_ML/data/coconut_shells/
-SNAPTURE_ML/data/dry_untreated_wood_scraps/
-SNAPTURE_ML/data/_source_manifest.json
+# Seven-category images are tracked through LFS; temporary imports stay local.
+# The seven material datasets and their source manifest are published with Git LFS.
 SNAPTURE_ML/data/_import_map.json
 SNAPTURE_ML/data/_download_failures.json
 SNAPTURE_ML/data/candidates/
 SNAPTURE_ML/data/public_sources/
+SNAPTURE_ML/dataset_archive/
+SNAPTURE_ML/data/phone_scans/captures/
 SNAPTURE_ML/data/organized_candidates/
 SNAPTURE_ML/data/recognition_basis/
 # User-requested local-only dataset copy; not a source-code backup.
@@ -83,7 +78,7 @@ SNAPTURE_ML/data/*training_bundle*.zip
 
 # Optional local Android/JDK tool cache
 .tools/
-SNAPTURE_ML/models/owlvit-base-patch32/
+# The local object-detector weights are published with Git LFS.
 
 
 # Shared API local backups, mail, and import artifacts

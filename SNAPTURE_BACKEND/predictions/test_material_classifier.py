@@ -14,15 +14,17 @@ class MaterialClassifierTests(SimpleTestCase):
                 'threshold':.8, 'model_version':'dataset-candidate-unverified-test',
                 'experimental_model':True, 'alternatives':[]}
 
-    def test_original_crop_and_dataset_scores_override_the_detector_material(self):
+    def test_original_crop_is_preserved_and_disagreement_requires_review(self):
         image=Image.fromarray(np.random.default_rng(42).integers(0,255,(80,90,3),dtype=np.uint8))
         with patch('predictions.material_classifier.predict_image',return_value=self.result('cardboard')) as infer:
             result=classify_detected_material(image, {'name':'paper scrap','material':'paper'})
         uploaded=Image.open(BytesIO(infer.call_args.args[0]))
         np.testing.assert_array_equal(np.asarray(uploaded),np.asarray(image))
-        self.assertEqual(result['label'],'cardboard')
+        self.assertEqual(result['label'],'unknown_unsupported')
+        self.assertEqual(result['raw_class'],'cardboard')
+        self.assertEqual(result['status'],'conflicting_evidence')
         self.assertEqual(result['confidence'],.94)
-        self.assertIn('SNAPTURE_ML/data',result['basis'])
+        self.assertEqual(result['preprocessing']['version'],'rgb-bilinear-v1')
 
     def test_rejection_retains_the_raw_material_without_promoting_it(self):
         result=self.result('paper',.45);result['decision']='unknown_unsupported'
@@ -37,6 +39,14 @@ class MaterialClassifierTests(SimpleTestCase):
         self.assertEqual(result['label'],'unknown_unsupported')
         self.assertEqual(result['status'],'unavailable')
         self.assertNotIn('confidence',result)
+
+    def test_generic_shape_guess_checks_pixels_before_unsupported(self):
+        with patch('predictions.material_classifier.predict_image',return_value=self.result('fabric_scraps')) as infer:
+            actual = classify_detected_material(Image.new('RGB',(80,80)), {'name':'wallet','material':'unknown_unsupported'})
+        infer.assert_called_once()
+        self.assertEqual(actual['raw_class'], 'fabric_scraps')
+        self.assertEqual(actual['label'], 'unknown_unsupported')
+        self.assertEqual(actual['status'], 'needs_review')
 
     def test_background_and_hazards_are_not_forced_into_dataset_materials(self):
         with patch('predictions.material_classifier.predict_image') as infer:

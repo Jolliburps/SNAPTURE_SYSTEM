@@ -49,6 +49,18 @@ def capture(case):
         "project_status": assessment.get("upcycling", {}).get("status", "unknown"),
         "recommendations": record.recommendation_choices,
     }
+    if scene_item and scene_item.scene.quality.get('single_item', {}).get('enabled'):
+        detection = metadata.get('detection_filter') or {}
+        snapshot['guided_detection'] = {
+            'source': metadata.get('object_source'),
+            'query': scene_item.name,
+            'score': scene_item.score,
+            'box': scene_item.box,
+            'status': detection.get('status'),
+            'filter_version': detection.get('version'),
+            'material_label': (metadata.get('material_prediction') or {}).get('label'),
+            'policy_evidence': metadata.get('high_confidence_material'),
+        }
     try:
         for key in ("confidence", "threshold"):
             if not isinstance(snapshot[key], (int, float)) or not math.isfinite(snapshot[key]) or not 0 <= snapshot[key] <= 1:

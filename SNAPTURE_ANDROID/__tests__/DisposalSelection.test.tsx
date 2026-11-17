@@ -5,8 +5,8 @@ import {confirmDisposalSelection,getScene,type ScanScene} from '../src/api';
 
 jest.mock('../src/api',()=>({getScene:jest.fn(),confirmDisposalSelection:jest.fn(),imageUrl:(uri:string)=>uri}));
 const makeScene=()=>({id:80,image_url:'/original80.jpg',width:200,height:100,status:'complete',quality:{flags:[]},disposal_selection:{confirmed:false,item_ids:[]},items:[
-  {id:1,name:'mobile phone',score:.7,background:true,box:[.1,.1,.4,.4],prediction:{id:101,input_method:'camera',recommendation_choices:[]},route:{label:'Needs review',reason:'Unconfirmed'}},
-  {id:2,name:'towel',score:.6,box:[.1,.1,.8,.8],prediction:{id:102,input_method:'camera',recommendation_choices:[]},route:{label:'Needs review',reason:'Unconfirmed'}},
+  {id:1,name:'plastic bottle',score:.7,box:[.1,.1,.4,.4],prediction:{id:101,decision:'pete_bottles',input_method:'camera',recommendation_choices:[]},route:{label:'Needs review',reason:'Unconfirmed'}},
+  {id:2,name:'towel',score:.6,box:[.1,.1,.8,.8],prediction:{id:102,decision:'fabric_scraps',input_method:'camera',recommendation_choices:[]},route:{label:'Needs review',reason:'Unconfirmed'}},
 ]} as unknown as ScanScene);
 function action(tree:Renderer.ReactTestRenderer,label:string){return tree.root.findAllByProps({accessibilityLabel:label}).find(node=>typeof node.props.onPress==='function')!;}
 async function press(tree:Renderer.ReactTestRenderer,label:string){await Renderer.act(async()=>{await action(tree,label).props.onPress();});}
@@ -27,10 +27,10 @@ test('single framed material has a direct ideas entry through the existing confi
   (confirmDisposalSelection as jest.Mock).mockResolvedValue({scene:confirmed});
   const review=jest.fn(),changed=jest.fn();let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={initial} onBack={jest.fn()} onRetry={jest.fn()} onReview={review} onSceneChange={changed}/>);});
-  expect(action(tree,'Recycling / upcycling ideas').props.disabled).toBe(false);
+  expect(action(tree,'Check material').props.disabled).toBe(false);
   expect(review).not.toHaveBeenCalled();
-  await press(tree,'Recycling / upcycling ideas');
-  expect(confirmDisposalSelection).toHaveBeenCalledWith(80,[2],{2:''},undefined,{2:'Not sure'},true);
+  await press(tree,'Check material');
+  expect(confirmDisposalSelection).toHaveBeenCalledWith(80,[2],{},undefined,{2:'Not sure'},true);
   expect(changed).toHaveBeenLastCalledWith(confirmed);
   expect(review).toHaveBeenCalledWith(confirmed.items[0].prediction);
   expect(JSON.stringify(tree.toJSON())).not.toContain('Choose task:');
@@ -44,10 +44,10 @@ test('direct framed ideas entry does not navigate if confirmation fails',async()
   (confirmDisposalSelection as jest.Mock).mockRejectedValue(new Error('Connection lost. Try again.'));
   const review=jest.fn();let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={initial} onBack={jest.fn()} onRetry={jest.fn()} onReview={review}/>);});
-  await press(tree,'Recycling / upcycling ideas');
+  await press(tree,'Check material');
   expect(review).not.toHaveBeenCalled();
   expect(JSON.stringify(tree.toJSON())).toContain('Connection lost. Try again.');
-  expect(action(tree,'Recycling / upcycling ideas').props.disabled).toBe(false);
+  expect(action(tree,'Check material').props.disabled).toBe(false);
   await Renderer.act(()=>tree.unmount());
 });
 
@@ -56,48 +56,47 @@ test('items are included for automatic guidance without action choices; box and 
   expect(action(tree,'Continue with 0 selected items').props.disabled).toBe(true);
   expect(action(tree,'Select box 1').props.accessibilityState.checked).toBe(false);
   await press(tree,'Select box 1');
-  expect(action(tree,'Select item 1: mobile phone').props.accessibilityState.checked).toBe(true);
+  expect(action(tree,'Select item 1: PETE Bottles').props.accessibilityState.checked).toBe(true);
   expect(action(tree,'Keep item 1')).toBeUndefined();
   expect(action(tree,'Discard item 1')).toBeUndefined();
   expect(action(tree,'Recycle / upcycle item 1')).toBeUndefined();
-  await press(tree,'Select item 1: mobile phone');
+  await press(tree,'Select item 1: PETE Bottles');
   expect(action(tree,'Select box 1').props.accessibilityState.checked).toBe(false);
   expect(confirmDisposalSelection).not.toHaveBeenCalled();
   await Renderer.act(()=>tree.unmount());
 });
 
-test('only confirmed selections are submitted; corrections stay separate from original names',async()=>{
+test('only selected categories and reported conditions are submitted without rewriting object names',async()=>{
   const tree=await render();
-  await press(tree,'Select item 1: mobile phone');await press(tree,'Select item 2: towel');
+  await press(tree,'Select item 1: PETE Bottles');await press(tree,'Select item 2: Fabric Scraps');
   await press(tree,'Clean & dry condition item 2');
-  await press(tree,'Correct name item 2');
-  await Renderer.act(()=>{tree.root.findAllByProps({accessibilityLabel:'Correct object name 2'}).find(node=>node.props.onChangeText)?.props.onChangeText('bath towel');});
+  expect(action(tree,'Correct name item 2')).toBeUndefined();
   const result=makeScene();result.disposal_selection={confirmed:true,item_ids:[1,2]};
   (confirmDisposalSelection as jest.Mock).mockResolvedValue({scene:result});
   await press(tree,'Continue with 2 selected items');
-  expect(confirmDisposalSelection).toHaveBeenCalledWith(80,[1,2],{1:'',2:'bath towel'},undefined,{1:'Not sure',2:'Clean and dry'},true);
+  expect(confirmDisposalSelection).toHaveBeenCalledWith(80,[1,2],{},undefined,{1:'Not sure',2:'Clean and dry'},true);
   expect(result.items[1].name).toBe('towel');
   expect(action(tree,'Change selected items')).toBeDefined();
   await press(tree,'Change selected items');
-  expect(action(tree,'Select item 2: bath towel').props.accessibilityState.checked).toBe(true);
-  await press(tree,'Select item 2: bath towel');
+  expect(action(tree,'Select item 2: Fabric Scraps').props.accessibilityState.checked).toBe(true);
+  await press(tree,'Select item 2: Fabric Scraps');
   expect(action(tree,'Continue with 1 selected item').props.disabled).toBe(false);
   await Renderer.act(()=>tree.unmount());
 });
 
 test('failure keeps selection and corrections, without showing success or navigating',async()=>{
-  const tree=await render();await press(tree,'Select item 1: mobile phone');
+  const tree=await render();await press(tree,'Select item 1: PETE Bottles');
   (confirmDisposalSelection as jest.Mock).mockRejectedValue(new Error('Connection lost. Try again.'));
   await press(tree,'Continue with 1 selected item');
   expect(JSON.stringify(tree.toJSON())).toContain('Connection lost. Try again.');
-  expect(action(tree,'Select item 1: mobile phone').props.accessibilityState.checked).toBe(true);
+  expect(action(tree,'Select item 1: PETE Bottles').props.accessibilityState.checked).toBe(true);
   expect(action(tree,'Continue with 1 selected item').props.disabled).toBe(false);
   expect(tree.root.findAllByProps({accessibilityLabel:'Change selected items'})).toHaveLength(0);
   await Renderer.act(()=>tree.unmount());
 });
 
 test('double confirmation sends one request while busy',async()=>{
-  const tree=await render();await press(tree,'Select item 1: mobile phone');
+  const tree=await render();await press(tree,'Select item 1: PETE Bottles');
   let finish!:(result:{scene:ScanScene})=>void;
   (confirmDisposalSelection as jest.Mock).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
   await Renderer.act(()=>{const node=action(tree,'Continue with 1 selected item');node.props.onPress();node.props.onPress();});

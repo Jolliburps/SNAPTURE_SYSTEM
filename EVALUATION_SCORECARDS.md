@@ -115,6 +115,36 @@ Whole-image and detected-crop results are also available separately in JSON.
 detection.** Independent ground-truth boxes are still needed for detection mAP and
 full-scene recall; these are explicitly not measured by this release.
 
+### When a guided scan may skip identification confirmation
+
+Object detection scores and material scores are separate. Tune them on reviewed
+phone captures for each detector query and predicted material pair. Include
+hard negatives, unsupported objects, empty frames and mixed objects. Review
+whether the detector selected the intended item and whether the material was
+correct. Keep one independent physical item per observation for the precision
+interval, and separate item/capture groups from training and across validation
+and final test. Freeze cutoffs before inspecting the final test results.
+
+Report jointly correct automatic matches / automatic matches, automatic
+matches / all attempts, and false automatic matches on the negative examples.
+Count missed detections in coverage; they cannot enter the automatic path.
+New guided case snapshots save the query, box, scores and filter version for
+review. Reference object boxes or an independent reviewer judgment of the
+intended item still need to be collected for the evaluation.
+
+After reviewing both reports, an operator can place
+`SNAPTURE_ML/models/scan_confidence_policy.json` with fields `schema`
+(`snapture-scan-confidence-v1`), `detector` (`owlvit-base-patch32`),
+`filter_version`, `queries` (the ordered detector prompts), `model_version`,
+`validation_reference`, `test_reference`, and `entries`. Each entry has
+`query`, `material`, `object_cutoff`, `material_cutoff`, `test_accepted`
+and `test_correct`. The proposed acceptance criterion is a 95% Wilson interval
+with a lower bound of at least 90% joint correctness for that pair. Review
+the coverage and false accepts before publishing the file. These fields
+record the reviewed results; they do not independently verify the reports.
+Absent or mismatched evidence sends the result to user review. Use new model
+or filter versions when weights or filtering change and re-evaluate.
+
 ### Segregation guidance
 
 Acceptable-route-or-referral rate, unsafe-guidance rate, appropriate requests for
@@ -167,3 +197,47 @@ safety controls while creating evidence for subsequent improvements.
 
 No new paid API, external image upload, dependency, invented expert judgment or
 automatic claim of improved field accuracy is introduced by this implementation.
+
+## Single-item camera regression checks (18 November 2026)
+
+Update: `principal-region-v3` / `conservative-object-filter-v5` supersedes the
+person-blocking behavior described below. People, arms and animal queries are
+context, not a veto on a separately located item. Context-only photos receive a
+main-item-not-found response without a whole-frame material classification.
+Generic wallet-shaped proposals now receive crop classification with mandatory
+review, rather than skipping the material model. Printed-sheet and knitted-hat
+queries assist localization; they are not newly trained material classes.
+The blue focus boundary and enlarged preview refer to the stored classification
+crop for that scan, including historical reads. In development replay, paper
+scans 85 and 86 were located but Paper scores remained below the unchanged .8
+cutoff (.633 and .712 respectively); they still require a category check.
+
+The `principal-region-v1` policy groups overlapping proposals for one intended
+item, tolerates a supporting hand, and rejects spatially separate targets.
+Classification and the saved item preview use the same padded crop, within the
+guide. Person evidence from the existing detector pass is checked independently
+of the highest fabric query. A worn-clothing guess alone requires review, since
+a held towel can match it. The filter version is now
+`conservative-object-filter-v4`; old confidence approvals cannot be reused for
+the changed query/filter configuration.
+
+Uncertain material scores and object/material conflicts lead to **Check
+category**, without changing the stored decision or lowering the classifier
+cutoff. The user's explicit category choice remains distinct from an AI result.
+An identified out-of-scope item still displays **Unsupported**. Category checks
+do not bypass the existing condition and project-suitability checks.
+
+Inference now uses the same explicit bilinear RGB resize as training. Training
+also applies EXIF orientation before resizing. MobileNetV2 normalization remains
+inside the saved model; it must not be applied twice. These corrections do not
+retrain or replace the active experimental October 6 checkpoint.
+
+A read-only development replay of seven previously seen, saved guide crops
+found: the cup formerly labeled PETE was rejected; the person photo was blocked;
+two towel photos reached category review; two paper photos reached review rather
+than a dead-end Unsupported result; and the conflicting black-item prediction
+was withheld. Saved photos may already be privacy-redacted. These examples were
+used during development, so they are **not an independent accuracy test** and
+must not be reported as a field accuracy percentage. Collect separate labeled
+phone photos of held/surface items, plastic look-alikes and unsupported items
+before tuning or approving automatic acceptance for each of the seven classes.

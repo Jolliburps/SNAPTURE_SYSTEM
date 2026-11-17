@@ -10,14 +10,16 @@
     "dry_untreated_wood_scraps"
   ],
   "counts": {
-    "pete_bottles": 0,
-    "hdpe_containers": 0,
-    "cardboard": 1325,
-    "paper": 1594,
-    "fabric_scraps": 0,
-    "coconut_shells": 0,
-    "dry_untreated_wood_scraps": 175
+    "pete_bottles": 4565,
+    "hdpe_containers": 3253,
+    "cardboard": 1223,
+    "paper": 1987,
+    "fabric_scraps": 5816,
+    "coconut_shells": 330,
+    "dry_untreated_wood_scraps": 674
   },
-  "policy": "Only the seven class directories are active. Unverified or contaminated candidates are in _quarantine_2026-10-02 and are excluded from training.",
-  "updated": "2026-10-02"
+  "counts_meaning": "Local category-folder candidate images after duplicate cleanup; not individually verified or approved for training.",
+  "verified_manifest": "verified_manifest.json",
+  "policy": "Use only individually reviewed, provenance-cleared records for a verified training export. Raw publisher archives, historical views and phone captures are separate.",
+  "updated": "2026-11-17"
 }

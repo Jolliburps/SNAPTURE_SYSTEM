@@ -1,6 +1,6 @@
-"""Train and audit the SNAPTURE six-material image classifier.
+"""Train and audit the SNAPTURE seven-material image classifier.
 
-The trainer is deliberately conservative. It only trains the six active
+The trainer is deliberately conservative. It only trains the seven supported
 classes when their labels are explicitly declared, checks image files before
 TensorFlow sees them, prevents exact duplicate leakage between splits, and
 reports independent validation and test metrics. The existing six-class
@@ -21,7 +21,7 @@ from typing import Iterable
 
 import numpy as np
 import tensorflow as tf
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 try:
     from scripts.reviewed_dataset import validate_prepared
 except ModuleNotFoundError:
@@ -38,6 +38,7 @@ SCOPE_LABELS = [
     "cardboard",
     "paper",
     "fabric_scraps",
+    "coconut_shells",
     "dry_untreated_wood_scraps",
 ]
 
@@ -157,33 +158,14 @@ def validate_images(
 ) -> tuple[list[str], dict[str, int], list[str]]:
     """Validate labels, image readability, duplicate leakage, and class sizes."""
 
-    declared_classes = read_declared_classes(dataset_dir)
-    if declared_classes is None:
-        if not _env_bool("SNAPTURE_ALLOW_NON_SCOPE_DATASET"):
-            raise ValueError(
-                "This trainer expects labels.json with the six active "
-                "thesis labels. Set SNAPTURE_ALLOW_NON_SCOPE_DATASET=1 only for a "
-                "deliberate legacy experiment."
-            )
-        class_names = sorted(
-            child.name
-            for child in dataset_dir.iterdir()
-            if child.is_dir() and not child.name.startswith(".")
+    class_names = read_declared_classes(dataset_dir)
+    if not class_names or len(class_names) != len(SCOPE_LABELS) or set(class_names) != set(SCOPE_LABELS):
+        missing = sorted(set(SCOPE_LABELS) - set(class_names or []))
+        extra = sorted(set(class_names or []) - set(SCOPE_LABELS))
+        raise ValueError(
+            "labels.json must contain exactly the seven supported classes. "
+            f"Missing: {missing or 'none'}; extra: {extra or 'none'}."
         )
-    else:
-        class_names = declared_classes
-        if set(class_names) != set(SCOPE_LABELS) and not _env_bool(
-            "SNAPTURE_ALLOW_NON_SCOPE_DATASET"
-        ):
-            missing = sorted(set(SCOPE_LABELS) - set(class_names))
-            extra = sorted(set(class_names) - set(SCOPE_LABELS))
-            raise ValueError(
-                "labels.json must contain exactly the six active classes. "
-                f"Missing: {missing or 'none'}; extra: {extra or 'none'}."
-            )
-
-    if len(class_names) < 2:
-        raise ValueError("The dataset must contain at least two class folders.")
 
     files_by_group = _class_files(dataset_dir, class_names)
     counts: dict[str, int] = {label: 0 for label in class_names}
@@ -307,7 +289,7 @@ def _dataset_from_records(
             image_path = Path(path_bytes.decode("utf-8"))
             with Image.open(image_path) as source:
                 source.seek(0)
-                image = source.convert("RGB")
+                image = ImageOps.exif_transpose(source).convert("RGB")
                 image = image.resize(
                     (IMAGE_SIZE[1], IMAGE_SIZE[0]), Image.Resampling.BILINEAR
                 )
@@ -429,15 +411,10 @@ def main() -> None:
         help="Fail when a class has fewer than SNAPTURE_MIN_IMAGES_PER_CLASS images.",
     )
     parser.add_argument(
-        "--allow-non-scope-dataset",
-        action="store_true",
-        help="Explicitly allow a legacy dataset without the seven thesis labels.",
-    )
-    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
-        help="Model output directory; defaults to the active models directory.",
+        help="Model output directory; defaults to a new candidate directory.",
     )
     parser.add_argument(
         "--epochs",
@@ -457,8 +434,6 @@ def main() -> None:
         os.environ["SNAPTURE_DATA_DIR"] = str(args.data_dir)
     if args.enforce_min_images:
         os.environ["SNAPTURE_ENFORCE_MIN_IMAGES"] = "1"
-    if args.allow_non_scope_dataset:
-        os.environ["SNAPTURE_ALLOW_NON_SCOPE_DATASET"] = "1"
 
     tf.keras.utils.set_random_seed(SEED)
     dataset_dir = find_dataset_root()
@@ -467,7 +442,7 @@ def main() -> None:
         validate_prepared(dataset_dir)
     class_names, image_counts, warnings = validate_images(dataset_dir)
     records = _records_for_dataset(dataset_dir, class_names)
-    model_dir = args.output_dir or (MODEL_DIR / "candidates" / datetime.now(timezone.utc).strftime("six-material-%Y%m%d-%H%M%S"))
+    model_dir = args.output_dir or (MODEL_DIR / "candidates" / datetime.now(timezone.utc).strftime("seven-material-%Y%m%d-%H%M%S"))
     if not model_dir.is_absolute():
         model_dir = PROJECT_DIR / model_dir
     split_counts = {
@@ -504,9 +479,9 @@ def main() -> None:
     model = build_model(len(class_names))
     model_path = model_dir / "snapture_baseline.keras"
     model_version = (
-        "snapture-mobilenetv2-six-material-candidate-unverified-v1"
+        "snapture-mobilenetv2-seven-material-candidate-unverified-v1"
         if args.unverified_candidate
-        else "snapture-mobilenetv2-six-material-reviewed-data-v1"
+        else "snapture-mobilenetv2-seven-material-reviewed-data-v1"
     )
     callbacks = [
         tf.keras.callbacks.EarlyStopping(

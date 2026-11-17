@@ -74,7 +74,7 @@ class SingleItemFrameTests(TestCase):
         material = {'label':'paper','raw_class':'paper','confidence':.91,'threshold':.8,
                     'model_version':'dataset-candidate-unverified-test','status':'classified','basis':'test classifier'}
         with patch('predictions.scene_views.classify_material',return_value=material) as classifier:
-            response, _ = self.upload_single(rows=[{**PAPER,'score':.13},{**PAPER,'score':.12,'box':[.1,.1,.3,.3]}])
+            response, _ = self.upload_single(rows=[])
         self.assertEqual(response.status_code,201)
         self.assertEqual(classifier.call_args.args[0].size,(150,150))
         scene = response.json()['scene']
@@ -85,12 +85,48 @@ class SingleItemFrameTests(TestCase):
         self.assertIsNone(item['identification']['object_prediction']['confidence'])
         self.assertFalse(item['display_box'])
         self.assertEqual(item['prediction']['confidence'],.91)
+        self.assertEqual(item['prediction']['decision'],'unknown_unsupported')
+        self.assertEqual(item['prediction']['recognition']['status'],'needs_review')
+        self.assertEqual(item['prediction']['recognition']['suggested_label'],'paper')
+
+    def test_held_item_uses_same_padded_crop_for_classification_and_preview(self):
+        material = {'label':'unknown_unsupported','raw_class':'paper','confidence':.79,'threshold':.8,
+                    'model_version':'dataset-candidate-unverified-test','status':'classified','basis':'test'}
+        with patch('predictions.scene_views.classify_detected_material',return_value=material) as classifier:
+            response, _ = self.upload_single(rows=[PAPER,{'name':'human hand','material':None,'score':.9,'box':[.3,.75,.6,1]}])
+        self.assertEqual(response.status_code,201)
+        item = response.json()['scene']['items'][0]
+        record = PredictionRecord.objects.get(pk=item['prediction']['id'])
+        with record.image.open('rb') as source:
+            saved = Image.open(source)
+            self.assertEqual(saved.size,classifier.call_args.args[0].size)
+        self.assertEqual(item['prediction']['decision'],'unknown_unsupported')
+        self.assertEqual(item['prediction']['recognition']['suggested_label'],'paper')
+        # Review is an explicit user action, not a lower classifier cutoff.
+        selected = self.client.post(f"/api/scenes/{response.json()['scene']['id']}/disposal-selection/",
+            json.dumps({'item_ids':[item['id']],'automatic_routing':True}),content_type='application/json',**self.auth)
+        self.assertEqual(selected.status_code,200)
+        updated = self.client.patch(f"/api/predictions/{record.id}/",json.dumps({'answers':{
+            'material_confirmation':'paper'},'condition':'Clean and dry','previous_contents':'No chemical contact known'}),
+            content_type='application/json',**self.auth)
+        self.assertEqual(updated.status_code,200)
+        self.assertEqual(updated.json()['prediction']['decision'],'paper')
+        saved = self.client.get(f"/api/scenes/{response.json()['scene']['id']}/?history=1",**self.auth).json()['scene']
+        self.assertEqual(saved['items'][0]['prediction']['recognition']['status'],'supported')
+
+    def test_weak_target_keeps_crop_review_and_hides_box(self):
+        response, _ = self.upload_single(rows=[{**PAPER,'score':.13}])
+        self.assertEqual(response.status_code,201)
+        item = response.json()['scene']['items'][0]
+        self.assertFalse(item['display_box'])
+        self.assertEqual(item['prediction']['decision'],'unknown_unsupported')
+        self.assertEqual(item['prediction']['recognition']['status'],'needs_review')
 
     def test_person_only_frame_is_rejected_without_forcing_a_material(self):
         with patch('predictions.scene_views.classify_material') as classifier:
             response, _ = self.upload_single(rows=[{'name':'person','material':'unknown_unsupported','score':.8,'box':[0,0,1,1]}])
         self.assertEqual(response.status_code,422)
-        self.assertEqual(response.json()['code'],'person_in_frame')
+        self.assertEqual(response.json()['code'],'main_object_not_found')
         classifier.assert_not_called()
         self.assertFalse(ScanScene.objects.exists())
 

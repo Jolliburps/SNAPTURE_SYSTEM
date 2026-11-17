@@ -1,4 +1,4 @@
-"""Prepare physically grouped, permission-reviewed six-material training data.
+"""Prepare physically grouped, permission-reviewed seven-material training data.
 
 No image is approved by its folder name or by a previous model prediction.
 """
@@ -10,7 +10,7 @@ import shutil
 import zipfile
 from pathlib import Path
 
-LABELS = ["pete_bottles", "hdpe_containers", "cardboard", "paper", "fabric_scraps", "dry_untreated_wood_scraps"]
+LABELS = ["pete_bottles", "hdpe_containers", "cardboard", "paper", "fabric_scraps", "coconut_shells", "dry_untreated_wood_scraps"]
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
 

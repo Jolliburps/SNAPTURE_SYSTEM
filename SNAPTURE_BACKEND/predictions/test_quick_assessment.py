@@ -31,8 +31,8 @@ class QuickAssessmentTests(TestCase):
 
     def test_no_project_questions_are_required_to_get_sorting_advice(self):
         response=self.client.get('/api/predictions/questions/paper/',**self.auth).json()
-        self.assertIn('paper_surface',[q['id'] for q in response['questions']])
-        self.assertIn('paper_surface',response['quick_check']['sorting_question_ids'])
+        self.assertNotIn('paper_surface',[q['id'] for q in response['questions']])
+        self.assertNotIn('paper_surface',response['quick_check']['sorting_question_ids'])
         self.assertFalse(response['quick_check']['has_reviewed_projects'])
         self.assertNotIn('quantity',response['quick_check']['sorting_question_ids'])
 

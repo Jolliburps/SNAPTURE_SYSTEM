@@ -1,0 +1,18 @@
+# Preserve dataset paths while keeping binary objects outside normal Git history.
+SNAPTURE_ML/data/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.png filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.webp filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.bmp filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.gif filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.tif filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.tiff filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.JPG filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.JPEG filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/data/**/*.PNG filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/models/**/*.keras filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/models/**/*.onnx filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/models/**/*.safetensors filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/models/**/*.bin filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/models/**/*.h5 filter=lfs diff=lfs merge=lfs -text
+SNAPTURE_ML/models/**/*.tflite filter=lfs diff=lfs merge=lfs -text

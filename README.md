@@ -1,6 +1,6 @@
 # SNAPTURE System
 
-SNAPTURE combines a React Native Android app, a Django API, and a TensorFlow image classifier. Its assessment separates material identity, segregation guidance and project eligibility. The active scope is six materials, excluding coconut shells. The existing seven-output experimental checkpoint is preserved with its coconut output rejected; it is not a newly trained six-material model or validated accuracy claim. See [implementation and content provenance](FEASIBILITY_IMPLEMENTATION.md) and [reviewed-data/free training workflow](SNAPTURE_ML/FREE_TRAINING.md).
+SNAPTURE combines a React Native Android app, a Django API, and a TensorFlow image classifier. Its assessment separates material identity, segregation guidance and project eligibility. The active scope is seven materials, including coconut shells. The existing seven-output checkpoint is experimental and needs independent field evaluation. See [implementation and content provenance](FEASIBILITY_IMPLEMENTATION.md) and [reviewed-data/free training workflow](SNAPTURE_ML/FREE_TRAINING.md).
 
 ## Project structure
 

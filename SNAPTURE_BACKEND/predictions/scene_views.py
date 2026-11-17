@@ -14,12 +14,13 @@ from PIL import UnidentifiedImageError, Image
 
 from core.auth import require_api_user
 from core.assessment import refresh
-from core.materials import material_info
+from core.materials import SCOPE_LABELS, material_info
 from .models import ScanScene, SceneItem, PredictionRecord
 from .image_quality import oriented_image, frame_bounds, quality_report
 from . import scene_detector
 from .photo_privacy import privacy_copy, jpeg_bytes
-from .material_classifier import classify_material, classify_detected_material
+from .material_classifier import classify_material, classify_detected_material, high_confidence_material
+from .framed_scan import FrameReviewRequired, select_region, crop_bounds, VERSION as FRAME_VERSION
 from core.ml_service import model_status
 
 logger = logging.getLogger(__name__)
@@ -66,14 +67,16 @@ def serialize_scene(scene, saved=False):
         draw = not whole_photo and row['detection_status'] == 'accepted'
         display_group = 'special' if identifier['category']=='C' else 'review' if identifier['category']=='UNIDENTIFIED' else {'A':'biodegradable','B1':'recyclable','B2':'non_biodegradable'}.get(identifier['category'],'review')
         reason = row['detection_reason'] or route['reason']
-        textile_name_unconfirmed = item.name in scene_detector.TEXTILE_NAMES and not row['object_confirmed']
-        workflow = (item.prediction.image_quality or {}).get('handling_snapshot') if saved else None
+        high_confidence = prediction['assessment'] and prediction['assessment']['material']['status'] == 'model_high_confidence'
+        textile_name_unconfirmed = item.name in scene_detector.TEXTILE_NAMES and not row['object_confirmed'] and not high_confidence
+        saved_status = ((item.prediction.assessment or {}).get('material') or {}).get('status')
+        use_snapshot = saved and (saved_status != 'model_high_confidence' or high_confidence)
+        workflow = (item.prediction.image_quality or {}).get('handling_snapshot') if use_snapshot else None
         workflow = workflow or handling(item, prediction)
         material_confirmed = confirmed_framed_material(item)
-        display_name = item.prediction.image_quality.get('user_object_name') or (
-            f"{material_info(item.prediction.decision)['title']} (confirmed by you)" if material_confirmed else
-            'Possible fabric item' if textile_name_unconfirmed else item.name)
-        action_snapshot = (item.prediction.image_quality or {}).get('action_snapshot') if saved else None
+        label = prediction['decision']
+        display_name = material_info(label)['title'] if label in SCOPE_LABELS else 'Unsupported'
+        action_snapshot = (item.prediction.image_quality or {}).get('action_snapshot') if use_snapshot else None
         # Older framed scans saved the redundant "correct object name" blocker.
         # Render their own saved material guidance without writing history or
         # borrowing recommendations from another prediction or a newer scan.
@@ -187,25 +190,16 @@ def scenes(request):
         rows = scene_detector.presentation(rows)
         single_status = 'one_object'
         if single:
-            if truncated:
-                return JsonResponse({'detail':'The frame is too crowded to isolate one item. Retake with one whole item inside the border.',
-                                     'code':'uncertain_single_item'},status=422)
-            reliable = [row for row in rows if row['detection_status']=='accepted' or (
-                row['name'] in scene_detector.BACKGROUND_NAMES - scene_detector.HUMAN_NAMES and
-                row['score'] >= scene_detector.DISPLAY_THRESHOLD and not scene_detector.conflicting_query(row))]
-            if len(reliable)>1:
-                return JsonResponse({'detail':'More than one item was found inside the border. Retake with one whole item inside it.',
-                                     'code':'multiple_items_in_frame'},status=422)
-            if reliable:
-                rows = reliable
-                if rows[0]['detection_status'] != 'accepted': single_status = 'needs_review'
+            selected = select_region(rows, truncated, privacy.get('faces_blurred', 0) > 0)
+            if selected:
+                rows = [selected]
+                if selected['detection_status'] != 'accepted': single_status = 'needs_review'
             else:
-                if any(row['name'] in scene_detector.HUMAN_NAMES and row['score']>=scene_detector.DISPLAY_THRESHOLD for row in rows):
-                    return JsonResponse({'detail':'Place one object inside the border, keeping people and body parts outside it.',
-                                         'code':'person_in_frame'},status=422)
                 # This is a real material classification of the user's frame,
                 # NOT a fabricated detected object or object confidence score.
                 material = rows[0]['material_prediction'] if not detector_available else classify_material(focused)
+                material = {**material, 'label':'unknown_unsupported', 'status':'needs_review',
+                            'basis':'No reliable object outline was found. Check the material before using guidance.'}
                 rows = [{'name':material_info(material['label'])['title'],'material':material['label'],'score':0,
                          'box':[0,0,1,1],'source':'whole_image_classifier','material_prediction':material}]
                 rows = scene_detector.presentation(rows)
@@ -216,7 +210,8 @@ def scenes(request):
         quality = quality_report(focused,[row['box'] for row in rows if row['detection_status']=='accepted'] if detector_available else [])
         quality['detection_filter'] = {'version':scene_detector.FILTER_VERSION,'excluded_count':excluded_count,'tiled':False}
         if single:
-            quality['single_item'] = {'enabled':True,'status':single_status,'input_frame':input_frame}
+            quality['single_item'] = {'enabled':True,'status':single_status,'input_frame':input_frame,
+                                     'policy_version':FRAME_VERSION}
         quality['photo_privacy'] = privacy
         quality['identification_mode'] = 'object detection with dataset-trained material classification' if detector_available else 'whole-photo dataset-trained material classification; object locations are not detected'
         quality['background_objects'] = [{'name':name,'count':sum(row['name']==name for row in background)} for name in sorted({row['name'] for row in background})]
@@ -228,8 +223,11 @@ def scenes(request):
         with transaction.atomic():
             for row in rows:
                 bx = row['box']
-                crop_box = [round(bx[0]*focused.width),round(bx[1]*focused.height),round(bx[2]*focused.width),round(bx[3]*focused.height)]
+                crop_box = crop_bounds(focused, row) if single else [round(bx[0]*focused.width),round(bx[1]*focused.height),round(bx[2]*focused.width),round(bx[3]*focused.height)]
                 material = row.get('material_prediction') or classify_detected_material(focused.crop(crop_box), row)
+                if single and row['detection_status'] != 'accepted' and material.get('status') not in {'not_applicable','conflicting_evidence','unavailable'}:
+                    material = {**material, 'label':'unknown_unsupported', 'status':'needs_review',
+                                'basis':row['detection_reason'] or 'Check the suggested material.'}
                 label = material['label']
                 record = PredictionRecord(user=request.api_user,model_class=row['name'],decision=label,
                     title=material_info(label)['title'],confidence=material.get('confidence', 0),threshold=material.get('threshold', 1),
@@ -238,6 +236,9 @@ def scenes(request):
                                    'detection_filter':{'version':scene_detector.FILTER_VERSION,'status':row['detection_status'],
                                                        'reason':row['detection_reason'] if row['detection_status']=='review' else ''},
                                    'object_source':row.get('source', 'model'),
+                                   'classification_crop':[crop_box[0]/focused.width,crop_box[1]/focused.height,
+                                                          crop_box[2]/focused.width,crop_box[3]/focused.height],
+                                   'high_confidence_material':high_confidence_material(row, material) if single and len(rows) == 1 else None,
                                    'raw_material_class':material.get('raw_class', 'unknown_unsupported')})
                 refresh(record)
                 if protected_focused is not None:
@@ -252,6 +253,11 @@ def scenes(request):
         committed = True
         logger.info('scene_created id=%s user_id=%s items=%s duration_ms=%s',scene.id,request.api_user.id,len(rows),round((time.monotonic()-started)*1000))
         return JsonResponse({'scene':serialize_scene(scene)},status=201)
+    except FrameReviewRequired as error:
+        logger.info('framed_scan_retake code=%s rows=%s', error.code,
+                    json.dumps([{'query':row['name'], 'score':round(row['score'],4), 'box':row['box']}
+                                for row in rows]))
+        return JsonResponse({'detail':str(error), 'code':error.code}, status=422)
     except Exception:
         logger.exception('scene_detection_failed user_id=%s',request.api_user.id)
         if not committed:
@@ -387,7 +393,7 @@ def disposal_selection(request, scene_id):
             if str(item.id) in corrections:
                 metadata['user_object_name'] = corrections[str(item.id)].strip()
             record.image_quality = metadata
-            if str(item.id) in conditions:
+            if str(item.id) in conditions or str(item.id) in corrections:
                 refresh(record)
             if automatic and item.id in ids:
                 metadata['item_action'] = automatic_route(item, _serialize(record))['action']

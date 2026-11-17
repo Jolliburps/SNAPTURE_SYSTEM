@@ -4,10 +4,10 @@ import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import { getSavedScan, imageUrl, type Prediction, type ScanScene } from './api';
 import SceneResults from './SceneResults';
-import WasteRecommendations from './WasteRecommendations';
+import { materialCategoryName } from './detectionPresentation';
 
 /** Read-only history: load by the selected ID, never reuse the last camera URI. */
-export default function SavedScanReview({id,onBack,onRetry,onBrowseIdeas,onOpenGuide}:{id:number;onBack:()=>void;onRetry:()=>void;onBrowseIdeas?:()=>void;onOpenGuide?:(prediction:Prediction,id:string)=>Promise<void>}) {
+export default function SavedScanReview({id,onBack,onRetry,onOpenGuide}:{id:number;onBack:()=>void;onRetry:()=>void;onOpenGuide?:(prediction:Prediction,id:string)=>Promise<void>}) {
   const [result,setResult]=useState<{prediction:Prediction;scene:ScanScene|null}|null>(null);
   const [error,setError]=useState('');
   const [attempt,setAttempt]=useState(0);
@@ -22,7 +22,7 @@ export default function SavedScanReview({id,onBack,onRetry,onBrowseIdeas,onOpenG
     const subscription=BackHandler.addEventListener('hardwareBackPress',()=>{onBack();return true;});
     return ()=>subscription.remove();
   },[onBack]);
-  if(result?.scene)return <SceneResults key={result.scene.id} initial={result.scene} historical selectedPredictionId={result.prediction.id} onBack={onBack} onRetry={onRetry} onBrowseIdeas={onBrowseIdeas} onOpenGuide={onOpenGuide}/>;
+  if(result?.scene)return <SceneResults key={result.scene.id} initial={result.scene} historical selectedPredictionId={result.prediction.id} onBack={onBack} onRetry={onRetry} onOpenGuide={onOpenGuide}/>;
   const prediction=result?.prediction;
   const assessment=prediction?.assessment;
   const photo=prediction?.original_image_url || prediction?.image_url;
@@ -37,17 +37,15 @@ export default function SavedScanReview({id,onBack,onRetry,onBrowseIdeas,onOpenG
       {photo && !photoError?<Image accessibilityLabel="Original scanned photo" source={{uri:imageUrl(photo)}} onError={()=>setPhotoError(true)} style={s.photo} resizeMode="contain"/>:<View style={s.card}><Text style={s.body}>{prediction.input_method==='manual'?'This was a no-photo assessment. No photo was saved.':'The original photo is unavailable. Its file may be missing or the image service may be offline. The saved result is still available below.'}</Text></View>}
       <View style={s.card}>
         <Pressable accessibilityRole="button" accessibilityLabel="Expand saved item details" accessibilityState={{expanded}} onPress={()=>setExpanded(value=>!value)} style={s.header}>
-          <View style={s.copy}><Text style={s.name}>{prediction.title}</Text><Text style={s.category}>{assessment?.segregation.category || 'No saved bin assignment'}</Text></View>
+          <View style={s.copy}><Text style={s.name}>{materialCategoryName(prediction)}</Text><Text style={s.category}>{assessment?.segregation.category || 'No saved bin assignment'}</Text></View>
           {expanded?<ChevronUp size={24} color="#176b45"/>:<ChevronDown size={24} color="#176b45"/>}
         </Pressable>
         {expanded?<View style={s.details}>
           <Text style={s.body}>{prediction.input_method==='manual'?'User-selected material, not AI verification':`${Math.round(prediction.confidence*100)}% saved model confidence`}</Text>
           {assessment?<><Text style={s.body}>{assessment.segregation.explanation}</Text>{assessment.segregation.instructions.map((line,index)=><Text key={index} style={s.body}>{line}</Text>)}{prediction.recommendation_choices.map(idea=><Text key={idea.id} style={s.body}>{idea.title}</Text>)}</>:<Text style={s.body}>No assessment snapshot was saved for this older item. Its original model result is shown without generating new sorting advice.</Text>}
-          <WasteRecommendations key={prediction.id} prediction={prediction}/>
         </View>:null}
       </View>
     </>:null}
-    {onBrowseIdeas?<Pressable accessibilityRole="button" accessibilityLabel="Browse general reuse ideas" style={s.action} onPress={onBrowseIdeas}><Text style={s.link}>Browse general reuse ideas</Text></Pressable>:null}
   </ScrollView>;
 }
 const s=StyleSheet.create({

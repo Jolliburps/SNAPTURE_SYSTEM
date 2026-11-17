@@ -2,6 +2,7 @@ import React from 'react';
 import Renderer from 'react-test-renderer';
 import { TextInput } from 'react-native';
 import AssessmentScreen from '../src/AssessmentScreen';
+import {MATERIAL_NAMES} from '../src/detectionPresentation';
 import { getAssessmentQuestions,updatePrediction,type Prediction } from '../src/api';
 jest.mock('../src/api',()=>({imageUrl:(uri:string)=>uri,getAssessmentQuestions:jest.fn(),updatePrediction:jest.fn()}));
 
@@ -11,6 +12,28 @@ const paper={id:2,label:'paper',title:'Paper',confidence:.8,answers:{},recommend
 const press=async(tree:Renderer.ReactTestRenderer,label:string)=>{const target=tree.root.findAllByProps({accessibilityLabel:label}).find(node=>node.props.onPress);expect(target).toBeDefined();await Renderer.act(async()=>{await target?.props.onPress();});};
 const render=async(prediction:Prediction,onBack=jest.fn())=>{let tree!:Renderer.ReactTestRenderer;await Renderer.act(()=>{tree=Renderer.create(<AssessmentScreen prediction={prediction} onBack={onBack} onRetry={jest.fn()} onSaved={jest.fn()} onChange={jest.fn()}/>);});return tree;};
 beforeEach(()=>jest.clearAllMocks());
+
+test.each(Object.entries(MATERIAL_NAMES))('uncertain %s confirms that category explicitly without defaulting to PETE',async(label,name)=>{
+  const unknown={...paper,label:'unknown_unsupported',decision:'unknown_unsupported',
+    recognition:{status:'needs_review',suggested_label:label,reason:'Below threshold'},
+    assessment:{...paper.assessment,material:{label:'unknown_unsupported',status:'needs_confirmation'},questions:[]},
+  } as unknown as Prediction;
+  (getAssessmentQuestions as jest.Mock).mockResolvedValue({questions:[],quick_check:{...paperCheck,has_sorting_rule:false}});
+  (updatePrediction as jest.Mock).mockResolvedValue({prediction:{...paper,label,decision:label,
+    assessment:{...paper.assessment,material:{label,status:'user_selected'}}}});
+  const tree=await render(unknown);
+  expect(updatePrediction).not.toHaveBeenCalled();
+  expect(tree.root.findAllByProps({accessibilityLabel:'Show sorting advice'})).toHaveLength(0);
+  expect(tree.root.findAllByProps({accessibilityRole:'radio'})).toHaveLength(0);
+  await press(tree,`Yes, this is ${name}`);
+  expect(getAssessmentQuestions).toHaveBeenCalledWith(label);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Show sorting advice'})).toHaveLength(0);
+  await press(tree,'Clean and dry, with no known chemical contact');
+  await press(tree,'Show sorting advice');
+  expect(updatePrediction).toHaveBeenCalledWith(2,{condition:'Clean and dry',previous_contents:'No chemical contact known',answers:{material_confirmation:label,contamination:'None known',moisture:'Dry'}});
+  expect(unknown.decision).toBe('unknown_unsupported');
+  await Renderer.act(()=>tree.unmount());
+});
 
 test('automatic route opens the material confirmation even when a condition was already selected',async()=>{
   const routed={...paper,condition:'Clean and dry',image_quality:{flags:[],limitations:'',automatic_routing:true}} as Prediction;
@@ -32,8 +55,8 @@ test('saving a framed fabric confirmation immediately shows its own upcycling ch
   ],assessment:{...fabric.assessment,material:{label:'fabric_scraps',title:'Fabric scraps',status:'user_selected'}}} as Prediction;
   (updatePrediction as jest.Mock).mockResolvedValue({prediction:updated});
   const tree=await render(fabric);
-  await press(tree,'Yes, this is Fabric scraps');
-  await press(tree,'Clean, dry and no residue');
+  await press(tree,'Yes, this is Fabric Scraps');
+  await press(tree,'Clean and dry, with no known chemical contact');
   await press(tree,'Show sorting advice');
   expect(updatePrediction).toHaveBeenCalledWith(277,expect.objectContaining({condition:'Clean and dry',answers:expect.objectContaining({material_confirmation:'fabric_scraps'})}));
   expect(tree.root.findAllByProps({accessibilityLabel:'Choose task: Cleaning cloth'}).length).toBeGreaterThan(0);
@@ -44,12 +67,12 @@ test('saving a framed fabric confirmation immediately shows its own upcycling ch
 
 test('one explicit condition choice replaces three questions; sorting never requires quantity',async()=>{
   const tree=await render(paper);expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
-  expect(tree.root.findAllByProps({accessibilityLabel:'Clean, dry and no residue'})[0].props.accessibilityState.checked).toBe(false);
-  await press(tree,'Yes, this is Paper');await press(tree,'Clean, dry and no residue');await press(tree,'previous_contents: No chemical contact known');await press(tree,'paper_surface: Plain uncoated material without personal details');
+  expect(tree.root.findAllByProps({accessibilityLabel:'Clean and dry, with no known chemical contact'})[0].props.accessibilityState.checked).toBe(false);
+  await press(tree,'Yes, this is Paper');await press(tree,'Clean and dry, with no known chemical contact');expect(tree.root.findAllByProps({accessibilityLabel:'previous_contents: No chemical contact known'})).toHaveLength(0);
   (updatePrediction as jest.Mock).mockResolvedValue({prediction:{...paper,assessment:{...paper.assessment,segregation:{status:'available',category:'Potentially recyclable',instructions:['Keep clean paper separate.'],sources:[]}}}});
   const onBack=jest.fn();await Renderer.act(()=>tree.update(<AssessmentScreen prediction={paper} onBack={onBack} onRetry={jest.fn()} onSaved={jest.fn()} onChange={jest.fn()}/>));
   await press(tree,'Show sorting advice');
-  expect(updatePrediction).toHaveBeenCalledWith(2,{condition:'Clean and dry',previous_contents:'No chemical contact known',answers:{material_confirmation:'paper',contamination:'None known',moisture:'Dry',paper_surface:'Plain uncoated material without personal details'}});
+  expect(updatePrediction).toHaveBeenCalledWith(2,{condition:'Clean and dry',previous_contents:'No chemical contact known',answers:{material_confirmation:'paper',contamination:'None known',moisture:'Dry'}});
   const output=JSON.stringify(tree.toJSON());expect(output).toContain('What to do next');expect(output).toContain('Keep clean paper separate.');expect(output).not.toContain('Show sorting advice');expect(output).not.toContain('Check reuse options');
   await press(tree,'Done with this item');expect(onBack).toHaveBeenCalledTimes(1);await Renderer.act(()=>tree.unmount());
 });
@@ -59,7 +82,7 @@ test('material-specific questions load before saving a newly selected material',
   (getAssessmentQuestions as jest.Mock).mockResolvedValue({label:'paper',questions,quick_check:paperCheck});
   const tree=await render(unknown);await press(tree,'Paper');
   expect(getAssessmentQuestions).toHaveBeenCalledWith('paper');
-  expect(tree.root.findAllByProps({accessibilityLabel:'paper_surface: Plain uncoated material without personal details'}).length).toBeGreaterThan(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'paper_surface: Plain uncoated material without personal details'})).toHaveLength(0);
   expect(updatePrediction).not.toHaveBeenCalled();await Renderer.act(()=>tree.unmount());
 });
 
@@ -89,3 +112,23 @@ test('quantity is only requested after choosing an available optional reuse chec
   await press(tree,'Show suitable ideas');expect(updatePrediction).toHaveBeenCalledWith(2,{answers:{},quantity:'2'});
   expect(JSON.stringify(tree.toJSON())).toContain('What to do next');await Renderer.act(()=>tree.unmount());
 });
+
+test.each(Object.keys(require('../src/detectionPresentation').MATERIAL_NAMES))(
+  'all supported categories use one condition question and omit the separate contents prompt: %s',
+  async label=>{
+    const prediction={...paper,label,assessment:{...paper.assessment,
+      material:{label,title:label,status:'needs_confirmation'},
+      questions,quick_check:paperCheck}} as unknown as Prediction;
+    const tree=await render(prediction);
+    expect(tree.root.findAllByProps({accessibilityLabel:'previous_contents: No chemical contact known'})).toHaveLength(0);
+    expect(tree.root.findAllByProps({accessibilityLabel:'Clean and dry, with no known chemical contact'}).length).toBeGreaterThan(0);
+    await press(tree,'Known contact with a chemical or cleaning product');
+    (updatePrediction as jest.Mock).mockResolvedValue({prediction});
+    await press(tree,'Show sorting advice');
+    expect(updatePrediction).toHaveBeenCalledWith(prediction.id,expect.objectContaining({
+      previous_contents:'Chemical or cleaning product',
+      answers:expect.objectContaining({contamination:'Chemical contamination'}),
+    }));
+    await Renderer.act(()=>tree.unmount());
+  },
+);

@@ -29,8 +29,9 @@ def describe(item, prediction):
     material = assessment.get('material', {})
     label = material.get('label', 'unknown_unsupported')
     reported = material.get('status') == 'user_selected'
+    high_confidence = material.get('status') == 'model_high_confidence'
     resin = {'pete_bottles':'PET/PETE code 1', 'hdpe_containers':'HDPE code 2'}
-    confirmed = reported and (label not in resin or record.answers.get('resin_mark') == resin[label])
+    confirmed = (reported or high_confidence) and (label not in resin or record.answers.get('resin_mark') == resin[label])
     plastic = 'plastic' in item.name or label in {'pete_bottles', 'hdpe_containers'}
     # OWL prompt -> material is not a separately scored material classifier.
     display_material = ('Plastic — subtype unconfirmed' if plastic and not confirmed else material_info(label)['title'] if label in SCOPE_LABELS
@@ -46,7 +47,7 @@ def describe(item, prediction):
         'user_object_name': metadata.get('user_object_name', ''),
         'material_prediction': {'label': label, 'title': display_material,
                                 'confidence': evidence.get('confidence') if classified and label in SCOPE_LABELS and evidence.get('label') == label else None,
-                                'status': 'user_reported' if confirmed else 'model_suggested' if classified and label in SCOPE_LABELS else 'uncertain' if label in SCOPE_LABELS or plastic else 'unsupported',
+                                'status': 'user_reported' if reported and confirmed else 'model_high_confidence' if high_confidence else 'model_suggested' if classified and label in SCOPE_LABELS else 'uncertain' if label in SCOPE_LABELS or plastic else 'unsupported',
                                 'basis': 'user report, not AI verification' if confirmed else evidence.get('basis', 'material evidence unconfirmed; no independent material score')},
         'ai_waste_category': None,  # No independently trained waste-category classifier.
         'waste_category_hypothesis': (prediction.get('waste_identifier') or {}).get('suggested_category', 'UNIDENTIFIED'),
@@ -85,14 +86,14 @@ def handling(item, prediction):
                                             'Avoid leaking containers and exposed sharps. Ask your barangay or CESD for item-specific collection instructions.'])
         sources = [ELECTRONICS_SOURCE if electronic else HAZARD_SOURCE]
         recommendations = []
-    elif recommendations and upcycling.get('status') == 'available' and description['material_prediction']['status'] == 'user_reported':
+    elif recommendations and upcycling.get('status') == 'available' and description['material_prediction']['status'] in {'user_reported', 'model_high_confidence'}:
         route, title = 'eligible', 'Eligible for a supported upcycling project'
-        explanation = 'The published project matches the reported material and assessment. This is not a safety certification.'
+        explanation = 'The published project matches the material and the assessment details. This is not a safety certification.'
         sources = [choice.get('review', {}) for choice in recommendations]
     elif description['material_prediction']['status'] == 'unsupported' and record.model_class not in {'human-marked unidentified object', 'unfamiliar discarded object'}:
         explanation = 'This recognized object is outside the supported upcycling database. No verified method is available; do not force it into another material category.'
         recommendations = []
-    elif (description['material_prediction']['status'] != 'user_reported'
+    elif (description['material_prediction']['status'] not in {'user_reported', 'model_high_confidence'}
           or upcycling.get('status') == 'needs_information'):
         route, title = 'requires_information', 'Requires more information'
         explanation = ('Read the resin code on the actual item before selecting PET/PETE or HDPE.'

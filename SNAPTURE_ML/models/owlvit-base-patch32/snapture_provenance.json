@@ -1,0 +1,6 @@
+{
+  "repo": "google/owlvit-base-patch32",
+  "revision": "cbc355fb364588351c5d51c7f74465e8e7ec6f72",
+  "license": "Apache-2.0",
+  "use": "Experimental zero-shot detection, not waste-validated; see model card."
+}
