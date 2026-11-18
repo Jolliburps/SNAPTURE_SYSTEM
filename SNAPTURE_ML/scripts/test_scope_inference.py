@@ -9,6 +9,15 @@ from scripts.inference import ModelPredictor, SCOPE_CLASSES
 
 
 class ScopeInferenceTests(unittest.TestCase):
+    def test_preprocessing_keeps_raw_rgb_range_and_configured_dimensions(self):
+        predictor = ModelPredictor.__new__(ModelPredictor)
+        predictor.image_size = (8, 12)
+        image = Image.new('RGBA', (30, 50), (255, 0, 128, 255))
+        result = predictor._prepare_image(image)
+        self.assertEqual(result.shape, (1, 8, 12, 3))
+        self.assertEqual(result.dtype, np.float32)
+        np.testing.assert_array_equal(result[0, 0, 0], [255, 0, 128])
+
     def predictor(self, label, confidence):
         predictor = ModelPredictor.__new__(ModelPredictor)
         predictor.labels = [label, "paper" if label != "paper" else "cardboard"]

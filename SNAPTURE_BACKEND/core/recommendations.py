@@ -54,6 +54,15 @@ def build_recommendations(
     """Return multiple choices and add context without claiming safety certification."""
 
     options = [dict(item) for item in CATALOG.get(label, [])]
+    if condition == "Torn or crumpled, clean and dry":
+        options = [item for item in options if label == "paper" and item["id"] == "paper_craft"]
+        for item in options:
+            item.update(summary="Use clean, dry paper pieces for a collage or paper mosaic.",
+                        materials=["Clean, dry paper pieces", "Non-toxic glue", "Backing sheet"],
+                        steps=["Remove staples, tape and any stained pieces.", "Flatten usable pieces and arrange a collage or mosaic.", "Glue the pieces onto a backing sheet and let it dry."])
+    if condition == "Clean dry usable scraps":
+        allowed = {"cardboard": {"cardboard_craft"}, "fabric_scraps": {"fabric_cleaning_cloth", "fabric_patchwork"}}
+        options = [item for item in options if item["id"] in allowed.get(label, set())]
     if quantity and quantity > 1:
         quantity_note = f"Designed to use several items (you entered {quantity})."
     elif quantity == 1:

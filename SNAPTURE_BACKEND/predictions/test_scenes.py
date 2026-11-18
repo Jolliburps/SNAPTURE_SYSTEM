@@ -18,7 +18,7 @@ from .scene_views import routing
 class QualityTests(TestCase):
     def test_darkness_only_when_flagged(self):
         self.assertIn('dark',[row['code'] for row in quality_report(Image.new('RGB',(100,100),'black'))['flags']])
-        self.assertEqual(quality_report(Image.new('RGB',(100,100),'white'))['flags'],[])
+        self.assertEqual(quality_report(Image.new('RGB',(320,320),'white'))['flags'],[])
 
     def test_softness_crowding_and_cutoff_are_conditional(self):
         rng = np.random.default_rng(42)

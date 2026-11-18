@@ -1,5 +1,6 @@
 """Material evidence from the selected dataset-trained checkpoint, not OWL queries."""
 from io import BytesIO
+from PIL import ImageOps
 
 from core.materials import SCOPE_LABELS
 from core.ml_service import predict_image
@@ -30,7 +31,9 @@ def high_confidence_material(row, material):
 
 def classify_material(image):
     encoded = BytesIO()
-    image.convert('RGB').save(encoded, format='PNG')
+    # Correct orientation before encoding: PNG conversion otherwise discards
+    # the camera EXIF tag before the model gets a chance to apply it.
+    ImageOps.exif_transpose(image).convert('RGB').save(encoded, format='PNG')
     result = predict_image(encoded.getvalue())
     decision = result['decision'] if result['decision'] in SCOPE_LABELS else 'unknown_unsupported'
     return {

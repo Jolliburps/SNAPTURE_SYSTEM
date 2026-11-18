@@ -2,6 +2,7 @@ import React from 'react';
 import Renderer from 'react-test-renderer';
 import { TextInput } from 'react-native';
 import AssessmentScreen from '../src/AssessmentScreen';
+import {materialConditions} from '../src/materialConditions';
 import {MATERIAL_NAMES} from '../src/detectionPresentation';
 import { getAssessmentQuestions,updatePrediction,type Prediction } from '../src/api';
 jest.mock('../src/api',()=>({imageUrl:(uri:string)=>uri,getAssessmentQuestions:jest.fn(),updatePrediction:jest.fn()}));
@@ -28,7 +29,7 @@ test.each(Object.entries(MATERIAL_NAMES))('uncertain %s confirms that category e
   await press(tree,`Yes, this is ${name}`);
   expect(getAssessmentQuestions).toHaveBeenCalledWith(label);
   expect(tree.root.findAllByProps({accessibilityLabel:'Show sorting advice'})).toHaveLength(0);
-  await press(tree,'Clean and dry, with no known chemical contact');
+  await press(tree,materialConditions(label)!.choices[0].label);
   await press(tree,'Show sorting advice');
   expect(updatePrediction).toHaveBeenCalledWith(2,{condition:'Clean and dry',previous_contents:'No chemical contact known',answers:{material_confirmation:label,contamination:'None known',moisture:'Dry'}});
   expect(unknown.decision).toBe('unknown_unsupported');
@@ -56,7 +57,7 @@ test('saving a framed fabric confirmation immediately shows its own upcycling ch
   (updatePrediction as jest.Mock).mockResolvedValue({prediction:updated});
   const tree=await render(fabric);
   await press(tree,'Yes, this is Fabric Scraps');
-  await press(tree,'Clean and dry, with no known chemical contact');
+  await press(tree,'Clean and dry fabric');
   await press(tree,'Show sorting advice');
   expect(updatePrediction).toHaveBeenCalledWith(277,expect.objectContaining({condition:'Clean and dry',answers:expect.objectContaining({material_confirmation:'fabric_scraps'})}));
   expect(tree.root.findAllByProps({accessibilityLabel:'Choose task: Cleaning cloth'}).length).toBeGreaterThan(0);
@@ -67,8 +68,8 @@ test('saving a framed fabric confirmation immediately shows its own upcycling ch
 
 test('one explicit condition choice replaces three questions; sorting never requires quantity',async()=>{
   const tree=await render(paper);expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
-  expect(tree.root.findAllByProps({accessibilityLabel:'Clean and dry, with no known chemical contact'})[0].props.accessibilityState.checked).toBe(false);
-  await press(tree,'Yes, this is Paper');await press(tree,'Clean and dry, with no known chemical contact');expect(tree.root.findAllByProps({accessibilityLabel:'previous_contents: No chemical contact known'})).toHaveLength(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Clean and dry paper'})[0].props.accessibilityState.checked).toBe(false);
+  await press(tree,'Yes, this is Paper');await press(tree,'Clean and dry paper');expect(tree.root.findAllByProps({accessibilityLabel:'previous_contents: No chemical contact known'})).toHaveLength(0);
   (updatePrediction as jest.Mock).mockResolvedValue({prediction:{...paper,assessment:{...paper.assessment,segregation:{status:'available',category:'Potentially recyclable',instructions:['Keep clean paper separate.'],sources:[]}}}});
   const onBack=jest.fn();await Renderer.act(()=>tree.update(<AssessmentScreen prediction={paper} onBack={onBack} onRetry={jest.fn()} onSaved={jest.fn()} onChange={jest.fn()}/>));
   await press(tree,'Show sorting advice');
@@ -121,7 +122,7 @@ test.each(Object.keys(require('../src/detectionPresentation').MATERIAL_NAMES))(
       questions,quick_check:paperCheck}} as unknown as Prediction;
     const tree=await render(prediction);
     expect(tree.root.findAllByProps({accessibilityLabel:'previous_contents: No chemical contact known'})).toHaveLength(0);
-    expect(tree.root.findAllByProps({accessibilityLabel:'Clean and dry, with no known chemical contact'}).length).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({accessibilityLabel:materialConditions(label)!.choices[0].label}).length).toBeGreaterThan(0);
     await press(tree,'Known contact with a chemical or cleaning product');
     (updatePrediction as jest.Mock).mockResolvedValue({prediction});
     await press(tree,'Show sorting advice');
@@ -132,3 +133,24 @@ test.each(Object.keys(require('../src/detectionPresentation').MATERIAL_NAMES))(
     await Renderer.act(()=>tree.unmount());
   },
 );
+
+
+test.each([false,true])('wet paper preparation saves the same scan, handles failure=%s and unlocks ideas only after success',async fail=>{
+  const wet={...paper,id:622,condition:'Needs cleaning',answers:{contamination:'None known',moisture:'Wet'},assessment:{...paper.assessment,material:{label:'paper',title:'Paper',status:'user_selected'}}} as unknown as Prediction;
+  const prepared={...wet,condition:'Clean and dry',answers:{contamination:'None known',moisture:'Dry'},upcycling_ideas:[{id:'paper_gift',title:'Gift wrapping',summary:'Reuse dry paper.',materials:['Paper'],steps:['Inspect.','Fold.']}]} as Prediction;
+  if(fail)(updatePrediction as jest.Mock).mockRejectedValue(new Error('Connection interrupted'));
+  else (updatePrediction as jest.Mock).mockResolvedValue({prediction:prepared});
+  const tree=await render(wet);
+  const button=()=>tree.root.findAllByProps({accessibilityLabel:'Confirm preparation readiness'}).find(node=>typeof node.props.onPress==='function')!;
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Choose task: Gift wrapping');
+  expect(button()).toBeUndefined();
+  await press(tree,'Preparation finished');
+  expect(button().props.disabled).toBe(false);
+  expect(updatePrediction).not.toHaveBeenCalled();
+  await Renderer.act(async()=>{await button().props.onPress();});
+  expect(updatePrediction).toHaveBeenCalledWith(622,{condition:'Clean and dry',answers:{contamination:'None known',moisture:'Dry'}});
+  const output=JSON.stringify(tree.toJSON());
+  if(fail){expect(output).toContain('Connection interrupted');expect(button().props.disabled).toBe(false);}
+  else{expect(output).toContain('Choose task: Gift wrapping');expect(output).not.toContain('PETE Bottles');expect(tree.root.findAllByProps({accessibilityLabel:'Preparation finished \u2014 check upcycling ideas'})).toHaveLength(0);}
+  await Renderer.act(()=>tree.unmount());
+});

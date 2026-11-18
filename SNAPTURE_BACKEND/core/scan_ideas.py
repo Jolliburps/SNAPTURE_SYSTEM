@@ -12,13 +12,20 @@ def scan_ideas(record):
     if label not in SCOPE_LABELS or (not confirmed and record.confidence < record.threshold):
         return []
     if (special_kind(record) or record.previous_contents == 'Chemical or cleaning product'
-            or record.condition in {'Moldy or contaminated', 'Damaged or cracked'}
+            or record.condition in {'Moldy or contaminated', 'Damaged or cracked', 'Needs cleaning', 'Not sure'}
+            or answers.get('moisture') == 'Wet'
             or answers.get('contamination') in {'Oil or grease', 'Mold or biological waste', 'Chemical contamination'}
             or answers.get('other_material') == 'Battery / electronic item'
             or answers.get('reported_category') in {'A', 'B2', 'C'}):
         return []
     if label == 'dry_untreated_wood_scraps' and answers.get('wood_treatment') in {'Paint, treatment, nails, or mold', 'Yes'}:
         return []
+    if record.condition == 'Torn or crumpled, clean and dry':
+        if label != 'paper' or answers.get('contamination') != 'None known' or answers.get('moisture') != 'Dry':
+            return []
+    if record.condition == 'Clean dry usable scraps':
+        if label not in {'cardboard', 'fabric_scraps'} or answers.get('contamination') != 'None known' or answers.get('moisture') != 'Dry':
+            return []
     return [
         {**idea, 'basis':'educational_catalog', 'material':label}
         for idea in build_recommendations(label, record.quantity, record.condition,

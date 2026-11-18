@@ -1,9 +1,9 @@
 import React from 'react';
 import Renderer from 'react-test-renderer';
 import SceneResults, { containRect, QualityFeedback } from '../src/SceneResults';
-import { getScene, type ScanScene } from '../src/api';
+import { getScene, confirmDisposalSelection, type ScanScene } from '../src/api';
 
-jest.mock('../src/api', () => ({ getScene: jest.fn(), imageUrl: (uri: string) => uri }));
+jest.mock('../src/api', () => ({ getScene: jest.fn(), confirmDisposalSelection: jest.fn(), imageUrl: (uri: string) => uri }));
 
 test('does not show tips when quality checks flag nothing', async () => {
   let tree!: Renderer.ReactTestRenderer;
@@ -68,4 +68,37 @@ test('high-confidence numbered boxes and cards highlight each other without navi
   expect(tree.root.findAllByProps({ accessibilityLabel:'Select item 2 card' })[0].props.accessibilityState.selected).toBe(true);
   await press('Select item 1 card');
   expect(tree.root.findAllByProps({ accessibilityLabel:'Select box 1' })[0].props.accessibilityState.selected).toBe(true);
+});
+
+
+test('draws accepted object bounds in green and rejects invalid coordinates', async () => {
+  const prediction = {id:99,decision:'paper',title:'Paper',focus_box:[.2,.3,.7,.8],recognition:{status:'supported'},assessment:{material:{status:'needs_confirmation'},missing_information:[],segregation:{instructions:[]}},recommendation_choices:[]};
+  const scene = {id:99,image_url:'/image.jpg',width:200,height:200,frame:[0,0,1,1],status:'complete',single_item:{enabled:true},quality:{flags:[]},items:[{id:99,box:[.2,.3,.7,.8],name:'paper scrap',score:.9,prediction,route:{key:'review',label:'Review'},suggested_group:'recyclable'}]} as unknown as ScanScene;
+  (getScene as jest.Mock).mockResolvedValue({scene});
+  let tree!: Renderer.ReactTestRenderer;
+  await Renderer.act(async () => {tree=Renderer.create(<SceneResults historical initial={scene} onBack={jest.fn()} onRetry={jest.fn()} />);});
+  const boundary=tree.root.findAllByProps({accessibilityLabel:'Object focus boundary'}).find(node=>node.props.style?.borderColor);
+  expect(boundary?.props.style.borderColor).toBe('#176b45');
+  await Renderer.act(()=>{tree.unmount();});
+  prediction.focus_box=[0,0,2,1];
+  await Renderer.act(async () => {tree=Renderer.create(<SceneResults historical initial={scene} onBack={jest.fn()} onRetry={jest.fn()} />);});
+  expect(tree.root.findAllByProps({accessibilityLabel:'Object focus boundary'})).toHaveLength(0);
+  await Renderer.act(()=>{tree.unmount();});
+});
+
+
+test.each(['paper','cardboard','fabric_scraps','pete_bottles','hdpe_containers','coconut_shells','dry_untreated_wood_scraps'])('single %s goes directly to material check without item selection', async label => {
+  const prediction={id:41,decision:label,title:label,recognition:{status:'supported'},assessment:{material:{status:'needs_confirmation'},missing_information:[],segregation:{instructions:[]}},recommendation_choices:[]};
+  const scene={id:41,image_url:'/photo.jpg',width:200,height:200,frame:[0,0,1,1],status:'complete',single_item:{enabled:true},quality:{flags:[]},items:[{id:41,box:[.1,.1,.9,.9],name:label,score:.9,prediction,route:{key:'review',label:'Review'}}]} as unknown as ScanScene;
+  (getScene as jest.Mock).mockResolvedValue({scene});
+  (confirmDisposalSelection as jest.Mock).mockResolvedValue({scene});
+  const review=jest.fn();let tree!:Renderer.ReactTestRenderer;
+  await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onRetry={jest.fn()} onReview={review}/>);});
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Tap to include this item');
+  expect(tree.root.findAllByProps({accessibilityRole:'checkbox'})).toHaveLength(0);
+  const next=tree.root.findAllByProps({accessibilityLabel:'Check material'}).find(node=>typeof node.props.onPress==='function');
+  expect(next).toBeDefined();
+  await Renderer.act(async()=>{await next!.props.onPress();});
+  expect(review).toHaveBeenCalledWith(prediction);
+  await Renderer.act(()=>tree.unmount());
 });

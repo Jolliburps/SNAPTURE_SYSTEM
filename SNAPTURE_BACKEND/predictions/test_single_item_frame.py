@@ -39,6 +39,9 @@ class SingleItemFrameTests(TestCase):
         self.assertEqual(focused.getpixel((0,0)),(0,255,0))
         self.assertEqual(focused.getpixel((149,149)),(0,255,0))
         result = response.json()['scene']
+        self.assertEqual(result['items'][0]['prediction']['focus_box'], PAPER['box'])
+        record = PredictionRecord.objects.get()
+        self.assertNotEqual(record.image_quality['classification_crop'], PAPER['box'])
         self.assertEqual((result['width'],result['height']),(150,150))
         self.assertEqual(result['frame'],[0,0,1,1])
         self.assertTrue(result['single_item']['enabled'])

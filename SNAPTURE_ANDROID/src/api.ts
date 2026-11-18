@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // The physical-phone prototype reaches the computer through `adb reverse`.
-// Run `adb reverse tcp:8000 tcp:8000` while the USB debugging cable is attached.
+// Run `adb reverse tcp:8000 tcp:8000` after connecting through USB or wireless debugging.
 // Use 10.0.2.2 instead when running on the Android emulator.
 export const API_BASE_URL = 'http://127.0.0.1:8000/api';
 const TOKEN_KEY = 'snapture_api_token';
@@ -12,7 +12,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch {
-    throw new Error(controller.signal.aborted?'The server took too long to respond. Please try again.':'Cannot connect to the SNAPTURE server. Keep the USB cable connected and restore the phone connection on the PC. Make sure the backend is running.');
+    throw new Error(controller.signal.aborted?'The server took too long to respond. Please try again.':'Cannot connect to the SNAPTURE server. Make sure the backend is running. For Wi-Fi debugging, keep the phone and PC on the same Wi-Fi and reconnect wireless debugging on the PC. For USB debugging, check the cable connection.');
   } finally {
     clearTimeout(timeout);
   }

@@ -103,7 +103,10 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
   const single = activeItems.length === 1;
   const singleFrame=Boolean(scene.single_item?.enabled);
   const focusItem=singleFrame && single && activeItems[0].prediction.focus_box?.length===4 ? activeItems[0] : undefined;
-  const focusBox=focusItem?.prediction.focus_box;
+  const proposedFocusBox=focusItem?.prediction.focus_box;
+  const focusBox=proposedFocusBox && proposedFocusBox.every(Number.isFinite) &&
+    proposedFocusBox.every(value=>value>=0 && value<=1) &&
+    proposedFocusBox[2]>proposedFocusBox[0] && proposedFocusBox[3]>proposedFocusBox[1] ? proposedFocusBox : undefined;
   const reviewItem = single && activeItems[0].prediction.recognition?.status==='needs_review' ? activeItems[0] : undefined;
   const suggestedCategory = reviewItem?.prediction.recognition?.suggested_label;
   const unsupportedOnly = scene.status==='complete' && !reviewItem && activeItems.every(item=>sceneItemTitle(item)==='Unsupported');
@@ -115,7 +118,7 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
   const visibleItems=scene.items.filter(item=>!suppressed(item) && (single || !needsReview(item) || showUncertain || discardIds.includes(item.id)));
   // Opening the review list must never turn a weak guess back into a photo box.
   const eligible = scene.items.filter(item=>sceneItemTitle(item)!=='Unsupported' && canDraw(item) && item.display_box!==false && !needsReview(item) && !suppressed(item) && item.identification?.object_prediction.source!=='whole_image_classifier');
-  const drawn = focusItem ? [] : eligible;
+  const drawn = focusBox ? [] : eligible;
   const stageHeight = single ? 280 : 360;
   const rect = containRect(scene.width,scene.height,photoWidth,stageHeight);
   const chooseBox = (item: SceneItem) => {
@@ -168,13 +171,13 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     {!unsupportedOnly?<Text style={s.small}>{phase==='selection'?(highConfidence?'Continue to check the item condition.':'Check the suggested category before using guidance.'):'Follow the suggested next step.'}</Text>:null}
     <View onLayout={event => { photoY.current = event.nativeEvent.layout.y; setPhotoWidth(event.nativeEvent.layout.width); }} style={[s.photo,{height:stageHeight}]}>
       {scene.image_url && !photoError?<Image source={{ uri:imageUrl(scene.image_url) }} onError={()=>setPhotoError(true)} accessibilityLabel={singleFrame?'Scanned area inside border':'Original scanned photo'} resizeMode="contain" style={StyleSheet.absoluteFill} />:<Text style={s.missingPhoto}>The photo is unavailable or privacy processing is not ready. Saved item results are still shown below.</Text>}
-      {focusBox && scene.image_url && !photoError?<View pointerEvents="none" accessibilityLabel="Object focus boundary" style={{position:'absolute',borderWidth:3,borderColor:'#0088ff',left:rect.x+focusBox[0]*rect.width,top:rect.y+focusBox[1]*rect.height,width:(focusBox[2]-focusBox[0])*rect.width,height:(focusBox[3]-focusBox[1])*rect.height}}/>:null}
+      {focusBox && scene.image_url && !photoError?<View pointerEvents="none" accessibilityLabel="Object focus boundary" style={{position:'absolute',borderWidth:3,borderColor:'#176b45',left:rect.x+focusBox[0]*rect.width,top:rect.y+focusBox[1]*rect.height,width:(focusBox[2]-focusBox[0])*rect.width,height:(focusBox[3]-focusBox[1])*rect.height}}/>:null}
       {scene.image_url && !photoError?drawn.map(item => {
         const color = OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length];
         const left=rect.x+item.box[0]*rect.width, top=rect.y+item.box[1]*rect.height;
         return <React.Fragment key={item.id}>
-          <Pressable disabled={confirming} accessibilityRole={phase==='selection'?'checkbox':'button'} accessibilityLabel={`Select box ${numbers.get(item.id)}`} accessibilityState={{selected:selected===item.id,checked:discardIds.includes(item.id)}} onPress={() => chooseBox(item)} style={[s.box,(phase==='selection'?discardIds.includes(item.id):selected===item.id) && s.selectedBox,{left,top,width:(item.box[2]-item.box[0])*rect.width,height:(item.box[3]-item.box[1])*rect.height,borderColor:color}]} />
-          <Pressable disabled={confirming} accessibilityRole="button" accessibilityLabel={`Select item badge ${numbers.get(item.id)}`} hitSlop={8} onPress={() => chooseBox(item)} style={[s.numberBadge,{left:Math.min(photoWidth-32,Math.max(0,left)),top:Math.min(stageHeight-32,Math.max(0,top)),backgroundColor:color}]}><Text style={s.numberText}>{numbers.get(item.id)}{phase==='selection' && discardIds.includes(item.id)?'✓':''}</Text></Pressable>
+          <Pressable disabled={confirming} accessibilityRole={phase==='selection' && !recommendationItem?'checkbox':'button'} accessibilityLabel={`Select box ${numbers.get(item.id)}`} accessibilityState={{selected:selected===item.id,checked:discardIds.includes(item.id)}} onPress={() => recommendationItem ? showPhoto(item) : chooseBox(item)} style={[s.box,(phase==='selection'?discardIds.includes(item.id):selected===item.id) && s.selectedBox,{left,top,width:(item.box[2]-item.box[0])*rect.width,height:(item.box[3]-item.box[1])*rect.height,borderColor:color}]} />
+          <Pressable disabled={confirming} accessibilityRole="button" accessibilityLabel={`Select item badge ${numbers.get(item.id)}`} hitSlop={8} onPress={() => recommendationItem ? showPhoto(item) : chooseBox(item)} style={[s.numberBadge,{left:Math.min(photoWidth-32,Math.max(0,left)),top:Math.min(stageHeight-32,Math.max(0,top)),backgroundColor:color}]}><Text style={s.numberText}>{numbers.get(item.id)}{phase==='selection' && discardIds.includes(item.id)?'✓':''}</Text></Pressable>
         </React.Fragment>;
       }):null}
     </View>
@@ -189,10 +192,13 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     {!unsupportedOnly && !reviewItem && scene.items.length ? <Text accessibilityRole="header" style={s.itemsTitle}>Category result</Text> : null}
     {!unsupportedOnly && !single && phase==='selection' && uncertainCount?<><Action title={`${showUncertain?'Hide':'Show'} uncertain suggestions (${uncertainCount})`} secondary disabled={confirming} onPress={()=>setShowUncertain(value=>!value)}/><Text style={s.small}>Review-only guesses are not counted as matched objects and are not drawn on the photo.</Text></>:null}
     {!unsupportedOnly && !reviewItem && phase==='selection'?<View pointerEvents={confirming?'none':'auto'}>{[...visibleItems].sort((a,b)=>a.id-b.id).map(item=><View key={item.id} onLayout={event=>{cardY.current[item.id]=event.nativeEvent.layout.y;}}>
-      <DisposalObjectRow item={item} number={numbers.get(item.id)!} color={OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length]} checked={discardIds.includes(item.id)}
+      {recommendationItem?.id===item.id?<View style={s.card}>
+        <Text style={s.heading}>{sceneItemTitle(item)}</Text>
+        <Text style={s.body}>{highConfidence?'Continue to check its condition.':'Continue to check the suggested material.'}</Text>
+      </View>:<DisposalObjectRow item={item} number={numbers.get(item.id)!} color={OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length]} checked={discardIds.includes(item.id)}
         condition={itemConditions[item.id] || 'Not sure'}
         onCondition={singleFrame?undefined:condition=>{edited.current=true;setItemConditions(old=>({...old,[item.id]:condition}));}}
-        onToggle={()=>chooseBox(item)} onDetails={()=>showPhoto(item)}/>
+        onToggle={()=>chooseBox(item)} onDetails={()=>showPhoto(item)}/>}
     </View>)}</View>:null}
     {!unsupportedOnly && !reviewItem && phase==='handling'?[...scene.items].filter(item=>discardIds.includes(item.id)).sort((a,b)=>a.id-b.id).map(item=>{
       const group=itemGroup(item);

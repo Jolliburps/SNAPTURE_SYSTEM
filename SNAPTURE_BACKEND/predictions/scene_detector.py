@@ -2,6 +2,7 @@
 from pathlib import Path
 from threading import Lock
 from django.conf import settings
+from PIL import ImageOps
 
 MODEL_DIR = Path(settings.SNAPTURE_ML_DIR) / 'models' / 'owlvit-base-patch32'
 PROMPTS = [
@@ -197,6 +198,8 @@ def person_context(outputs):
 
 def detect(image, tiled=False):
     global _model, _processor
+    # Match the classifier's orientation/RGB contract for direct callers too.
+    image = ImageOps.exif_transpose(image).convert('RGB')
     if not available():
         raise RuntimeError('The local detector is not installed. Choose a material manually or ask the administrator to install it.')
     import os

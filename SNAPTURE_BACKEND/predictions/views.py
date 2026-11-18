@@ -17,7 +17,7 @@ from core.assessment import assess, confirm_material, refresh
 from django.utils import timezone
 
 from .models import PredictionRecord
-from .image_quality import oriented_image, quality_report
+from .image_quality import oriented_image, quality_report, localized_box
 from .photo_privacy import privacy_copy, jpeg_bytes
 
 
@@ -112,7 +112,9 @@ def _serialize(record, saved=False):
     return {
         "id": record.id,
         "image_url": record.image.url if record.image else None,
-        "focus_box": (record.image_quality or {}).get('classification_crop') if (record.image_quality or {}).get('object_source') != 'whole_image_classifier' else None,
+        # The classifier crop includes context padding; it is not object bounds.
+        # Historical records without actual localization must not invent a box.
+        "focus_box": localized_box(record.image_quality or {}),
         "scene_id": scene.id if scene else None,
         "original_image_url": scene.image.url if scene and scene.image else (record.image.url if record.image else None),
         "saved_assessment_available": has_snapshot,

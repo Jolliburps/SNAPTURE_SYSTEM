@@ -1,4 +1,5 @@
-import React from 'react';
+import React, {useState} from 'react';
+import {projectFit} from './projectFit';
 import {Pressable,StyleSheet,Text,View} from 'react-native';
 import type {Recommendation} from './api';
 
@@ -7,6 +8,7 @@ export type IdeaChoice=Recommendation & {existing_project_id?:number;existing_pr
 export default function UpcyclingIdeaChoices({material,ideas,onChoose,selectedId,busyId='',error='',changing=false}:{
   material:string;ideas:IdeaChoice[];onChoose?:((id:string)=>void);selectedId?:string;busyId?:string;error?:string;changing?:boolean;
 }) {
+  const [checking,setChecking]=useState('');
   return <View style={s.section}>
     <Text accessibilityRole="header" style={s.heading}>Upcycling ideas for {material}</Text>
     <Text style={s.note}>Ideas for clean, suitable material. Check its condition and previous contents before starting.</Text>
@@ -17,7 +19,14 @@ export default function UpcyclingIdeaChoices({material,ideas,onChoose,selectedId
       return <View key={idea.id} style={s.card}>
         <Text style={s.title}>{idea.title}</Text><Text style={s.body}>{idea.summary}</Text>
         {changing && idea.existing_project_id && !selected?<Text style={s.note}>Already saved for this item. Its progress will be kept.</Text>:null}
-        {onChoose?<Pressable accessibilityRole="button" accessibilityLabel={selected?`Current idea: ${idea.title}`:`Choose task: ${idea.title}`} accessibilityState={{selected}} disabled={selected || Boolean(busyId)} onPress={()=>onChoose(idea.id)} style={[s.action,(selected || Boolean(busyId)) && s.disabled]}><Text style={s.actionText}>{label}</Text></Pressable>:null}
+        {checking===idea.id?<View>
+          <Text style={s.title}>Check project fit</Text>
+          <Text style={s.note}>A photo cannot measure actual size or how much usable material you have. Check before starting.</Text>
+          {projectFit(idea).map(line=><Text key={line} style={s.body}>{'\u2022 '}{line}</Text>)}
+          <Pressable accessibilityRole="button" accessibilityLabel="Confirm project fit" disabled={Boolean(busyId)} onPress={()=>onChoose?.(idea.id)} style={s.action}><Text style={s.actionText}>It fits my material - start project</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Choose a different idea" onPress={()=>setChecking('')}><Text style={s.note}>Not a fit - choose another idea</Text></Pressable>
+        </View>:null}
+        {onChoose && checking!==idea.id?<Pressable accessibilityRole="button" accessibilityLabel={selected?`Current idea: ${idea.title}`:`Choose task: ${idea.title}`} accessibilityState={{selected}} disabled={selected || Boolean(busyId)} onPress={()=>{if(changing && idea.existing_project_id)onChoose(idea.id);else setChecking(idea.id);}} style={[s.action,(selected || Boolean(busyId)) && s.disabled]}><Text style={s.actionText}>{label}</Text></Pressable>:null}
       </View>;
     })}
   </View>;

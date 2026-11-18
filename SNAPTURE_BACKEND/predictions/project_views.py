@@ -70,7 +70,7 @@ def _project_choices(record, allow_catalog):
             return []
     choices = record.recommendation_choices
     action = record.image_quality.get('item_action')
-    if allow_catalog and (not action or action == 'recover' and record.condition == 'Clean and dry'):
+    if allow_catalog and (not action or action == 'recover' and record.condition in {'Clean and dry', 'Torn or crumpled, clean and dry', 'Clean dry usable scraps'}):
         choices = [*choices, *record.assessment['upcycling'].get('suggested_ideas', [])]
     if action in {'keep', 'discard'}:
         return []

@@ -52,3 +52,30 @@ class ScanIdeasTests(TestCase):
         expected=_serialize(record,saved=True)['upcycling_ideas']
         with patch('core.scan_ideas.build_recommendations',side_effect=AssertionError('Do not rewrite saved results')):
             self.assertEqual(_serialize(record,saved=True)['upcycling_ideas'],expected)
+
+    def test_clean_torn_paper_only_offers_scrap_crafts_and_preserves_condition(self):
+        record=self.record(condition='Torn or crumpled, clean and dry', previous_contents='No chemical contact known',
+                           answers={'user_confirmed_material':'paper','contamination':'None known','moisture':'Dry'})
+        refresh(record);record.save();record.refresh_from_db()
+        self.assertEqual([idea['id'] for idea in _serialize(record,saved=True)['upcycling_ideas']],['paper_craft'])
+        self.assertEqual(record.condition,'Torn or crumpled, clean and dry')
+
+    def test_torn_paper_state_does_not_bypass_other_material_or_contamination_checks(self):
+        for changes in ({'decision':'hdpe_containers'}, {'condition':'Damaged or cracked'},
+                        {'previous_contents':'Chemical or cleaning product'},
+                        {'answers':{'contamination':'Oil or grease','moisture':'Dry'}},
+                        {'answers':{'contamination':'None known','moisture':'Wet'}}):
+            values=dict(condition='Torn or crumpled, clean and dry',
+                        answers={'contamination':'None known','moisture':'Dry'})
+            values.update(changes)
+            self.assertEqual(scan_ideas(self.record(**values)),[])
+
+    def test_usable_cardboard_and_fabric_scraps_offer_only_piece_projects(self):
+        for label, expected in [('cardboard',['cardboard_craft']), ('fabric_scraps',['fabric_cleaning_cloth','fabric_patchwork'])]:
+            record=self.record(decision=label, model_class=label, condition='Clean dry usable scraps',
+                               answers={'contamination':'None known','moisture':'Dry'})
+            self.assertEqual([idea['id'] for idea in scan_ideas(record)],expected)
+
+    def test_preparation_and_unknown_conditions_do_not_offer_projects_early(self):
+        for changes in ({'condition':'Needs cleaning'}, {'condition':'Not sure'}, {'answers':{'moisture':'Wet'}}):
+            self.assertEqual(scan_ideas(self.record(**changes)),[])

@@ -3,6 +3,8 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View 
 import { contributeIdentification, createManualPrediction, getAssessmentQuestions, imageUrl, selectRecommendation, updatePrediction, type Assessment, type AssessmentQuestion, type Prediction } from './api';
 import { useSuccessAlert } from './SuccessAlertDialog';
 import AssessmentAdvice from './AssessmentAdvice';
+import {materialConditions} from './materialConditions';
+import {materialPreparation} from './materialPreparation';
 
 import { MATERIAL_NAMES } from './detectionPresentation';
 export { MATERIAL_NAMES } from './detectionPresentation';
@@ -92,6 +94,16 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
     setCurrent(result.prediction);onChange(result.prediction);setAnswers({});setCatalog(fromPrediction(result.prediction));setSaved(true);setView('advice');
     // The advice itself is the confirmation: no extra OK tap or unchanged form.
   });
+  const completePreparation=()=>run(async()=>{
+    if(!current)return;
+    const plan=materialPreparation(current);
+    if(!plan || plan.blocked)return;
+    const id=current.id;
+    const result=await updatePrediction(id,{condition:'Clean and dry',answers:{contamination:'None known',moisture:'Dry'}});
+    if(!mounted.current || activeId.current!==id)return;
+    setCurrent(result.prediction);onChange(result.prediction);setAnswers({});
+    setCatalog(fromPrediction(result.prediction));setSaved(true);setView('advice');
+  });
   const saveProject=(id:string,title:string)=>run(async()=>{
     if(!current)return;
     const result=await selectRecommendation(current.id,id);
@@ -116,20 +128,13 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
   const useCombinedCondition=supported;
   const ids=reuse ? catalog.quick_check?.project_question_ids : catalog.quick_check?.sorting_question_ids;
   const questions=catalog.questions.filter(q=>q.id!=='material_confirmation' && q.id!=='paper_surface' &&
-    (q.id!=='previous_contents' || !useCombinedCondition) &&
+    (q.id!=='previous_contents' || !useCombinedCondition || plastic && value('condition')==='Needs cleaning') &&
     (q.id!=='reported_category' || more) && (more || !ids || ids.includes(q.id)));
   const presetsVisible=Boolean(current?.recognition && supported) || questions.some(q=>['condition','contamination','moisture'].includes(q.id)) ||
     (useCombinedCondition && Boolean(ids?.includes('previous_contents')));
-  const otherQuestions=questions.filter(q=>more || !['condition','contamination','moisture'].includes(q.id));
-  const conditionPresets = useCombinedCondition ? [
-    {...CONDITION_PRESETS[0], label:'Clean and dry, with no known chemical contact',
-      values:{...CONDITION_PRESETS[0].values,previous_contents:'No chemical contact known'}},
-    ...CONDITION_PRESETS.slice(1),
-    {label:'Known contact with a chemical or cleaning product', values:{
-      condition:'Moldy or contaminated',contamination:'Chemical contamination',
-      moisture:'Not sure',previous_contents:'Chemical or cleaning product',
-    }},
-  ] : CONDITION_PRESETS;
+  const otherQuestions=questions.filter(q=>!['condition','contamination','moisture'].includes(q.id));
+  const conditionProfile=materialConditions(effectiveLabel);
+  const conditionPresets=conditionProfile?.choices || CONDITION_PRESETS;
   const highConfidence=current?.assessment?.material.status==='model_high_confidence' && !chosen;
   const confirmed=Boolean(highConfidence || current?.assessment?.material.status==='user_selected' && !chosen || chosen && chosen!=='Not sure');
   const materialName=MATERIAL_NAMES[effectiveLabel];
@@ -146,7 +151,7 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
       <Text style={s.body}>Choose a material you know. Manual selection does not count as an AI prediction.</Text>
       {Object.entries(MATERIAL_NAMES).map(([label,name])=><Button key={label} title={name} disabled={busy} onPress={()=>run(async()=>{const result=await createManualPrediction(label);if(mounted.current)onChange(result.prediction);})} />)}
     </>:view==='advice'?<>
-      <AssessmentAdvice prediction={current} saved={saved} busy={busy} onDone={onBack} onRetry={onRetry} onEdit={()=>{setView('check');setReuse(false);}} onReuse={()=>{setReuse(true);setView('check');}} onSaveProject={saveProject} />
+      <AssessmentAdvice prediction={current} saved={saved} busy={busy} onDone={onBack} onRetry={onRetry} onEdit={()=>{setView('check');setReuse(false);}} onReuse={()=>{setReuse(true);setView('check');}} onSaveProject={saveProject} onPreparationComplete={completePreparation} />
       {current.image_url?<Pressable accessibilityRole="button" disabled={busy} onPress={contribute}><Text style={s.source}>{contribution?`Research review: ${contribution} · Withdraw contribution`:'Optional: contribute this image for human research review'}</Text></Pressable>:null}
     </>:<>
       <Text style={s.body}>{reuse?'Only the extra details needed for a reviewed project are shown. You can skip this and keep your sorting advice.':'Check what matters for sorting. It is okay to choose Not sure; we will show a safe next action.'}</Text>
@@ -162,7 +167,7 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
         }} style={[s.choice,chosen===option && s.selected]}><Text style={s.body}>{MATERIAL_NAMES[option] || option}</Text></Pressable>)}</View>:null}
       </View>
       {loading?<Text accessibilityLiveRegion="polite" style={s.small}>Loading the checks for this material…</Text>:loadError?<><Text accessibilityRole="alert" style={s.error}>{loadError}</Text><Button title="Retry material checks" secondary onPress={()=>setReload(old=>old+1)}/></>:<>
-        {presetsVisible?<View style={s.card}><Text style={s.heading}>What condition is it in?</Text><Text style={s.small}>{useCombinedCondition?'Choose the best match. Report known chemical contact even if the item looks clean.':'One choice covers visible residue and wet/dry condition.'}</Text>{conditionPresets.map(preset=><Pressable key={preset.label} accessibilityRole="radio" accessibilityLabel={preset.label} accessibilityState={{checked:Object.entries(preset.values).every(([key,answer])=>value(key)===answer)}} disabled={busy} onPress={()=>setAnswers(old=>({...old,...preset.values}))} style={[s.choice,Object.entries(preset.values).every(([key,answer])=>value(key)===answer) && s.selected]}><Text style={s.body}>{preset.label}</Text></Pressable>)}</View>:null}
+        {presetsVisible?<View style={s.card}><Text style={s.heading}>{conditionProfile?.title || 'What condition is it in?'}</Text><Text style={s.small}>{useCombinedCondition?'Choose the best match. Report known chemical contact even if the item looks clean.':'One choice covers visible residue and wet/dry condition.'}</Text>{conditionPresets.map(preset=><Pressable key={preset.label} accessibilityRole="radio" accessibilityLabel={preset.label} accessibilityState={{checked:Object.entries(preset.values).every(([key,answer])=>value(key)===answer)}} disabled={busy} onPress={()=>setAnswers(old=>({...old,...preset.values}))} style={[s.choice,Object.entries(preset.values).every(([key,answer])=>value(key)===answer) && s.selected]}><Text style={s.body}>{preset.label}</Text></Pressable>)}</View>:null}
         {otherQuestions.map(question=><View key={question.id} style={s.card}><Text style={s.heading}>{question.label}{question.required?'':' (optional)'}</Text>{question.options.map(option=><Pressable key={option} accessibilityRole="radio" accessibilityLabel={`${question.id}: ${option}`} accessibilityState={{checked:value(question.id)===option}} disabled={busy} onPress={()=>setAnswers(old=>({...old,[question.id]:option}))} style={[s.choice,value(question.id)===option && s.selected]}><Text style={s.body}>{question.id==='reported_category'?CATEGORY_NAMES[option] || option:MATERIAL_NAMES[option] || option}</Text></Pressable>)}</View>)}
         {projectOnly?<><Text style={s.heading}>How many items will you use?</Text><TextInput accessibilityLabel="Item quantity" keyboardType="number-pad" value={quantity} onChangeText={setQuantity} placeholder="Enter the actual quantity" style={s.input}/><Text style={s.small}>Enter a whole number of 1 or more for this optional project check.</Text></>:null}
         {confirmed && !catalog.quick_check?.has_sorting_rule && catalog.quick_check?<Text style={s.small}>There is no checked local rule for this material yet. You can view the next action without filling in extra details.</Text>:null}

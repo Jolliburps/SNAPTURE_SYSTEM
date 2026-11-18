@@ -13,7 +13,7 @@ WOOD = ["Known untreated and free of paint, mold and hardware", "Paint, treatmen
 def question_schema(label):
     from .waste_taxonomy import CONTAMINATION, MOISTURE, OTHER_MATERIALS, CATEGORY_NAMES
     fields = [
-        {"id": "condition", "label": "What is the current condition?", "options": CONDITIONS, "required": True},
+        {"id": "condition", "label": "What is the current condition?", "options": CONDITIONS + (["Torn or crumpled, clean and dry"] if label == "paper" else ["Clean dry usable scraps"] if label in {"cardboard", "fabric_scraps"} else []), "required": True},
         {"id": "previous_contents", "label": "What do you know about its previous contents or contact with chemicals?", "options": CONTENTS, "required": True},
     ]
     if label in PLASTICS:

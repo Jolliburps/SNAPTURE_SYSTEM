@@ -4,6 +4,18 @@ import numpy as np
 from PIL import Image, ImageOps
 
 
+def localized_box(metadata):
+    """Return only measured, accepted detector bounds, never crop padding."""
+    if metadata.get('object_source') == 'whole_image_classifier' or metadata.get('detection_filter', {}).get('status') != 'accepted':
+        return None
+    box = metadata.get('localized_box')
+    if not isinstance(box, (list, tuple)) or len(box) != 4:
+        return None
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and 0 <= v <= 1 for v in box):
+        return None
+    return list(box) if box[0] < box[2] and box[1] < box[3] else None
+
+
 def oriented_image(data):
     from io import BytesIO
     with Image.open(BytesIO(data)) as image:
@@ -36,6 +48,7 @@ def frame_bounds(image, frame=None):
 
 
 def quality_report(image, boxes=(), single=False):
+    image = ImageOps.exif_transpose(image).convert('RGB')
     small = image.copy()
     small.thumbnail((640, 640))
     gray = np.asarray(small.convert('L'), dtype=np.float32)
@@ -43,12 +56,18 @@ def quality_report(image, boxes=(), single=False):
     lap = -4*gray[1:-1,1:-1]+gray[:-2,1:-1]+gray[2:,1:-1]+gray[1:-1,:-2]+gray[1:-1,2:]
     sharpness = float(lap.var())
     flags = []
+    if min(image.size) < 160:
+        flags.append({'code':'low_resolution', 'message':'This image is small. Take a higher-resolution photo so material details are visible.'})
+    # A white sheet alone is not evidence of overexposure. Require both a
+    # clipped majority and remaining scene contrast before suggesting a retake.
+    if contrast > 14 and float((gray >= 250).mean()) > .7:
+        flags.append({'code':'overexposed', 'message':'Much of this photo is very bright and may have lost detail. Reduce glare or flash if the item is unclear.'})
     if mean < 48 and float((gray < 60).mean()) > .65:
         flags.append({'code':'dark', 'message':'This photo appears dark. Add light or try flash, then retake it.'})
     elif contrast > 14 and sharpness < 14:
         flags.append({'code':'blur', 'message':'Detail appears soft. Hold the camera steady, tap to focus and retake if the item is unclear.'})
     if single and len(boxes) > 1:
-        flags.append({'code':'multiple_items','message':'Several items were detected. Use mixed-items mode or photograph one item separately.'})
+        flags.append({'code':'multiple_items','message':'Several items were detected. Photograph one main item more closely.'})
     if any(min(box[0],box[1],1-box[2],1-box[3]) < .012 for box in boxes):
         flags.append({'code':'edge_item','message':'A detected item touches the guide edge and may be cut off. Leave a little space around it.'})
     if len(boxes) > 8:
@@ -61,5 +80,5 @@ def quality_report(image, boxes=(), single=False):
         background = outside[:,:-1]
         if background.mean() > .3 and background.any() and edges[background].mean() > .3:
             flags.append({'code':'busy_background','message':'The background has many edges. Try a plainer surface if items were missed or confused.'})
-    return {'version':'heuristics-v1','flags':flags,'metrics':{'brightness':round(mean,1),'contrast':round(contrast,1),'laplacian_variance':round(sharpness,1)},
+    return {'version':'heuristics-v2','flags':flags,'metrics':{'brightness':round(mean,1),'contrast':round(contrast,1),'laplacian_variance':round(sharpness,1)},
             'limitations':'Heuristic checks can miss blur, clutter, hidden objects or cut-off items. No warning is not a guarantee of image quality.'}

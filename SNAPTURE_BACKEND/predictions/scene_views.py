@@ -236,6 +236,7 @@ def scenes(request):
                                    'detection_filter':{'version':scene_detector.FILTER_VERSION,'status':row['detection_status'],
                                                        'reason':row['detection_reason'] if row['detection_status']=='review' else ''},
                                    'object_source':row.get('source', 'model'),
+                                   'localized_box':bx if row['detection_status']=='accepted' and row.get('source')!='whole_image_classifier' else None,
                                    'classification_crop':[crop_box[0]/focused.width,crop_box[1]/focused.height,
                                                           crop_box[2]/focused.width,crop_box[3]/focused.height],
                                    'high_confidence_material':high_confidence_material(row, material) if single and len(rows) == 1 else None,
