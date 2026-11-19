@@ -6,6 +6,9 @@ from .recommendations import build_recommendations
 def scan_ideas(record):
     from predictions.disposal_workflow import special_kind
 
+    from .preparation_history import preparation_block
+    if preparation_block(record):
+        return []
     label = record.decision
     answers = record.answers if isinstance(record.answers, dict) else {}
     confirmed = answers.get('user_confirmed_material') == label
@@ -26,8 +29,10 @@ def scan_ideas(record):
     if record.condition == 'Clean dry usable scraps':
         if label not in {'cardboard', 'fabric_scraps'} or answers.get('contamination') != 'None known' or answers.get('moisture') != 'Dry':
             return []
-    return [
+    from .project_suitability import filter_ideas
+    return filter_ideas(record, [
         {**idea, 'basis':'educational_catalog', 'material':label}
         for idea in build_recommendations(label, record.quantity, record.condition,
                                           record.previous_contents, record.available_materials)
-    ]
+        if not (answers.get('wetness_cause') and label in {'paper','cardboard'}) or idea['id'] in {'paper_craft','cardboard_craft'}
+    ])

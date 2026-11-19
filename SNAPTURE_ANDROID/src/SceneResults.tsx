@@ -4,7 +4,7 @@ import { addSceneRegion, confirmDisposalSelection, getScene, imageUrl, type Imag
 import MarkObjectModal from './MarkObjectModal';
 import DetectionItemCard from './DetectionItemCard';
 import DisposalObjectRow from './DisposalObjectRow';
-import { MATERIAL_NAMES, sceneItemTitle } from './detectionPresentation';
+import { MATERIAL_NAMES, sceneItemTitle, materialExplanation } from './detectionPresentation';
 
 export const GROUP_COLORS: Record<string, string> = { biodegradable: '#247544', recyclable: '#19739c', non_biodegradable: '#715a98', special: '#a24432', review: '#896322' };
 const GROUP_NAMES: Record<string, string> = { biodegradable: 'Biodegradable', recyclable: 'Recyclable / reusable', non_biodegradable: 'Residual', special: 'Special / hazardous', review: 'Unidentified / needs review' };
@@ -193,7 +193,7 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     {!unsupportedOnly && !single && phase==='selection' && uncertainCount?<><Action title={`${showUncertain?'Hide':'Show'} uncertain suggestions (${uncertainCount})`} secondary disabled={confirming} onPress={()=>setShowUncertain(value=>!value)}/><Text style={s.small}>Review-only guesses are not counted as matched objects and are not drawn on the photo.</Text></>:null}
     {!unsupportedOnly && !reviewItem && phase==='selection'?<View pointerEvents={confirming?'none':'auto'}>{[...visibleItems].sort((a,b)=>a.id-b.id).map(item=><View key={item.id} onLayout={event=>{cardY.current[item.id]=event.nativeEvent.layout.y;}}>
       {recommendationItem?.id===item.id?<View style={s.card}>
-        <Text style={s.heading}>{sceneItemTitle(item)}</Text>
+        <Text style={s.heading}>{sceneItemTitle(item)}</Text>{materialExplanation(item.prediction)?<Text style={s.small}>({materialExplanation(item.prediction)})</Text>:null}
         <Text style={s.body}>{highConfidence?'Continue to check its condition.':'Continue to check the suggested material.'}</Text>
       </View>:<DisposalObjectRow item={item} number={numbers.get(item.id)!} color={OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length]} checked={discardIds.includes(item.id)}
         condition={itemConditions[item.id] || 'Not sure'}

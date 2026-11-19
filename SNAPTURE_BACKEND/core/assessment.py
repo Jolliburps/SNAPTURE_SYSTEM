@@ -71,7 +71,9 @@ def assess(record):
         fields.insert(0, {"id": "material_confirmation", "label": "Select a material only if you can identify it. This is your selection, not an AI confirmation.",
                           "options": list(SCOPE_LABELS) + ["Not sure"], "required": True})
     pending = [field["id"] for field in fields if field.get('required', True) and field["id"] != "material_confirmation" and (context.get(field["id"], "") in UNKNOWN or context.get(field["id"]) not in field["options"])]
-    reasons = []
+    from .preparation_history import preparation_block
+    exposure_reason = preparation_block(record)
+    reasons = [exposure_reason] if exposure_reason else []
     if not identified:
         reasons.append("Material identity needs confirmation or the item is unsupported.")
     if record.condition in {"Moldy or contaminated", "Damaged or cracked"}:

@@ -38,3 +38,16 @@ class PreparationPersistenceTests(TestCase):
         record.refresh_from_db()
         self.assertEqual(record.previous_contents,'Chemical or cleaning product')
         self.assertEqual(response.json()['prediction']['upcycling_ideas'],[])
+
+    def test_size_and_count_survive_history_and_filter_projects(self):
+        record=self.record()
+        payload={'quantity':1,'condition':'Clean and dry','answers':{'moisture':'Dry','contamination':'None known','usable_width_cm':'3','usable_height_cm':'3','usable_form':'Usable pieces','wetness_cause':'Clean water'}}
+        response=self.client.patch(f'/api/predictions/{record.id}/',json.dumps(payload),content_type='application/json',**self.auth)
+        self.assertEqual(response.status_code,200)
+        self.assertEqual([idea['id'] for idea in response.json()['prediction']['upcycling_ideas']],['paper_craft'])
+        saved=self.client.get(f'/api/predictions/{record.id}/?history=1',**self.auth).json()['prediction']
+        self.assertEqual(saved['quantity'],1)
+        self.assertEqual(saved['answers']['usable_width_cm'],'3')
+        self.assertEqual([idea['id'] for idea in saved['upcycling_ideas']],['paper_craft'])
+        bad=self.client.patch(f'/api/predictions/{record.id}/',json.dumps({'answers':{'usable_width_cm':'NaN'}}),content_type='application/json',**self.auth)
+        self.assertEqual(bad.status_code,400)

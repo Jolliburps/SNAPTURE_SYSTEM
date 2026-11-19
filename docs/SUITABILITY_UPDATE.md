@@ -1,0 +1,7 @@
+# Material suitability update
+
+Upcycling catalog choices now require user-reported usable dimensions (cm), or container capacity (ml), piece count and condition before display. Intact, firm material is distinguished from usable pieces. Tools are displayed as project requirements, never asked as availability inputs. Measurement answers are saved in the existing scan answers and restored with history; no database migration or model changes.
+
+Prototype project minima live in core/project_suitability.py. They are design assumptions for the current small-project examples, not CESD-reviewed requirements or durability guarantees. Gift-wrap dimensions do not ensure an arbitrary gift will fit. Actual dimensions, shape, strength and destination-specific requirements still need domain review. The generic wood shelf is withheld until a load and construction specification exists. Historical scans retain snapshots; update their material details to recompute ideas. Server-side project selection applies current suitability again.
+
+Preparation and exposure checks are retained. Previously wet paper/cardboard only receives piece-based craft suggestions. Unknown dimensions give no matching catalog ideas, with an option to enter or correct the details. Mixed-size batches must be assessed separately. Physical phone acceptance testing and the previously reported full frontend test failures remain outstanding.

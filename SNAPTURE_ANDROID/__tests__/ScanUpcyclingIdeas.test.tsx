@@ -19,7 +19,6 @@ test('choosing a task saves a project and opens its persistent guide',async()=>{
   let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(()=>{tree=Renderer.create(<ProjectFlowContext.Provider value={open}><ScanUpcyclingIdeas prediction={prediction}/></ProjectFlowContext.Provider>);});
   await press(tree,'Choose task: Gift wrapping');
-  await press(tree,'Confirm project fit');
   expect(startProject).toHaveBeenCalledWith(12,'paper_wrap');
   expect(open).toHaveBeenCalledWith(project);
   await Renderer.act(()=>tree.unmount());
@@ -47,10 +46,9 @@ test('a failed project save keeps the task choices and does not navigate',async(
   let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(()=>{tree=Renderer.create(<ProjectFlowContext.Provider value={open}><ScanUpcyclingIdeas prediction={prediction}/></ProjectFlowContext.Provider>);});
   await press(tree,'Choose task: Gift wrapping');
-  await press(tree,'Confirm project fit');
   expect(open).not.toHaveBeenCalled();
   expect(JSON.stringify(tree.toJSON())).toContain('Connection lost');
-  expect(action(tree,'Confirm project fit').props.disabled).toBe(false);
+  expect(action(tree,'Choose task: Gift wrapping').props.disabled).toBe(false);
   await Renderer.act(()=>tree.unmount());
 });
 

@@ -3,7 +3,7 @@ import {type Prediction} from '../src/api';
 import {MATERIAL_NAMES} from '../src/detectionPresentation';
 
 const item=(label:string,extra:Partial<Prediction>={})=>({id:3,condition:'Needs cleaning',previous_contents:'Water or beverage',
-  answers:{contamination:'None known',moisture:'Wet'},assessment:{material:{label,status:'user_selected'}},...extra} as Prediction);
+  answers:{contamination:'None known',moisture:'Wet',wetness_cause:'Clean water'},assessment:{material:{label,status:'user_selected'}},...extra} as Prediction);
 
 test.each(Object.keys(MATERIAL_NAMES))('confirmed %s has applicable preparation steps',label=>{
   const plan=materialPreparation(item(label));expect(plan?.blocked).toBeUndefined();expect(plan?.steps.length).toBeGreaterThan(1);

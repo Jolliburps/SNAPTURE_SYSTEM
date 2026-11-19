@@ -59,6 +59,9 @@ def _can_change_idea(project):
 
 def _project_choices(record, allow_catalog):
     """Same material, condition and safety gates for starting or changing a task."""
+    from core.preparation_history import preparation_block
+    if preparation_block(record):
+        return []
     refresh(record)
     if record.image_quality.get('automatic_routing'):
         from .item_actions import automatic_route
@@ -83,7 +86,8 @@ def _project_choices(record, allow_catalog):
         allowed = advice(item, prediction, handling(item, prediction))['projects'] if item else []
         allowed_ids = {idea['id'] for idea in allowed}
         choices = [choice for choice in choices if choice['id'] in allowed_ids]
-    return [choice for choice in choices if isinstance(choice, dict) and
+    from core.project_suitability import fit
+    return [choice for choice in choices if isinstance(choice, dict) and fit(record,choice)[0] and
             isinstance(choice.get('steps'), list) and choice['steps'] and
             all(isinstance(step, str) and step.strip() for step in choice['steps'])]
 
@@ -127,6 +131,11 @@ def projects(request):
     )
     if not selected or choice is None:
         return JsonResponse({"detail": "Select a recommendation for this scan before starting a project."}, status=400)
+    from core.project_suitability import fit
+    if choice.get('basis') == 'educational_catalog':
+        suitable, reason = fit(record, choice)
+        if not suitable:
+            return JsonResponse({'detail':reason},status=400)
     steps = choice.get("steps")
     if not isinstance(steps, list) or not steps or any(not isinstance(step, str) or not step.strip() for step in steps):
         return JsonResponse({"detail": "This recommendation has no usable text steps."}, status=400)
@@ -248,6 +257,9 @@ def restart_project(request, project_id):
     record = PredictionRecord.objects.filter(user=request.api_user,pk=project.source_prediction_id).first()
     if record is None:
         return JsonResponse({'detail':'Assess a suitable item again before starting another project.'},status=400)
+    from core.preparation_history import preparation_block
+    if preparation_block(record):
+        return []
     refresh(record)
     choices = record.recommendation_choices
     if project.reference.get('review_level') == 'educational':

@@ -5,7 +5,7 @@ import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import { imageUrl, type SceneItem } from './api';
 import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
 import ItemActionAdvice from './ItemActionAdvice';
-import { sceneItemTitle } from './detectionPresentation';
+import { sceneItemTitle, materialExplanation } from './detectionPresentation';
 
 function CardAction({title,onPress,disabled=false}:{title:string;onPress:()=>void;disabled?:boolean}) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[s.action,disabled && s.disabled]}><Text style={s.actionText}>{title}</Text></Pressable>;
@@ -28,7 +28,7 @@ export default function DetectionItemCard({item,number,category,color,explanatio
     <Pressable accessibilityRole="button" accessibilityLabel={`Select item ${number} card`} accessibilityValue={{text:`${title}. ${category}`}} accessibilityState={{expanded,selected}} accessibilityHint={expanded?'Collapse item details':'Expand classification and sorting details'} onPress={onToggle} style={s.header}>
       <View style={[s.number,{backgroundColor:color}]}><Text style={s.numberText}>{number}</Text></View>
       <View style={s.copy}>
-        <Text style={s.name}>{title}</Text>
+        <Text style={s.name}>{title}</Text>{materialExplanation(item.prediction)?<Text style={s.body}>({materialExplanation(item.prediction)})</Text>:null}
         {assessment?.material.status==='user_selected'?<Text style={s.status}>Selected by you</Text>:null}
         <Text style={[s.category,{color}]}>{item.action_advice?.chosen_action?({keep:'Keep',discard:'Disposal guidance',recover:'Recycle / upcycle'}[item.action_advice.chosen_action]):handling?.title || category}</Text>
         {low?<Text style={s.status}>Unconfirmed suggestion</Text>:null}

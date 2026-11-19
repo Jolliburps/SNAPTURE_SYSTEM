@@ -4,11 +4,12 @@ import { type Prediction } from './api';
 import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
 import PreparationSteps from './PreparationSteps';
 import {materialPreparation,PREPARATION_SOURCES} from './materialPreparation';
-import {materialCategoryName} from './detectionPresentation';
+import {materialCategoryName,materialExplanation} from './detectionPresentation';
 
 export function adviceSummary(prediction: Prediction) {
   const a = prediction.assessment;
   const hazardous = prediction.waste_identifier?.category === 'C' || prediction.previous_contents === 'Chemical or cleaning product';
+  if (['Oil or grease','Chemical or cleaning product','Floodwater, sewage or animal waste','Not sure'].includes(String(prediction.answers?.wetness_cause))) return {title:'Do not reuse this material yet',body:'Drying does not remove the reported contamination or establish suitability. Keep it separate, check appropriate collection guidance, or change the condition if the report was incorrect.',kind:'caution'};
   if (hazardous) return {title:'Keep this item separate',body:'It may need special handling. Do not open, mix, burn or reuse it. Ask your barangay or CESD about collection.',kind:'caution'};
   if (prediction.decision === 'paper' && prediction.condition === 'Torn or crumpled, clean and dry' && prediction.answers?.contamination === 'None known' && prediction.answers?.moisture === 'Dry') return {title:'Reuse the clean paper pieces',body:'Flatten usable pieces for a collage or paper mosaic. Tears and creases do not prevent these crafts. Remove staples and tape; leave out stained or moldy pieces.',kind:'ready'};
   if (prediction.condition === 'Clean dry usable scraps' && prediction.upcycling_ideas?.length) return {title:'Use the suitable pieces',body:'Choose a scrap project above. Leave out damaged portions and check that the remaining pieces fit your design.',kind:'ready'};
@@ -33,7 +34,9 @@ export default function AssessmentAdvice({prediction, saved, onEdit, onDone, onR
   const a = prediction.assessment;
   const canExplore = Boolean(a?.quick_check?.has_reviewed_projects && summary.kind !== 'caution');
   return <>
-    <Text style={s.small}>Item: {materialCategoryName(prediction)}</Text>
+    <Text style={s.small}>Item: {materialCategoryName(prediction)}</Text>{materialExplanation(prediction)?<Text style={s.small}>({materialExplanation(prediction)})</Text>:null}
+    {prediction.answers?.wetness_cause?<Text style={s.small}>Reported exposure: {String(prediction.answers.wetness_cause)}. Drying does not restore original strength; choose a project suited to the remaining usable material.</Text>:null}
+    {!preparation && !prediction.upcycling_ideas?.length && ['Clean and dry','Torn or crumpled, clean and dry','Clean dry usable scraps'].includes(prediction.condition || '')?<View style={s.card}><Text style={s.title}>Check usable size and quantity</Text><Text style={s.body}>No catalog idea matches the saved size, number of pieces and condition yet. Add or correct these details. Smaller batches may fit a smaller craft; strength-dependent projects need intact material.</Text><Pressable accessibilityRole="button" accessibilityLabel="Update usable material details" onPress={onEdit}><Text style={s.link}>Enter size and quantity</Text></Pressable></View>:null}
     {!preparation?<ScanUpcyclingIdeas key={prediction.id} prediction={prediction}/>:null}
     {saved ? <Text accessibilityLiveRegion="polite" style={s.saved}>Your answers are saved. Here is what to do next.</Text> : null}
     <View style={[s.card,summary.kind === 'ready' ? s.ready : s.caution]}>

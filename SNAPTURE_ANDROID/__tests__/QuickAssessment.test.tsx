@@ -136,7 +136,7 @@ test.each(Object.keys(require('../src/detectionPresentation').MATERIAL_NAMES))(
 
 
 test.each([false,true])('wet paper preparation saves the same scan, handles failure=%s and unlocks ideas only after success',async fail=>{
-  const wet={...paper,id:622,condition:'Needs cleaning',answers:{contamination:'None known',moisture:'Wet'},assessment:{...paper.assessment,material:{label:'paper',title:'Paper',status:'user_selected'}}} as unknown as Prediction;
+  const wet={...paper,id:622,condition:'Needs cleaning',answers:{contamination:'None known',moisture:'Wet',wetness_cause:'Clean water'},assessment:{...paper.assessment,material:{label:'paper',title:'Paper',status:'user_selected'}}} as unknown as Prediction;
   const prepared={...wet,condition:'Clean and dry',answers:{contamination:'None known',moisture:'Dry'},upcycling_ideas:[{id:'paper_gift',title:'Gift wrapping',summary:'Reuse dry paper.',materials:['Paper'],steps:['Inspect.','Fold.']}]} as Prediction;
   if(fail)(updatePrediction as jest.Mock).mockRejectedValue(new Error('Connection interrupted'));
   else (updatePrediction as jest.Mock).mockResolvedValue({prediction:prepared});

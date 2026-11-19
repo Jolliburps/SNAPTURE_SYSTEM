@@ -48,6 +48,8 @@ export type Recommendation = {
   summary: string;
   materials: string[];
   steps: string[];
+  fit_note?: string;
+  fit_basis?: string;
   quantity_note?: string;
   safety_note?: string;
 };

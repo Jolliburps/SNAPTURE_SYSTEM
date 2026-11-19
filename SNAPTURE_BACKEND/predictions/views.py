@@ -325,7 +325,7 @@ def prediction_detail(request, prediction_id):
         answers = payload.get("answers", {})
         if not isinstance(answers, dict):
             return JsonResponse({"detail": "answers must be a JSON object."}, status=400)
-        allowed_keys = {"material_confirmation", "resin_mark", "wood_treatment", "follow_up", "paper_surface", "contamination", "moisture", "other_material", "reported_category"}
+        allowed_keys = {"material_confirmation", "resin_mark", "wood_treatment", "follow_up", "paper_surface", "contamination", "moisture", "other_material", "reported_category", "wetness_cause", "usable_width_cm", "usable_height_cm", "usable_capacity_ml", "usable_form"}
         incoming = {key: value for key, value in answers.items() if key in allowed_keys}
         if any(not isinstance(value, str) for value in incoming.values()):
             return JsonResponse({"detail": "Confirmation answers must be strings."}, status=400)
@@ -335,6 +335,17 @@ def prediction_detail(request, prediction_id):
         for key, options in {'reported_category': CATEGORY_NAMES, 'other_material': OTHER_MATERIALS, 'contamination': CONTAMINATION, 'moisture': MOISTURE}.items():
             if key in incoming and incoming[key] not in options:
                 return JsonResponse({'detail': 'Choose a listed assessment answer.'}, status=400)
+        from core.preparation_history import CAUSES
+        if 'wetness_cause' in incoming and incoming['wetness_cause'] not in CAUSES:
+            return JsonResponse({'detail':'Choose a listed cause of wetness or dirt.'},status=400)
+        from core.project_suitability import number
+        for key in ['usable_width_cm','usable_height_cm','usable_capacity_ml']:
+            if key in incoming and incoming[key] and number(incoming[key]) is None:
+                return JsonResponse({'detail':'Enter a positive finite measurement.'},status=400)
+        if incoming.get('usable_form') not in {None,'Intact','Usable pieces','Not sure'}:
+            return JsonResponse({'detail':'Choose the usable material form.'},status=400)
+        if 'quantity' in payload and (quantity is None or quantity < 1 or quantity > 100000):
+            return JsonResponse({'detail':'Enter a whole quantity from 1 to 100000.'},status=400)
         merged = {**record.answers, **incoming}
         merged.pop("user_confirmed_material", None)
         old_decision = record.decision

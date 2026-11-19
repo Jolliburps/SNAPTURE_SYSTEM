@@ -6,7 +6,7 @@ import AssessmentAdvice from './AssessmentAdvice';
 import {materialConditions} from './materialConditions';
 import {materialPreparation} from './materialPreparation';
 
-import { MATERIAL_NAMES } from './detectionPresentation';
+import { MATERIAL_NAMES, MATERIAL_EXPLANATIONS } from './detectionPresentation';
 export { MATERIAL_NAMES } from './detectionPresentation';
 
 const CONDITION_PRESETS = [
@@ -15,6 +15,7 @@ const CONDITION_PRESETS = [
   {label:'Food residue needs cleaning',values:{condition:'Needs cleaning',contamination:'Food residue that can be removed',moisture:'Not sure'}},
   {label:'Damaged, stained or not sure',values:{condition:'Not sure',contamination:'Not sure',moisture:'Not sure'}},
 ];
+const materialOption=(label:string)=>`${MATERIAL_NAMES[label] || label}${MATERIAL_EXPLANATIONS[label]?` (${MATERIAL_EXPLANATIONS[label]})`:''}`;
 const CATEGORY_NAMES:Record<string,string>={A:'Biodegradable',B1:'Recyclable / reusable',B2:'Residual',C:'Special / hazardous',UNIDENTIFIED:'Not sure / unidentified'};
 type Catalog={questions:AssessmentQuestion[];quick_check?:Assessment['quick_check']};
 function fromPrediction(value:Prediction|null):Catalog { return {questions:value?.assessment?.questions || [],quick_check:value?.assessment?.quick_check}; }
@@ -83,10 +84,11 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
       setError('Confirm the suggested category, change the material, or choose Not sure before continuing.');
       return;
     }
+    if(needsPreparation && !value('wetness_cause')){setError('Choose what made this item wet or dirty.');return;}
     const id=current.id;
     const {condition,previous_contents,...context}=answers;
     const fields:Record<string,unknown>={answers:context};
-    if(reuse && quantity.trim())fields.quantity=quantity.trim();
+    if(quantity.trim())fields.quantity=quantity.trim();
     if(condition!==undefined)fields.condition=condition;
     if(previous_contents!==undefined)fields.previous_contents=previous_contents;
     const result=await updatePrediction(id,fields);
@@ -132,7 +134,7 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
     (q.id!=='reported_category' || more) && (more || !ids || ids.includes(q.id)));
   const presetsVisible=Boolean(current?.recognition && supported) || questions.some(q=>['condition','contamination','moisture'].includes(q.id)) ||
     (useCombinedCondition && Boolean(ids?.includes('previous_contents')));
-  const otherQuestions=questions.filter(q=>!['condition','contamination','moisture'].includes(q.id));
+  const otherQuestions=questions.filter(q=>!['condition','contamination','moisture','available_materials','quantity'].includes(q.id));
   const conditionProfile=materialConditions(effectiveLabel);
   const conditionPresets=conditionProfile?.choices || CONDITION_PRESETS;
   const highConfidence=current?.assessment?.material.status==='model_high_confidence' && !chosen;
@@ -142,6 +144,8 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
   const suggestedName=suggestedLabel ? MATERIAL_NAMES[suggestedLabel] : undefined;
   const projectOnly=reuse && catalog.quick_check?.has_reviewed_projects;
   const quantityValid=/^[1-9]\d{0,5}$/.test(quantity.trim());
+  const needsPreparation=value('condition')==='Needs cleaning' || value('moisture')==='Wet';
+  const exposureChoices=['Clean water','Food or drink','Oil or grease','Chemical or cleaning product','Floodwater, sewage or animal waste','Not sure'];
   const readyForSorting=!current?.recognition || (confirmed && Boolean(value('condition')));
   return <ScrollView key={`${current?.id || 'manual'}-${view}`} contentContainerStyle={s.page} keyboardShouldPersistTaps="handled">
     <Button title="Back" onPress={onBack} secondary />
@@ -149,7 +153,7 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
     {error?<Text accessibilityRole="alert" style={s.error}>{error}</Text>:null}
     {!current?<>
       <Text style={s.body}>Choose a material you know. Manual selection does not count as an AI prediction.</Text>
-      {Object.entries(MATERIAL_NAMES).map(([label,name])=><Button key={label} title={name} disabled={busy} onPress={()=>run(async()=>{const result=await createManualPrediction(label);if(mounted.current)onChange(result.prediction);})} />)}
+      {Object.entries(MATERIAL_NAMES).map(([label,name])=><Button key={label} title={materialOption(label)} disabled={busy} onPress={()=>run(async()=>{const result=await createManualPrediction(label);if(mounted.current)onChange(result.prediction);})} />)}
     </>:view==='advice'?<>
       <AssessmentAdvice prediction={current} saved={saved} busy={busy} onDone={onBack} onRetry={onRetry} onEdit={()=>{setView('check');setReuse(false);}} onReuse={()=>{setReuse(true);setView('check');}} onSaveProject={saveProject} onPreparationComplete={completePreparation} />
       {current.image_url?<Pressable accessibilityRole="button" disabled={busy} onPress={contribute}><Text style={s.source}>{contribution?`Research review: ${contribution} · Withdraw contribution`:'Optional: contribute this image for human research review'}</Text></Pressable>:null}
@@ -158,18 +162,29 @@ export default function AssessmentScreen({prediction,onChange,onBack,onSaved,onR
       {current.image_url?<Image source={{uri:imageUrl(current.image_url)}} resizeMode="contain" style={s.itemImage} accessibilityLabel="Item being assessed"/>:null}
       <View style={s.card}>
         <Text style={s.heading}>{materialName || suggestedName || 'What is this material?'}</Text>
+        {MATERIAL_EXPLANATIONS[effectiveLabel] || suggestedLabel && MATERIAL_EXPLANATIONS[suggestedLabel]?<Text style={s.small}>({MATERIAL_EXPLANATIONS[effectiveLabel] || MATERIAL_EXPLANATIONS[suggestedLabel!]})</Text>:null}
         <Text style={s.small}>{highConfidence?'High confidence camera match. Change the material if it looks wrong.':confirmed?'Your selected material, not AI verification.':'Suggested category — review needed. Confirm it or choose Not sure.'}</Text>
         {!confirmed && materialName && !plastic && !changeMaterial?<Button title={`Yes, this is ${materialName}`} disabled={busy} onPress={()=>setAnswers(old=>({...old,material_confirmation:effectiveLabel}))}/>:null}
         {!materialName && suggestedLabel && suggestedName && !changeMaterial?<Button title={`Yes, this is ${suggestedName}`} disabled={busy} onPress={()=>{setAnswers({material_confirmation:suggestedLabel});setQuantity('');setMore(false);}}/>:null}
         <Button title={changeMaterial?'Keep this selection':'Change material / not sure'} secondary disabled={busy} onPress={()=>setChangeMaterial(old=>!old)}/>
-        {changeMaterial || (!materialName && !suggestedName)?<View>{[...Object.keys(MATERIAL_NAMES),'Not sure'].map(option=><Pressable key={option} accessibilityRole="radio" accessibilityLabel={MATERIAL_NAMES[option] || option} accessibilityState={{checked:chosen===option}} disabled={busy} onPress={()=>{
+        {changeMaterial || (!materialName && !suggestedName)?<View>{[...Object.keys(MATERIAL_NAMES),'Not sure'].map(option=><Pressable key={option} accessibilityRole="radio" accessibilityLabel={MATERIAL_NAMES[option] || option} accessibilityHint={MATERIAL_EXPLANATIONS[option]} accessibilityState={{checked:chosen===option}} disabled={busy} onPress={()=>{
           setAnswers({material_confirmation:option});setQuantity('');setChangeMaterial(false);setMore(false);
-        }} style={[s.choice,chosen===option && s.selected]}><Text style={s.body}>{MATERIAL_NAMES[option] || option}</Text></Pressable>)}</View>:null}
+        }} style={[s.choice,chosen===option && s.selected]}><Text style={s.body}>{materialOption(option)}</Text></Pressable>)}</View>:null}
       </View>
       {loading?<Text accessibilityLiveRegion="polite" style={s.small}>Loading the checks for this material…</Text>:loadError?<><Text accessibilityRole="alert" style={s.error}>{loadError}</Text><Button title="Retry material checks" secondary onPress={()=>setReload(old=>old+1)}/></>:<>
         {presetsVisible?<View style={s.card}><Text style={s.heading}>{conditionProfile?.title || 'What condition is it in?'}</Text><Text style={s.small}>{useCombinedCondition?'Choose the best match. Report known chemical contact even if the item looks clean.':'One choice covers visible residue and wet/dry condition.'}</Text>{conditionPresets.map(preset=><Pressable key={preset.label} accessibilityRole="radio" accessibilityLabel={preset.label} accessibilityState={{checked:Object.entries(preset.values).every(([key,answer])=>value(key)===answer)}} disabled={busy} onPress={()=>setAnswers(old=>({...old,...preset.values}))} style={[s.choice,Object.entries(preset.values).every(([key,answer])=>value(key)===answer) && s.selected]}><Text style={s.body}>{preset.label}</Text></Pressable>)}</View>:null}
+        {needsPreparation?<View style={s.card}><Text style={s.heading}>What made this item wet or dirty?</Text><Text style={s.small}>Drying alone does not remove contamination. Choose Not sure if you do not know.</Text>{exposureChoices.map(option=><Pressable key={option} accessibilityRole="radio" accessibilityLabel={`Wetness cause: ${option}`} accessibilityState={{checked:value('wetness_cause')===option}} disabled={busy} onPress={()=>setAnswers(old=>({...old,wetness_cause:option}))} style={[s.choice,value('wetness_cause')===option && s.selected]}><Text style={s.body}>{option}</Text></Pressable>)}</View>:null}
         {otherQuestions.map(question=><View key={question.id} style={s.card}><Text style={s.heading}>{question.label}{question.required?'':' (optional)'}</Text>{question.options.map(option=><Pressable key={option} accessibilityRole="radio" accessibilityLabel={`${question.id}: ${option}`} accessibilityState={{checked:value(question.id)===option}} disabled={busy} onPress={()=>setAnswers(old=>({...old,[question.id]:option}))} style={[s.choice,value(question.id)===option && s.selected]}><Text style={s.body}>{question.id==='reported_category'?CATEGORY_NAMES[option] || option:MATERIAL_NAMES[option] || option}</Text></Pressable>)}</View>)}
-        {projectOnly?<><Text style={s.heading}>How many items will you use?</Text><TextInput accessibilityLabel="Item quantity" keyboardType="number-pad" value={quantity} onChangeText={setQuantity} placeholder="Enter the actual quantity" style={s.input}/><Text style={s.small}>Enter a whole number of 1 or more for this optional project check.</Text></>:null}
+        {supported && confirmed && !needsPreparation && ['Clean and dry','Torn or crumpled, clean and dry','Clean dry usable scraps'].includes(value('condition'))?<View style={s.card}>
+          <Text style={s.heading}>How much usable material do you have?</Text>
+          <Text style={s.small}>Measure usable portions only. Count pieces meeting these dimensions; exclude stains, weak layers and unusable damage. For mixed sizes, assess a separate batch. Measurements are your report, not camera measurements.</Text>
+          <Text style={s.body}>Number of usable pieces or containers</Text>
+          <TextInput accessibilityLabel="Item quantity" keyboardType="number-pad" value={quantity} onChangeText={setQuantity} placeholder="e.g. 2" style={s.input}/>
+          {(plastic?['usable_capacity_ml']:['usable_width_cm','usable_height_cm']).map(key=><View key={key}><Text style={s.body}>{key==='usable_capacity_ml'?'Capacity per container (ml)':key==='usable_width_cm'?'Usable width per piece (cm)':'Usable length per piece (cm)'}</Text><TextInput accessibilityLabel={key} keyboardType="decimal-pad" value={value(key)} placeholder="Measure or leave blank if unknown" onChangeText={text=>setAnswers(old=>({...old,[key]:text}))} style={s.input}/></View>)}
+          <Text style={s.body}>Usable shape and strength</Text>
+          {['Intact','Usable pieces','Not sure'].map(option=><Button key={option} title={option} secondary={value('usable_form')!==option} disabled={busy} onPress={()=>setAnswers(old=>({...old,usable_form:option}))}/>)}
+          <Text style={s.small}>Intact means whole and firm enough for its intended use. Not sure will not unlock projects that require intact material.</Text>
+        </View>:null}
         {confirmed && !catalog.quick_check?.has_sorting_rule && catalog.quick_check?<Text style={s.small}>There is no checked local rule for this material yet. You can view the next action without filling in extra details.</Text>:null}
       </>}
       {readyForSorting?<Button title={busy?'Checking…':reuse?'Show suitable ideas':'Show sorting advice'} disabled={busy || loading || Boolean(loadError) || Boolean(projectOnly && !quantityValid)} onPress={save}/>:null}

@@ -56,6 +56,12 @@ def serialize_scene(scene, saved=False):
     for row in cleaned:
         item = stored[row['source_id']]
         prediction = _serialize(item.prediction, saved=saved)
+        # Prediction focus bounds are relative to the analyzed guide crop.
+        # Scene photos use full-image coordinates, already stored on SceneItem.
+        # Never render crop-relative bounds directly over the original photo.
+        if prediction.get('focus_box'):
+            prediction['focus_box'] = list(item.box)
+
         group = ('special' if 'battery' in item.name else 'biodegradable' if 'food' in item.name or 'leaf' in item.name else 'non_biodegradable' if 'wrapper' in item.name or 'fabric' in item.name else 'recyclable' if any(word in item.name for word in ('bottle','container','cardboard','paper','can')) else 'review')
         route = routing(prediction)
         verified = bool(prediction['assessment'] and prediction['assessment']['material']['status']=='user_selected')
@@ -192,6 +198,8 @@ def scenes(request):
         if single:
             selected = select_region(rows, truncated, privacy.get('faces_blurred', 0) > 0)
             if selected:
+                from .object_extent import refine_sheet
+                selected = refine_sheet(focused, selected)
                 rows = [selected]
                 if selected['detection_status'] != 'accepted': single_status = 'needs_review'
             else:

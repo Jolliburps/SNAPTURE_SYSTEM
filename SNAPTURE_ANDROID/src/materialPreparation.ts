@@ -9,7 +9,11 @@ export function materialPreparation(p:Prediction):PreparationPlan|null{
   if(p.condition!=='Needs cleaning' && p.answers?.moisture!=='Wet')return null;
   const label=p.assessment?.material.label;
   const contamination=p.answers?.contamination;
+  const cause=p.answers?.wetness_cause;
   const block=(reason:string):PreparationPlan=>({title:'Check before preparing',steps:[],blocked:reason});
+  if(!cause)return block('Choose what made this item wet or dirty in Change condition before preparing it.');
+  if(['Oil or grease','Chemical or cleaning product','Floodwater, sewage or animal waste','Not sure'].includes(String(cause)))return block('Drying does not remove this reported contamination or establish suitability. Keep it separate and check appropriate handling guidance.');
+  if(cause==='Food or drink' && !['pete_bottles','hdpe_containers','coconut_shells'].includes(String(label)))return block('Food or drink exposure is not covered by the preparation guide for this material. Change condition or check appropriate handling guidance.');
   if(p.waste_identifier?.category==='C' || p.previous_contents==='Chemical or cleaning product' ||
     ['Chemical contamination','Oil or grease','Mold or biological waste'].includes(String(contamination))){
     return block('Keep this item separate. Cleaning does not make chemical, mold or grease contamination safe for these projects. Ask your barangay or CESD about handling.');
