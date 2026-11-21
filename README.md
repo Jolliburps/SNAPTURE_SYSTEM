@@ -1,6 +1,6 @@
 # SNAPTURE System
 
-SNAPTURE combines a React Native Android app, a Django API, and a TensorFlow image classifier. Its assessment separates material identity, segregation guidance and project eligibility. The active scope is seven materials, including coconut shells. The existing seven-output checkpoint is experimental and needs independent field evaluation. See [implementation and content provenance](FEASIBILITY_IMPLEMENTATION.md) and [reviewed-data/free training workflow](SNAPTURE_ML/FREE_TRAINING.md).
+SNAPTURE combines a React Native Android app, a Django API, and a TensorFlow image classifier. Its assessment separates material identity, segregation guidance and project eligibility. The active scope is seven materials, including coconut shells. The existing seven-output checkpoint is experimental and needs independent field evaluation. See [implementation and content provenance](documentation/project/guides/FEASIBILITY_IMPLEMENTATION.md) and [reviewed-data/free training workflow](SNAPTURE_ML/FREE_TRAINING.md).
 
 ## Project structure
 
@@ -133,3 +133,7 @@ git push origin main
 ```
 
 Do not commit `.env`, keystores, `node_modules`, virtual environments, local databases, uploaded media, datasets, caches, or build output. Review `.gitignore` and `git status` before every commit.
+
+## File organization
+
+See the [project file map](documentation/FILE_MAP.md) for guides, reports, application folders and recovery backups.

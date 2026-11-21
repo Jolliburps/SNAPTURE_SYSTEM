@@ -138,6 +138,14 @@ Get-Content .\SNAPTURE_BACKEND\.env | ForEach-Object {
 
 Continue only if both commands succeed. `No migrations to apply` is normal. Run this block in each new backend terminal so it uses the intended database/settings.
 
+For a new database, publish the built-in scan recommendations after migration. Run this from the repository root using the same backend settings.
+
+```powershell
+& .\SNAPTURE_ML\.venv\Scripts\python.exe .\SNAPTURE_BACKEND\manage.py publish_catalog_requirements
+```
+
+The command preserves existing customized project requirements.
+
 ### B. Accounts/import - first installation only
 
 **Already have an imported CESD owner on this computer? Skip to C.** Your existing mobile/admin data was integrated previously; daily startup does not require importing it again or creating another owner.
@@ -150,7 +158,7 @@ On another installation with an old `SNAPTURE_ADMIN/.local/admin.sqlite3`, impor
 & .\SNAPTURE_ML\.venv\Scripts\python.exe .\SNAPTURE_BACKEND\manage.py import_legacy_cesd --apply
 ```
 
-Apply creates backups under `SNAPTURE_BACKEND/.local/backups`, preserves the source, and remaps imported IDs. Conflicting accounts/owners stop the import. See [the integration notes](SHARED_BACKEND_INTEGRATION.md#existing-local-data) for limitations.
+Apply creates backups under `SNAPTURE_BACKEND/.local/backups`, preserves the source, and remaps imported IDs. Conflicting accounts/owners stop the import. See [the integration notes](documentation/project/guides/SHARED_BACKEND_INTEGRATION.md#existing-local-data) for limitations.
 
 For a genuinely new database with no imported/existing CESD owner:
 

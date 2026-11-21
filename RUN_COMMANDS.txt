@@ -1,0 +1,315 @@
+SNAPTURE - WINDOWS POWERSHELL RUN COMMANDS
+Project: C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES
+
+Run each terminal block in its own PowerShell window. Keep terminals 1, 2 and
+4 running. Terminal 4 is optional when you only need the Android app.
+If you move the project, update the Set-Location paths below.
+
+
+SCAN MODEL (updated 20 November 2026)
+New camera flow: size/quantity before photos; condition and project verification
+remain pending until a validated visual assessor is configured. See
+documentation/project/CAMERA_FLOW_IMPLEMENTATION.md for gates and integration.
+New scans use TensorFlow/MobileNetV2 on the camera guide area, one material
+per photo. OWL-ViT inference is disabled; historical scans are preserved.
+The existing seven-class experimental checkpoint remains active. Adding dataset
+images does not update it: review labels, train/evaluate, then select a checkpoint.
+The classifier cannot independently identify glass, metal, chemicals or hidden
+contamination. Report previous contents and contamination during screening.
+Low-confidence predictions remain Unsupported; confidence threshold is 70%.
+
+Daily order: T1 backend -> T2 Metro -> T3 phone -> T4 web admin (optional).
+First time on another computer: complete SETUP below before daily startup.
+Local Python/configuration setup was completed on 18 November 2026; see the
+current setup status below. T1 now uses a script to avoid damaged multiline pastes.
+
+Addresses:
+  Shared Django API: http://127.0.0.1:8000
+  Metro:             http://127.0.0.1:8081
+  CESD web admin:    http://127.0.0.1:5173
+
+Use one backend on port 8000. Both Android and web admin share that backend.
+Keep the Android API_BASE_URL as http://127.0.0.1:8000/api for ADB forwarding.
+
+=======================================================================
+TERMINAL 1 - SHARED BACKEND (DAILY STARTUP)
+=======================================================================
+Copy this block into the first PowerShell window:
+
+# BEGIN T1
+
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES'
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\START_BACKEND.ps1
+
+# END T1
+
+Leave this running. On the computer, check:
+  http://127.0.0.1:8000/api/materials/
+  http://127.0.0.1:8000/api/health/
+The health response should report model.loaded = true before testing scans.
+A 404 at / or /api/ alone does not mean the backend is down.
+
+If Django reports unapplied migrations, stop T1 with Ctrl+C, run the DATABASE
+SETUP command below, then start T1 again. Daily T1 never applies migrations.
+
+=======================================================================
+TERMINAL 2 - METRO FOR THE ANDROID DEBUG APP
+=======================================================================
+
+# BEGIN T2
+
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES\SNAPTURE_ANDROID'
+if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
+    $snaptureNode = Join-Path (Split-Path -Parent (Get-Location).Path) '.tools\node-setup-v22.23.5\node-v22.23.5-win-x64'
+    if (-not (Test-Path -LiteralPath (Join-Path $snaptureNode 'npm.cmd'))) {
+        throw 'Node.js and npm were not found. Install Node.js or restore the portable Node folder in .tools.'
+    }
+    $env:Path = "$snaptureNode;$env:Path"
+}
+$snaptureMetroRunning = $false
+try {
+    $snaptureMetro = Invoke-WebRequest 'http://127.0.0.1:8081/status' -UseBasicParsing -TimeoutSec 3
+    $snaptureMetroRunning = $snaptureMetro.StatusCode -eq 200 -and [Text.Encoding]::UTF8.GetString($snaptureMetro.RawContentStream.ToArray()).Trim() -eq 'packager-status:running'
+} catch {}
+if ($snaptureMetroRunning) { Write-Output 'Metro is already running on port 8081.' } else { npm.cmd start }
+
+# END T2
+
+If this command starts Metro, leave the terminal running on port 8081. An installed release app does not need Metro.
+
+=======================================================================
+TERMINAL 3 - CONNECT THE PHONE AND OPEN THE INSTALLED APP
+=======================================================================
+WIRELESS - DAILY CONNECTION (ALREADY PAIRED)
+
+Keep T1/backend and T2/Metro running. Connect the PC and phone to the same Wi-Fi.
+On the phone, enable Developer options > Wireless debugging. Try this first:
+
+# BEGIN WIRELESS_AUTO
+
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SNAPTURE_ANDROID\reconnect_phone.ps1 -DebugBuild
+
+# END WIRELESS_AUTO
+
+This uses one ready phone directly. If none is connected, the helper checks
+wireless discovery and connects when exactly one phone endpoint is advertised.
+Pairing is still required on first use. It does not guess between multiple phones.
+If no phone can be discovered, use the manual connection block below. Do not
+reuse old addresses from terminal history: Wi-Fi changes can change the IP.
+
+WIRELESS - MANUAL CONNECTION IF AUTOMATIC DISCOVERY HAS NOT CONNECTED
+
+Use "IP address & Port" from the MAIN Wireless debugging screen, not the port
+inside the pairing-code dialog. Read the CURRENT value from your phone.
+
+# BEGIN WIRELESS_CONNECT
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES'
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+$phoneAddress = Read-Host 'Connection IP:port from the MAIN Wireless debugging screen'
+& $adb connect $phoneAddress
+if ($LASTEXITCODE -ne 0) { throw 'Wireless connection failed. Check the phone connection address and Wi-Fi.' }
+& $adb -s $phoneAddress get-state
+if ($LASTEXITCODE -ne 0) { throw 'Phone is not connected at that address. Recheck its current MAIN-screen IP:port before continuing.' }
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SNAPTURE_ANDROID\reconnect_phone.ps1 -Serial $phoneAddress -DebugBuild
+# END WIRELESS_CONNECT
+
+This restores API port 8000 and Metro port 8081, then opens the installed app.
+Keep Wireless debugging enabled. Use the phone's current connection address
+each time; its port may change. Your Android API_BASE_URL stays unchanged.
+
+WIRELESS - FIRST-TIME PAIRING ONLY (ANDROID 11 OR NEWER)
+
+Skip this when the phone is already paired with this PC. On the phone choose
+Wireless debugging > Pair device with pairing code, then run this block:
+
+# BEGIN WIRELESS_PAIR
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES'
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+$pairingAddress = Read-Host 'Pairing IP:port shown in the phone pairing-code dialog'
+& $adb pair $pairingAddress
+if ($LASTEXITCODE -ne 0) { throw 'Pairing failed. Reopen the phone pairing-code dialog and retry.' }
+# END WIRELESS_PAIR
+
+Enter the pairing code directly at ADB's terminal prompt. Then return to the
+phone's MAIN Wireless debugging screen and run WIRELESS_CONNECT above using
+its connection IP:port. The pairing and connection ports are different.
+
+USB ALTERNATIVE
+
+Connect the USB data cable, unlock the phone, enable USB debugging and accept
+the authorization prompt. The helper restores forwarding and opens the existing
+SNAPTURE installation. It does not install the app or clear its data.
+
+If the helper reports "Phone connected, but SNAPTURE is not installed", the
+debugging connection is working but neither supported app package is present:
+  com.snapture_android
+  com.snapture_android.prototype
+An APK must be installed separately before the helper can open the app. The
+helper now checks both variants without treating an absent package as a failed
+phone connection. It does not automatically install/reinstall or reset anything.
+
+# BEGIN T3
+
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SNAPTURE_ANDROID\reconnect_phone.ps1 -DebugBuild
+
+# END T3
+
+For an installed release app, omit -DebugBuild; T2 is then unnecessary.
+With multiple phones, append -Serial followed by the exact authorized serial.
+If no app is installed, follow RUNBOOK.md section 4 for the separate build/install
+procedure after setting up the JDK and Android SDK.
+
+Manual alternative for a phone or an already-running emulator (ADB on PATH):
+
+# BEGIN MANUAL_DEVICE
+adb devices -l
+$targetSerial = Read-Host 'Exact serial shown above with status device'
+adb -s $targetSerial reverse tcp:8000 tcp:8000
+adb -s $targetSerial reverse tcp:8081 tcp:8081
+adb -s $targetSerial reverse --list
+# END MANUAL_DEVICE
+
+Then open SNAPTURE on the phone/emulator. Repeat forwarding after reconnecting.
+Wireless commands are directly above. More details: RUNBOOK.md section 4, option C.
+
+=======================================================================
+TERMINAL 4 - CESD WEB ADMIN (OPTIONAL)
+=======================================================================
+Start T1 first. The web panel uses the same backend and database as Android.
+
+# BEGIN T4
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES\SNAPTURE_ADMIN'
+Remove-Item Env:SNAPTURE_API_PROXY -ErrorAction SilentlyContinue
+npm.cmd run dev
+# END T4
+
+Open http://127.0.0.1:5173 and sign in with an existing CESD owner/staff account.
+Do not also run npm.cmd run dev:api while T1 is running.
+
+=======================================================================
+BUILD THE ANDROID DEBUG APK FROM THIS PROJECT
+=======================================================================
+The project build helper locates the user-installed JDK 17 and Android SDK,
+adds Node to its process PATH and builds for an ARM64 phone by default.
+Keep the backend/Metro running for the installed debug app, not for compilation.
+
+# BEGIN BUILD_ANDROID
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\BUILD_ANDROID.ps1
+# END BUILD_ANDROID
+
+Output: SNAPTURE_ANDROID\android\app\build\outputs\apk\debug\app-debug.apk
+This helper builds only; it does not install, uninstall or clear phone data.
+For a later explicitly requested installation, use the currently connected ADB
+serial and this APK. Wireless connection IP:port may change between sessions.
+
+=======================================================================
+SETUP - ONLY WHEN THE TOOLS/DEPENDENCIES ARE NOT READY
+=======================================================================
+Install Python 3.13 with the py launcher, Node.js 22.x (22.12 or newer), and
+Android Studio/platform-tools. Native Android builds also require JDK 17,
+SDK Platform/Build Tools 37, NDK 29.0.14206865 and CMake 3.31.6 (see RUNBOOK.md).
+Use your actual SDK/JDK paths; make adb available through PATH or Android tooling.
+
+Initial checkout status on 18 November 2026: no project Python .venv or backend
+.env; Android node_modules existed; admin node_modules did not. py, node,
+npm.cmd and adb were not found on the terminal PATH.
+Python 3.13.17 and the local .venv/.env have since been prepared for this copy.
+All 11 pinned Python requirements are installed; pip check and Django check pass.
+The previously absent local SQLite database was initialized using the existing
+migrations. No accounts or scan/project history were restored from another copy.
+The launcher uses the project's Python directly, so it does not require py on PATH.
+Node/npm/Android tools still need normal installation/configuration for T2-T4.
+
+Check the tools after opening a new PowerShell window:
+
+# BEGIN TOOL_CHECK
+py -3.13 --version
+node --version
+npm.cmd --version
+adb version
+# END TOOL_CHECK
+
+From the root, create/install only the dependencies that are missing:
+
+# BEGIN DEPENDENCIES
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES'
+if (-not (Test-Path -LiteralPath '.\SNAPTURE_ML\.venv\Scripts\python.exe')) {
+    py -3.13 -m venv .\SNAPTURE_ML\.venv
+    if ($LASTEXITCODE -ne 0) { throw 'Python environment creation failed.' }
+}
+& .\SNAPTURE_ML\.venv\Scripts\python.exe -m pip install -r .\SNAPTURE_ML\requirements.txt
+if ($LASTEXITCODE -ne 0) { throw 'Python dependency installation failed.' }
+if (-not (Test-Path -LiteralPath '.\SNAPTURE_ANDROID\node_modules')) {
+    npm.cmd ci --prefix .\SNAPTURE_ANDROID
+    if ($LASTEXITCODE -ne 0) { throw 'Android dependency installation failed.' }
+}
+if (-not (Test-Path -LiteralPath '.\SNAPTURE_ADMIN\node_modules')) {
+    npm.cmd ci --prefix .\SNAPTURE_ADMIN
+    if ($LASTEXITCODE -ne 0) { throw 'Admin dependency installation failed.' }
+}
+# END DEPENDENCIES
+
+Create the backend configuration only if absent, then edit it:
+
+# BEGIN CONFIG
+Set-Location 'C:\Users\Jude\Desktop\SNAPTURE_SYSTEM-NewFEATURES'
+if (-not (Test-Path -LiteralPath '.\SNAPTURE_BACKEND\.env')) {
+    Copy-Item -LiteralPath '.\SNAPTURE_BACKEND\.env.example' -Destination '.\SNAPTURE_BACKEND\.env'
+}
+notepad .\SNAPTURE_BACKEND\.env
+# END CONFIG
+
+In .env, set DJANGO_SECRET_KEY to your own private value and use:
+  DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+  SNAPTURE_DB_ENGINE=sqlite
+  TZ=Asia/Manila
+  ADMIN_WEB_URL=http://127.0.0.1:5173
+  DJANGO_CSRF_TRUSTED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+Keep existing private settings. Leave optional unused values blank.
+START_BACKEND.ps1 loads this file into its process; Django does not load it
+automatically. Configuration values and the generated secret are not displayed.
+
+DATABASE SETUP - first installation or actual pending migrations only:
+With T1 stopped, run from the project root. The launcher loads .env for this too:
+
+# BEGIN DATABASE_SETUP
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\START_BACKEND.ps1 -MigrateOnly
+# END DATABASE_SETUP
+
+Use the existing database/accounts when available. For a genuinely new CESD
+installation with no legacy admin data/owner, see RUNBOOK.md section 3B for
+create_cesd_owner; existing legacy admin data needs the documented import first.
+Mobile residents register in the app. No default credentials are supplied.
+
+MODEL FILES IN A DOWNLOADED COPY:
+UPDATE 18 November 2026: The three model binaries in THIS workspace have now
+been restored and verified against their original Git LFS SHA-256 digests.
+CPU detector dependencies are installed; live backend health reports model.loaded
+= true. Seventeen privacy/classification tests pass. See
+documentation/DETECTION_RUNTIME_RESTORED_2026-11-18.md for details. The following
+warning still applies to a fresh source ZIP that contains LFS placeholders:
+
+This workspace has no .git metadata. Fresh source ZIPs may contain Git LFS
+pointers rather than model bytes. Scanning/privacy needs the actual model
+binaries as documented in the ML guides. Obtain the project with its LFS assets
+or the team's matching model files before expecting camera analysis to work.
+Do not treat temporary test packages or a successful /api/materials/ response
+as proof that all model files are ready.
+
+=======================================================================
+STOPPING / MORE HELP
+=======================================================================
+Press Ctrl+C in the backend, Metro and web-admin terminals to stop them.
+Keep the database, media and phone app data to retain saved scans/projects.
+Detailed setup and troubleshooting: RUNBOOK.md
+Photo update and known verification gaps:
+  documentation/UPCYCLING_TEXT_AND_PHOTO_UPDATE.md
+
+This text file is a command reference. START_BACKEND.ps1 is its executable backend
+launcher. Use -CheckOnly to validate configuration without starting the server,
+or -MigrateOnly to apply existing migrations explicitly. No host/port changes or
+app installation are part of this setup. See the current setup status above.

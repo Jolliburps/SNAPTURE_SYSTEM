@@ -121,6 +121,8 @@ class ModelPredictor:
 
         self.labels = [label.strip() for label in labels]
         self.config = self._load_config()
+        if "classes" in self.config and self.config["classes"] != self.labels:
+            raise ValueError("Model configuration classes must match labels.json in training order.")
         self.image_size = self._read_image_size()
         self.confidence_threshold = _environment_float(
             "SNAPTURE_CONFIDENCE_THRESHOLD",

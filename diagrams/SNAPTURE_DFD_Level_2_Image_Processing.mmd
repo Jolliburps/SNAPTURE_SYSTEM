@@ -1,0 +1,50 @@
+flowchart TD
+  user["E1 Resident"]
+  image["Camera capture or gallery image"]
+  request["Scene request with request_id and optional crop guide"]
+  validate(["2.1 Validate image, request, size and format"])
+  orient(["2.2 Apply EXIF orientation, RGB conversion and crop handling"])
+  quality(["2.3 Estimate light, blur, edge detail, clutter and possible multiplicity"])
+  redact(["2.4 Attempt local face redaction for retained scene image"])
+  store[("D7 Local media files\nprivacy-safe scene and prediction files")]
+  scene[("D2 ScanScene metadata and status")]
+  detector(["3.1 Generate scene proposals with configured local OWL-ViT"])
+  gate(["3.2 Filter weak, duplicate, conflicting and non-waste proposals"])
+  crop(["3.3 Crop each proposal for material classification"])
+  classifier(["4.1 Classify crop with active MobileNetV2 Keras checkpoint"])
+  reject{"4.2 Supported class and confidence threshold passed?"}
+  unknown(["Return unknown_unsupported and request a clearer or supported item"])
+  accepted(["Create supported category decision; keep resin subtypes unconfirmed unless independently verified"])
+  records[("D2 SceneItem and PredictionRecord\nlinked detection and classification snapshot")]
+  fallback(["Fallback: whole-photo classifier can return a material result if scene detection is unavailable; no detected-object localization is claimed"])
+  response["Scene JSON response to mobile app\nboxes, names, scores, classification, warnings and quality"]
+  legacy["Alternate legacy endpoint: /api/predictions/create/\nsingle-image classifier, not the App.tsx primary scan route"]
+  config[("D8 Local model artifacts\nOWL-ViT configuration, Keras model, labels and active pointer")]
+  yolo["Optional YOLO ONNX adapter\nDisabled in checked-in detection_config.json; no active compatible checkpoint"]
+
+  user --> image --> request --> validate
+  validate -->|"valid image"| orient --> quality --> redact
+  validate -->|"invalid request or image"| response
+  redact -->|"redaction succeeds"| store
+  redact -->|"retention fails: do not retain scene image"| scene
+  quality -->|"quality and frame metadata"| scene
+  validate -->|"scene status and request id"| scene
+  orient -->|"prepared scene image"| detector
+  config --> detector
+  detector -->|"boxes, labels and proposal scores"| gate
+  gate -->|"zero usable objects or detector error"| fallback
+  gate -->|"one or more object crops"| crop --> classifier
+  config --> classifier
+  classifier --> reject
+  reject -->|"no / low confidence / unsupported"| unknown --> records
+  reject -->|"yes"| accepted --> records
+  fallback -->|"whole-photo prediction, marked as fallback"| classifier
+  yolo -. "inactive alternative" .-> detector
+  records --> response
+  scene --> response
+  store -->|"authorized media reference"| response
+  response --> user
+  legacy -. "separate API path" .-> classifier
+
+  note["Threshold interpretation: the scene proposal filter (0.28) is not calibrated accuracy. The active candidate classifier threshold is 0.80, not a guarantee of correctness. Candidate model config marks training_data_verified=false and verified_classes empty. Image-quality heuristics do not detect cleanliness, contamination or damage."]:::note
+  classDef note fill:#fff8dc,stroke:#9b7b2f,color:#333

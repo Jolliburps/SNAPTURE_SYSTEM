@@ -1,0 +1,410 @@
+// SNAPTURE database ERD | inspected working-tree implementation, 2026-11-17
+// DBML types are logical Django field types. Django's SQLite representation
+// (or optional MySQL deployment) may use different physical column types.
+// Included: application-owned tables and auth_user as the identity root.
+// Excluded: Django auth join tables, permissions, sessions, content types,
+// admin log, and migration bookkeeping.
+
+Table auth_user {
+  id bigint [pk, increment, note: 'Django authentication identity; application foreign keys target this table.']
+  username varchar(150) [not null, unique]
+  first_name varchar(150) [not null]
+  last_name varchar(150) [not null]
+  email varchar(254) [not null]
+  password varchar(128) [not null, note: 'Django password hash, never a plaintext password.']
+  last_login datetime [null]
+  is_active boolean [not null]
+  is_staff boolean [not null]
+  is_superuser boolean [not null]
+  date_joined datetime [not null]
+}
+
+Table accounts_profile {
+  id bigint [pk, increment]
+  user_id bigint [not null, unique]
+  role varchar(20) [not null]
+  display_name varchar(120) [not null]
+  barangay varchar(120) [not null, note: 'Free text; there is no normalized Barangay table.']
+  profile_picture varchar(100) [null, note: 'Relative file path in MEDIA_ROOT.']
+  created_at datetime [not null]
+}
+
+Table accounts_apitoken {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  token_hash varchar(64) [not null, unique]
+  created_at datetime [not null]
+  last_used_at datetime [null]
+}
+
+Table cesd_staffaccess {
+  id bigint [pk, increment]
+  user_id bigint [not null, unique]
+  access varchar(10) [not null, note: 'staff or owner']
+  department varchar(120) [not null]
+  Note: 'Conditional unique constraint permits at most one row with access=owner.'
+}
+
+Table cesd_policy {
+  id bigint [pk, increment]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  updated_by_id bigint [not null]
+  published_at datetime [null]
+  title varchar(160) [not null]
+  category varchar(120) [not null]
+  effective_date date [not null]
+  description text [not null]
+  content text [not null]
+  status varchar(20) [not null]
+  attachment varchar(100) [not null, note: 'Relative file path in MEDIA_ROOT; may be empty.']
+}
+
+Table cesd_material {
+  id bigint [pk, increment]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  updated_by_id bigint [not null]
+  published_at datetime [null]
+  title varchar(160) [not null]
+  category varchar(120) [not null]
+  description text [not null]
+  material_type varchar(20) [not null]
+  status varchar(20) [not null]
+  attachment varchar(100) [not null, note: 'Relative file path in MEDIA_ROOT.']
+}
+
+Table cesd_schedule {
+  id bigint [pk, increment]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  updated_by_id bigint [not null]
+  waste_type varchar(20) [not null]
+  barangay varchar(120) [not null, note: 'Free text, not a Barangay foreign key.']
+  collection_date date [not null]
+  start_time time [not null]
+  end_time time [not null]
+  notes text [not null]
+  status varchar(20) [not null]
+}
+
+Table cesd_announcement {
+  id bigint [pk, increment]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  updated_by_id bigint [not null]
+  published_at datetime [null]
+  title varchar(160) [not null]
+  category varchar(120) [not null]
+  description text [not null]
+  status varchar(20) [not null]
+}
+
+Table cesd_legacyimport {
+  id bigint [pk, increment]
+  source varchar(64) [not null]
+  model varchar(100) [not null]
+  source_id bigint [not null]
+  target_id bigint [not null]
+  Indexes {
+    (source, model, source_id) [unique]
+  }
+}
+
+Table cesd_activity {
+  id bigint [pk, increment]
+  actor_id bigint [not null]
+  action varchar(80) [not null]
+  record_type varchar(40) [not null]
+  record_id varchar(40) [not null, note: 'Polymorphic reference stored as text; no foreign key is enforced.']
+  record_label varchar(180) [not null]
+  timestamp datetime [not null]
+}
+
+Table core_guidance {
+  id bigint [pk, increment]
+  key varchar(120) [not null]
+  version int [not null]
+  kind varchar(20) [not null, note: 'segregation, project, or information']
+  material varchar(100) [not null]
+  title varchar(160) [not null]
+  category varchar(120) [not null]
+  summary text [not null]
+  instructions json [not null]
+  materials json [not null]
+  requirements json [not null, note: 'Rule criteria such as condition, type, measurements, and other user answers.']
+  minimum_quantity int [not null]
+  material_type varchar(120) [not null]
+  difficulty varchar(20) [not null]
+  reference_image varchar(200) [not null]
+  warnings text [not null]
+  source text [not null]
+  review_note text [not null]
+  state varchar(20) [not null]
+  review_level varchar(20) [not null]
+  reviewed_by_id bigint [null]
+  reviewed_at datetime [null]
+  published_at datetime [null]
+  content_digest varchar(64) [not null]
+  Indexes {
+    (key, version) [unique]
+  }
+  Note: 'Versioned guidance catalogue. Projects are Guidance rows with kind=project; there is no separate Project or Requirement table.'
+}
+
+Table core_collectionnotice {
+  id bigint [pk, increment]
+  barangay varchar(120) [not null]
+  title varchar(160) [not null]
+  collection_date date [not null]
+  description text [not null]
+  guidance_id bigint [not null]
+  published boolean [not null]
+  published_at datetime [null]
+  published_digest varchar(64) [not null]
+}
+
+Table datasets_customlabelgroup {
+  id bigint [pk, increment]
+  normalized_name varchar(120) [not null, unique]
+  display_name varchar(120) [not null]
+  merged_into_id bigint [null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table datasets_customlabelalias {
+  id bigint [pk, increment]
+  normalized_name varchar(120) [not null, unique]
+  group_id bigint [not null]
+}
+
+Table datasets_datasetimage {
+  id bigint [pk, increment]
+  label varchar(80) [not null]
+  image varchar(100) [not null, note: 'Relative image path in MEDIA_ROOT.']
+  review_status varchar(20) [not null]
+  notes text [not null]
+  uploaded_by_id bigint [null]
+  created_at datetime [not null]
+  reviewed_at datetime [null]
+  predicted_label varchar(80) [not null]
+  verified_label varchar(80) [not null]
+  corrected_name varchar(120) [not null]
+  custom_group_id bigint [null]
+  source_prediction_id bigint [null, unique]
+  source_type varchar(24) [not null]
+  provenance json [not null]
+  sha256 varchar(64) [not null]
+  consented_at datetime [null]
+  consent_withdrawn_at datetime [null]
+  rights_confirmed boolean [not null]
+  quality_confirmed boolean [not null]
+  included boolean [not null]
+  export_kind varchar(12) [not null]
+  reviewed_by_id bigint [null]
+  request_key varchar(80) [not null]
+  updated_at datetime [not null]
+  deleted_at datetime [null]
+  deleted_by_id bigint [null]
+  Note: 'Export gates require reviewed label, inclusion, consent, rights, quality, and reviewer. Conditional uniqueness is (uploaded_by_id, request_key) only when request_key is not empty.'
+}
+
+Table datasets_datasetaudit {
+  id bigint [pk, increment]
+  image_id bigint [null]
+  group_id bigint [null]
+  actor_id bigint [null]
+  action varchar(40) [not null]
+  before json [not null]
+  after json [not null]
+  created_at datetime [not null]
+}
+
+Table datasets_datasetexport {
+  id bigint [pk, increment]
+  version uuid [not null, unique]
+  manifest json [not null]
+  created_by_id bigint [null]
+  created_at datetime [not null]
+}
+
+Table evaluations_evaluationrun {
+  id bigint [pk, increment]
+  name varchar(160) [not null]
+  split varchar(12) [not null]
+  dataset_version varchar(120) [not null]
+  protocol text [not null]
+  separation_notes text [not null]
+  held_out_confirmed boolean [not null]
+  created_by_id bigint [not null]
+  created_at datetime [not null]
+  protocol_locked_at datetime [null]
+  frozen_at datetime [null]
+  frozen_report json [not null]
+}
+
+Table evaluations_evaluationcase {
+  id bigint [pk, increment]
+  run_id bigint [not null]
+  reference_id varchar(120) [not null]
+  group_id varchar(120) [not null]
+  source_prediction_id bigint [null]
+  snapshot json [not null]
+  snapshot_digest varchar(64) [not null]
+  reference_revision int [not null]
+  captured_at datetime [null]
+  expected_material varchar(100) [not null]
+  expected_routes json [not null]
+  requires_review boolean [null]
+  project_eligible boolean [null]
+  route_unsafe boolean [null]
+  reference_source text [not null]
+  reviewer_qualification text [not null]
+  review_notes text [not null]
+  reviewed_by_id bigint [null]
+  reviewed_at datetime [null]
+  Indexes {
+    (run_id, reference_id) [unique]
+  }
+}
+
+Table evaluations_recommendationjudgment {
+  id bigint [pk, increment]
+  case_id bigint [not null]
+  recommendation_id varchar(160) [not null]
+  case_revision int [not null]
+  material_suitability varchar(8) [not null]
+  condition_suitability varchar(8) [not null]
+  safety varchar(8) [not null]
+  instruction_correctness varchar(8) [not null]
+  practicality varchar(8) [not null]
+  local_applicability varchar(8) [not null]
+  unsafe boolean [null]
+  reviewer_qualification text [not null]
+  notes text [not null]
+  reviewed_by_id bigint [not null]
+  reviewed_at datetime [not null]
+  Indexes {
+    (case_id, recommendation_id) [unique]
+  }
+}
+
+Table predictions_predictionrecord {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  image varchar(100) [null, note: 'Relative image path in MEDIA_ROOT; blank when not retained.']
+  model_class varchar(100) [not null]
+  decision varchar(100) [not null]
+  title varchar(160) [not null]
+  confidence float [not null]
+  threshold float [not null]
+  model_version varchar(120) [not null]
+  quantity int [null]
+  condition varchar(120) [not null]
+  previous_contents varchar(160) [not null]
+  available_materials json [not null]
+  answers json [not null]
+  recommendation_choices json [not null]
+  selected_recommendation varchar(160) [not null]
+  assessment json [not null]
+  input_method varchar(20) [not null]
+  image_quality json [not null]
+  created_at datetime [not null]
+  Note: 'Classification and recommendation outputs are persisted as JSON snapshots here; no standalone Recommendation table exists.'
+}
+
+Table predictions_scanscene {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  request_id varchar(80) [not null]
+  image varchar(100) [not null, note: 'Privacy-safe image path in MEDIA_ROOT.']
+  width int [not null]
+  height int [not null]
+  frame json [not null]
+  quality json [not null]
+  status varchar(20) [not null]
+  error text [not null]
+  truncated boolean [not null]
+  created_at datetime [not null]
+  Indexes {
+    (user_id, request_id) [unique]
+  }
+}
+
+Table predictions_sceneitem {
+  id bigint [pk, increment]
+  scene_id bigint [not null]
+  box json [not null]
+  name varchar(120) [not null]
+  score float [not null]
+  prediction_id bigint [null, unique]
+}
+
+Table predictions_userproject {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  source_prediction_id bigint [null]
+  recommendation_id varchar(160) [not null]
+  title varchar(160) [not null]
+  material varchar(160) [not null]
+  summary text [not null]
+  materials json [not null]
+  steps json [not null]
+  safety_note text [not null]
+  reference json [not null]
+  completed_steps json [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  Indexes {
+    (user_id, source_prediction_id, recommendation_id) [unique]
+  }
+  Note: 'Snapshots selected project instructions and step progress when the resident starts a recommendation.'
+}
+
+Table predictions_identificationreview {
+  id bigint [pk, increment]
+  prediction_id bigint [not null, unique]
+  snapshot json [not null]
+  status varchar(20) [not null]
+  reviewer_id bigint [null]
+  review_notes text [not null]
+  reviewed_at datetime [null]
+  consented_at datetime [not null]
+}
+
+Ref: accounts_profile.user_id - auth_user.id
+Ref: accounts_apitoken.user_id > auth_user.id
+Ref: cesd_staffaccess.user_id - auth_user.id
+Ref: cesd_policy.updated_by_id > auth_user.id
+Ref: cesd_material.updated_by_id > auth_user.id
+Ref: cesd_schedule.updated_by_id > auth_user.id
+Ref: cesd_announcement.updated_by_id > auth_user.id
+Ref: cesd_activity.actor_id > auth_user.id
+Ref: core_guidance.reviewed_by_id > auth_user.id
+Ref: core_collectionnotice.guidance_id > core_guidance.id
+Ref: datasets_customlabelgroup.merged_into_id > datasets_customlabelgroup.id
+Ref: datasets_customlabelalias.group_id > datasets_customlabelgroup.id
+Ref: datasets_datasetimage.uploaded_by_id > auth_user.id
+Ref: datasets_datasetimage.custom_group_id > datasets_customlabelgroup.id
+Ref: datasets_datasetimage.source_prediction_id - predictions_predictionrecord.id
+Ref: datasets_datasetimage.reviewed_by_id > auth_user.id
+Ref: datasets_datasetimage.deleted_by_id > auth_user.id
+Ref: datasets_datasetaudit.image_id > datasets_datasetimage.id
+Ref: datasets_datasetaudit.group_id > datasets_customlabelgroup.id
+Ref: datasets_datasetaudit.actor_id > auth_user.id
+Ref: datasets_datasetexport.created_by_id > auth_user.id
+Ref: evaluations_evaluationrun.created_by_id > auth_user.id
+Ref: evaluations_evaluationcase.run_id > evaluations_evaluationrun.id
+Ref: evaluations_evaluationcase.source_prediction_id > predictions_predictionrecord.id
+Ref: evaluations_evaluationcase.reviewed_by_id > auth_user.id
+Ref: evaluations_recommendationjudgment.case_id > evaluations_evaluationcase.id
+Ref: evaluations_recommendationjudgment.reviewed_by_id > auth_user.id
+Ref: predictions_predictionrecord.user_id > auth_user.id
+Ref: predictions_scanscene.user_id > auth_user.id
+Ref: predictions_sceneitem.scene_id > predictions_scanscene.id
+Ref: predictions_sceneitem.prediction_id - predictions_predictionrecord.id
+Ref: predictions_userproject.user_id > auth_user.id
+Ref: predictions_userproject.source_prediction_id > predictions_predictionrecord.id
+Ref: predictions_identificationreview.prediction_id - predictions_predictionrecord.id
+Ref: predictions_identificationreview.reviewer_id > auth_user.id
