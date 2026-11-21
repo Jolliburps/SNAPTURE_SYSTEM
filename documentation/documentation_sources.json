@@ -1,0 +1,234 @@
+{
+  "generated_date": "2026-10-26",
+  "source_count": 38,
+  "sources": [
+    {
+      "original_path": "ADMIN_AND_FILE_NOTIFICATIONS.md",
+      "current_path": "documentation/guides/ADMIN_AND_FILE_NOTIFICATIONS.md",
+      "original_sha256": "126290358033e4eac01763817aa23b7ca2210367303cb8ba36c5d9c2d44309fa",
+      "incorporated_topics": "9\u201310 web-only access and file publishing"
+    },
+    {
+      "original_path": "CESD_ADOPTION.md",
+      "current_path": "documentation/history/CESD_ADOPTION.md",
+      "original_sha256": "19cba5e1aafd0044d2407c5b913391e5bb5ea15b7db6f9837d57622676750dd3",
+      "incorporated_topics": "10 source adoption and provenance limits"
+    },
+    {
+      "original_path": "DASHBOARD_AND_NOTIFICATIONS.md",
+      "current_path": "documentation/guides/DASHBOARD_AND_NOTIFICATIONS.md",
+      "original_sha256": "151ced0e757b6710db22722de3b2b3d3eb46511b33d694ae61a7f8c802c4dab8",
+      "incorporated_topics": "4 and 10 Home, calendar and bell"
+    },
+    {
+      "original_path": "EVALUATION_SCORECARDS.md",
+      "current_path": "documentation/history/EVALUATION_SCORECARDS.md",
+      "original_sha256": "28b32eb804b92aff343e144d1f221cd015c0702ce84e706e38b2265ab600464a",
+      "incorporated_topics": "8 research protocols, three independent scorecards"
+    },
+    {
+      "original_path": "FEASIBILITY_IMPLEMENTATION.md",
+      "current_path": "documentation/history/FEASIBILITY_IMPLEMENTATION.md",
+      "original_sha256": "c0d0fab368c41dbd2b30ff518a50680720d3c77763b246f75506dfd02039a6b0",
+      "incorporated_topics": "1, 7 and 10 historical scope and source review"
+    },
+    {
+      "original_path": "GUIDE_AND_DETECTION_REFINEMENTS.md",
+      "current_path": "documentation/history/GUIDE_AND_DETECTION_REFINEMENTS.md",
+      "original_sha256": "b4ab51033d90a9c41759500b26c11046eef63e2df8c0030cc40109e757d9f8ca",
+      "incorporated_topics": "7 project guide, detection filtering and safeguards"
+    },
+    {
+      "original_path": "README.md",
+      "current_path": "README.md",
+      "original_sha256": "53bdb1eec81748b5be4705ab7d30dfc9bfb77d40cd869f54685b892655a293b5",
+      "incorporated_topics": "1\u20133 overview and installation, superseded duplication"
+    },
+    {
+      "original_path": "RUNBOOK.md",
+      "current_path": "RUNBOOK.md",
+      "original_sha256": "6bf65331cabe31d5f1de8b636b87860885b913e2f1e31d928774dc58ca461ccd",
+      "incorporated_topics": "2\u20133, 6, 11\u201312 detailed operations and maintenance"
+    },
+    {
+      "original_path": "SHARED_BACKEND_INTEGRATION.md",
+      "current_path": "documentation/history/SHARED_BACKEND_INTEGRATION.md",
+      "original_sha256": "135d44ac88ae93597307a40814b2c224f163a87e796efffb641c7aa3d9734f6d",
+      "incorporated_topics": "5\u20136, 9 shared storage, import and permissions"
+    },
+    {
+      "original_path": "UX_CAMERA_AND_SORTING.md",
+      "current_path": "documentation/history/UX_CAMERA_AND_SORTING.md",
+      "original_sha256": "df4d6a0bccf357bef118139feeeceddb4d951219e768b3e039432b933e455090",
+      "incorporated_topics": "7 historical camera design and detector setup"
+    },
+    {
+      "original_path": "research/AUTOMATIC_MATERIAL_ROUTING_20261025.md",
+      "current_path": "research/AUTOMATIC_MATERIAL_ROUTING_20261025.md",
+      "original_sha256": "72301233164d0397663fd7f0b78d71a9191e05948a0019a4dfbb043be96b2617",
+      "incorporated_topics": "7 automatic routing and confirmation gates"
+    },
+    {
+      "original_path": "research/DETAILED_SCAN_RECOMMENDATIONS.md",
+      "current_path": "research/DETAILED_SCAN_RECOMMENDATIONS.md",
+      "original_sha256": "366367e784e775d988b4472da06abc162946e30c303cc11b635916036060be1c",
+      "incorporated_topics": "7 detailed advice and historical snapshots"
+    },
+    {
+      "original_path": "research/DETECTION_FILTER_FIX_20261025.md",
+      "current_path": "research/DETECTION_FILTER_FIX_20261025.md",
+      "original_sha256": "0ac1964f450ee1dbbef1361c075785c3f691ed139e4dcc435d1ead7d683f4528",
+      "incorporated_topics": "7 one-pass inference and textile review policy"
+    },
+    {
+      "original_path": "research/DISPOSAL_INTENT_WORKFLOW.md",
+      "current_path": "research/DISPOSAL_INTENT_WORKFLOW.md",
+      "original_sha256": "26ba1fd1046cbf22bd3e37698f71c403f0e4e09e016e9108c8c330869fc6b42c",
+      "incorporated_topics": "1 and 7 restored coconut scope, selection and snapshots"
+    },
+    {
+      "original_path": "research/FRAMED_SINGLE_ITEM_CAPTURE_20261026.md",
+      "current_path": "research/FRAMED_SINGLE_ITEM_CAPTURE_20261026.md",
+      "original_sha256": "7e5699947010bf8099b43b09fce2d0be7403bbe4084c5635ddd36636dfdb95ae",
+      "incorporated_topics": "7 current camera ROI and single-item rejection"
+    },
+    {
+      "original_path": "research/GITHUB_UPLOAD_SCOPE_20261026.md",
+      "current_path": "research/GITHUB_UPLOAD_SCOPE_20261026.md",
+      "original_sha256": "cdb249bc83eb118cdf06bee3a690c4450ab26e99ff2f0d3233b5c05dc073ea69",
+      "incorporated_topics": "12 Git boundaries and local-only resources"
+    },
+    {
+      "original_path": "research/ITEM_ACTIONS_IMPLEMENTATION_20261025.md",
+      "current_path": "research/ITEM_ACTIONS_IMPLEMENTATION_20261025.md",
+      "original_sha256": "2182b6cbd2e13e362157a346d1ae4ddd89fedcf157db9c86d2dcd1aaae19cbe0",
+      "incorporated_topics": "7 action snapshots, confirmations and special handling"
+    },
+    {
+      "original_path": "research/KAGGLE_AND_DATASET_AUDIT.md",
+      "current_path": "research/KAGGLE_AND_DATASET_AUDIT.md",
+      "original_sha256": "fe3a33287f429c1b39380be7250065a5a4428649c1926be97babd586904e0195",
+      "incorporated_topics": "8 source labels, deduplication and annotation holds"
+    },
+    {
+      "original_path": "research/LOW_FRICTION_ASSESSMENT.md",
+      "current_path": "research/LOW_FRICTION_ASSESSMENT.md",
+      "original_sha256": "a40c51d36b885d41e5d0f52c1cff303206b9eae2eff713b787978bd201b85143",
+      "incorporated_topics": "7 focused questions, saved answers and review state"
+    },
+    {
+      "original_path": "research/PHOTO_PRIVACY_AND_LEARN.md",
+      "current_path": "research/PHOTO_PRIVACY_AND_LEARN.md",
+      "original_sha256": "c0dc3a2b7816134c339aa4c53a317299ab4fded992ade82a9e74c6625e32cf5b",
+      "incorporated_topics": "4, 7 and 12 superseded preview/navigation; privacy"
+    },
+    {
+      "original_path": "research/PROJECT_IDEA_CHANGE_20261025.md",
+      "current_path": "research/PROJECT_IDEA_CHANGE_20261025.md",
+      "original_sha256": "9266d9587827c4dcbadd192fba6838975e012702714a0cf88502da5ffa43dd02",
+      "incorporated_topics": "7 saved-progress locks and original-item identity"
+    },
+    {
+      "original_path": "research/PUBLIC_DATA_ACQUISITION.md",
+      "current_path": "research/PUBLIC_DATA_ACQUISITION.md",
+      "original_sha256": "0c9a695fca1227dc0c9619806e6396126d52ab00410d88cdfc95af08f60363f4",
+      "incorporated_topics": "8 official sources, checksums and licensing"
+    },
+    {
+      "original_path": "research/RESTORED_SCAN_IDEAS_20261026.md",
+      "current_path": "research/RESTORED_SCAN_IDEAS_20261026.md",
+      "original_sha256": "c9120845f6656b55b073233aab235a56bb5ede6a8e926723ff810af4dcf34ede",
+      "incorporated_topics": "7 framed material-only idea eligibility"
+    },
+    {
+      "original_path": "research/THREE_PANEL_CONNECTION_20261026.md",
+      "current_path": "research/THREE_PANEL_CONNECTION_20261026.md",
+      "original_sha256": "7067439d72b764b08f170cb121812cc0b371bb368ddbd45edba0834e94441328",
+      "incorporated_topics": "5\u20136, 9 shared sessions, admin and SQLite transactions"
+    },
+    {
+      "original_path": "research/WASTE_IDENTIFIER_PLAN.md",
+      "current_path": "research/WASTE_IDENTIFIER_PLAN.md",
+      "original_sha256": "d37c0a56155f01963e4ed21798cb97d52edcd15225866c18558c9ad53ebc3173",
+      "incorporated_topics": "7\u20138 research taxonomy, held-out validation and limitations"
+    },
+    {
+      "original_path": "SNAPTURE_ADMIN/README.md",
+      "current_path": "SNAPTURE_ADMIN/README.md",
+      "original_sha256": "d8745b1c7528dccfe42bbe7d4b2dbbf6d9195d2fa4b544bd6774bbcae2c897a5",
+      "incorporated_topics": "2\u20133, 5\u20136, 9\u201311 web setup, import, permissions and tests"
+    },
+    {
+      "original_path": "SNAPTURE_ANDROID/README.md",
+      "current_path": "SNAPTURE_ANDROID/README.md",
+      "original_sha256": "758491fea8ef11eb37541b0f77820da59d334f8dc9eebc9a318c352e605bc876",
+      "incorporated_topics": "3\u20134 and 7 mobile workflow and native development"
+    },
+    {
+      "original_path": "SNAPTURE_BACKEND/README.md",
+      "current_path": "SNAPTURE_BACKEND/README.md",
+      "original_sha256": "c7adc2505391fe804a9cce5d7af98ab7a02c607f033570ee6d77db0f71497abb",
+      "incorporated_topics": "5\u20137 and 11 shared API, database and diagnostics"
+    },
+    {
+      "original_path": "SNAPTURE_ML/DATASET_POLICY.md",
+      "current_path": "SNAPTURE_ML/DATASET_POLICY.md",
+      "original_sha256": "1dd6b156657d48ae251e883252baa8e18eb6db4cdeab175776fad44b05799b5d",
+      "incorporated_topics": "8 review policy; six-material scope superseded"
+    },
+    {
+      "original_path": "SNAPTURE_ML/DATA_REVIEW_2026-10-06.md",
+      "current_path": "SNAPTURE_ML/DATA_REVIEW_2026-10-06.md",
+      "original_sha256": "f93cc6b9d4618dc304908a2f57b422a685d74f148a9fe1dfd6299fcf7e41cae1",
+      "incorporated_topics": "8 historical labels, quarantine and experimental metrics"
+    },
+    {
+      "original_path": "SNAPTURE_ML/DRIVE_PROTOTYPE_EVALUATION_2026-10-06.md",
+      "current_path": "SNAPTURE_ML/DRIVE_PROTOTYPE_EVALUATION_2026-10-06.md",
+      "original_sha256": "34c599610ef159b3927b2686520903ea366660e49e5bfd637a6017a54a1273af",
+      "incorporated_topics": "8 separate Drive experiment and unreliable split metrics"
+    },
+    {
+      "original_path": "SNAPTURE_ML/FREE_TRAINING.md",
+      "current_path": "SNAPTURE_ML/FREE_TRAINING.md",
+      "original_sha256": "1e7a48bd2c496ede4d0369450115ceb8d44935321c20ab2218b0251f11856cb7",
+      "incorporated_topics": "8 historical optional Colab and reviewed grouping workflow"
+    },
+    {
+      "original_path": "SNAPTURE_ML/README.md",
+      "current_path": "SNAPTURE_ML/README.md",
+      "original_sha256": "c6d879c19dec3e096d9098d8dd5bfae608bb10e07c36696301cd27ae700aa2d3",
+      "incorporated_topics": "2, 7\u20138 inference, dataset and compatibility entry points"
+    },
+    {
+      "original_path": "SNAPTURE_ML/data/DATASET_INDEX.md",
+      "current_path": "SNAPTURE_ML/data/DATASET_INDEX.md",
+      "original_sha256": "5308de885619110da784483c56f14020cc3f8cb2bce3b32c93f8e890f77c5fc1",
+      "incorporated_topics": "8 historical reference counts and annotation preservation"
+    },
+    {
+      "original_path": "SNAPTURE_ML/data/README.md",
+      "current_path": "SNAPTURE_ML/data/README.md",
+      "original_sha256": "2f8788b0200f045ed3320a78677246593abbaef3ec82a63b4232f159393853df",
+      "incorporated_topics": "8 recoverable quarantine and label review"
+    },
+    {
+      "original_path": "SNAPTURE_ML/models/candidates/snapture-7class-candidate-20261006/README.md",
+      "current_path": "SNAPTURE_ML/models/candidates/snapture-7class-candidate-20261006/README.md",
+      "original_sha256": "5feceebb8070edddcade7f658f48c12460061bde0b69fb82483418c318e2d14c",
+      "incorporated_topics": "7\u20138 candidate activation, class order and limitations"
+    },
+    {
+      "original_path": "SNAPTURE_ML/models/owlvit-base-patch32/README.md",
+      "current_path": "SNAPTURE_ML/models/owlvit-base-patch32/README.md",
+      "original_sha256": "a16c707494da894773e85c1be976ae605a7b3a3ce92cf9ed277623dd25f236bf",
+      "incorporated_topics": "7\u20138 local model architecture and upstream attribution"
+    },
+    {
+      "original_path": "SNAPTURE_ML/models/privacy/README.md",
+      "current_path": "SNAPTURE_ML/models/privacy/README.md",
+      "original_sha256": "000bd479cc439ddedebefa7e6f539044bc62241b071afcf71e90518a10137655",
+      "incorporated_topics": "12 pinned YuNet model and MIT provenance"
+    }
+  ]
+}

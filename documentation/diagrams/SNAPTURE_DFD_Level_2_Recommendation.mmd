@@ -1,0 +1,43 @@
+flowchart TD
+  input["Supported classification plus confidence, user-selected condition, contents, quantity, material answers and household goal"]
+  support{"Classification supported, sufficiently confident and confirmed where needed?"}
+  explain(["Return clear unknown, confirmation-needed or ineligible explanation"])
+  assess(["5.1 Apply assessment and safety / handling rules"])
+  guidance[("D3 Published, digest-valid Guidance\nproject, segregation and information records")]
+  answers["Normalize user answers\ncondition, resin/type, size in mm, quantity, materials, time, budget, difficulty"]
+  validate{"Required material and physical measurements provided and valid?"}
+  match(["6.1 Match guidance material/type and explicit requirements JSON"])
+  condition(["6.2 Apply condition, quantity, goal and preference rules"])
+  rank(["6.3 Return eligible project options and concise rationale"])
+  none(["Explain why there is no matching project; retain safe handling guidance"])
+  snapshot[("D2 PredictionRecord\nanswers, assessment and recommendation_choices JSON snapshots")]
+  user["E1 Resident"]
+  choose["User selects a project"]
+  start(["7.1 Start selected project and snapshot its instructions"])
+  project[("D4 UserProject\nsteps, safety note, source and completed_steps")]
+  progress["Mark step complete / resume project"]
+  safety["Safety and evidence references remain available with the selected guidance"]
+
+  input --> support
+  support -->|"no"| explain --> snapshot --> user
+  support -->|"yes"| assess
+  assess <-->|"published rules and handling guidance"| guidance
+  assess -->|"supported assessment context"| answers
+  answers --> validate
+  validate -->|"missing or invalid"| explain
+  validate -->|"ready"| match
+  match <-->|"published candidate projects and requirements"| guidance
+  match --> condition
+  condition -->|"eligible candidates"| rank
+  condition -->|"no project meets requirements"| none --> snapshot
+  rank --> snapshot
+  rank --> choose --> start
+  start <-->|"selected published project content and references"| guidance
+  start -->|"snapshot project and initial progress"| project
+  project --> progress --> project
+  start --> safety --> user
+  project --> user
+  snapshot -->|"recommendations and explanation"| user
+
+  note["Current data model: project eligibility rules are stored in Guidance.requirements JSON. The app does not create a normalized project-requirement table. Camera image boxes do not provide real-world dimensions; measurements used by physical_suitability are entered by the user."]:::note
+  classDef note fill:#fff8dc,stroke:#9b7b2f,color:#333

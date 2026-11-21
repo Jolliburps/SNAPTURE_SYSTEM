@@ -1,0 +1,85 @@
+project_id,material,field,zero_based_step_index,before,after
+pete_planter,pete_bottles,summary,,Turn clean bottles into planters for small herbs and seedlings.,Use a clean bottle as a small planter with drainage for herbs or seedlings.
+pete_planter,pete_bottles,steps,0,Cut the bottle safely.,Carefully cut the bottle to form the planter.
+pete_planter,pete_bottles,steps,1,Make drainage holes.,Make drainage holes in the bottle planter.
+pete_planter,pete_bottles,steps,2,Add soil and a small plant.,Fill the planter with soil and add a small plant.
+pete_organizer,pete_bottles,summary,,"Cut and decorate bottles for pens, tools, or art supplies.","Reuse a cut and decorated bottle to hold pens, small tools or art supplies."
+pete_organizer,pete_bottles,steps,0,Remove the label.,Remove the label from the bottle.
+pete_organizer,pete_bottles,steps,1,Cover or smooth the cut edge.,Cover or smooth the cut rim so it has no sharp exposed edge.
+pete_organizer,pete_bottles,steps,2,Decorate and use for non-food storage.,Decorate the bottle and use it to store non-food supplies.
+pete_seed_set,pete_bottles,summary,,Use multiple containers as labeled starters for herbs and seedlings.,Group clean bottle containers into labeled seed starters for herbs and other seedlings.
+pete_seed_set,pete_bottles,steps,0,Prepare several clean containers.,Prepare several clean bottle containers for the seed starters.
+pete_seed_set,pete_bottles,steps,1,Add soil and seeds.,Put soil and seeds into each prepared container.
+pete_seed_set,pete_bottles,steps,2,Label and place in a suitable location.,Label each container and place it where the seedlings can grow.
+hdpe_planter,hdpe_containers,summary,,Reuse a clean HDPE container as a non-food plant pot.,Turn a clean HDPE container into a plant pot for non-food use.
+hdpe_planter,hdpe_containers,steps,0,Remove the original contents.,Empty the container of its original contents.
+hdpe_planter,hdpe_containers,steps,1,Wash and dry the container.,Wash the container and let it dry.
+hdpe_planter,hdpe_containers,steps,2,Create safe drainage and add the plant.,"Make safe drainage openings, then add soil and the plant."
+hdpe_storage,hdpe_containers,summary,,"Organize craft supplies, hardware, or household tools.","Keep craft supplies, hardware or household tools together in a labeled, clean container."
+hdpe_storage,hdpe_containers,steps,0,Clean and dry the container.,Clean the container and let it dry before using it.
+hdpe_storage,hdpe_containers,steps,1,Label its intended use.,Label the container with the non-food items it will hold.
+hdpe_storage,hdpe_containers,steps,2,Store non-food items only.,Use the labeled container for non-food items only.
+hdpe_scoop,hdpe_containers,summary,,Repurpose a sturdy container into a scoop for soil or compost.,"Cut the handle section from a sturdy, clean HDPE container to make a scoop for soil or compost."
+hdpe_scoop,hdpe_containers,steps,0,Cut away the handle area carefully.,Carefully cut out the handle area of the clean container to form the scoop.
+hdpe_scoop,hdpe_containers,steps,1,Smooth all edges.,Smooth every cut edge of the scoop before using it.
+hdpe_scoop,hdpe_containers,steps,2,Use only for garden materials.,Use the finished scoop only for garden materials such as soil or compost.
+cardboard_organizer,cardboard,summary,,Build dividers and trays for desks or drawers.,Make cardboard dividers and trays to separate small items in a desk or drawer.
+cardboard_organizer,cardboard,steps,0,Flatten and measure the pieces.,Flatten the cardboard and measure the pieces for the organizer.
+cardboard_organizer,cardboard,steps,1,Cut and fold the sections.,Cut the sections and fold them into shape.
+cardboard_organizer,cardboard,steps,2,Reinforce and cover the edges.,Reinforce the sections and cover their exposed edges.
+cardboard_divider,cardboard,summary,,Create a light divider or display board from clean cardboard.,Join clean cardboard panels into a lightweight desk divider or display board.
+cardboard_divider,cardboard,steps,0,"Select dry, strong pieces.",Choose dry cardboard pieces that are strong enough for the divider.
+cardboard_divider,cardboard,steps,1,Join the panels.,Join the selected panels with tape or glue.
+cardboard_divider,cardboard,steps,2,Cover exposed edges.,Cover the exposed panel edges.
+cardboard_craft,cardboard,summary,,Use flat cardboard for reusable patterns and school projects.,Turn flat cardboard into reusable patterns for crafts and school projects.
+cardboard_craft,cardboard,steps,0,Draw the template.,Draw the pattern you want to reuse on the cardboard.
+cardboard_craft,cardboard,steps,1,Cut carefully.,Carefully cut along the drawn outline.
+cardboard_craft,cardboard,steps,2,Store it for future projects.,Keep the finished template for future projects.
+paper_gift_wrap,paper,summary,,Reuse clean paper for wrapping and paper crafts.,"Use a clean, flattened sheet of paper to wrap a gift or make a paper craft."
+paper_gift_wrap,paper,steps,0,Remove non-paper attachments.,Remove attachments that are not paper.
+paper_gift_wrap,paper,steps,1,Flatten the sheet.,Flatten the paper sheet before using it.
+paper_gift_wrap,paper,steps,2,Reuse for wrapping or craft.,Use the prepared sheet for wrapping or a paper craft.
+paper_organizer,paper,summary,,Fold sturdy sheets into trays for notes and small items.,"Fold sturdy, clean paper into small trays for notes and other small items."
+paper_organizer,paper,steps,0,Choose dry sheets.,"Select clean, dry sheets for the trays."
+paper_organizer,paper,steps,1,Fold along measured lines.,Measure the fold lines and fold the sheets along them.
+paper_organizer,paper,steps,2,Reinforce the base.,Reinforce the base of each folded tray.
+paper_craft,paper,summary,,"Create cards, collages, or learning materials from clean paper.","Sort clean paper pieces for cards, collages or learning materials."
+paper_craft,paper,steps,0,Sort by size and condition.,Sort the paper pieces by their size and condition.
+paper_craft,paper,steps,1,Plan the craft.,"Plan the card, collage or learning material you want to make."
+paper_craft,paper,steps,2,Reuse the pieces.,Use the selected pieces in the planned craft.
+fabric_cleaning_cloth,fabric_scraps,summary,,Use suitable fabric pieces as washable cleaning cloths.,Prepare suitable fabric offcuts as washable cloths for household cleaning.
+fabric_cleaning_cloth,fabric_scraps,steps,0,Wash and dry the fabric.,Wash the fabric and let it dry.
+fabric_cleaning_cloth,fabric_scraps,steps,1,Cut away damaged areas.,Cut away damaged sections of the fabric.
+fabric_cleaning_cloth,fabric_scraps,steps,2,Hem loose edges when needed.,Hem any loose edges when needed.
+fabric_pouch,fabric_scraps,summary,,Sew or tie pieces into a pouch for small non-food items.,Sew or tie clean fabric pieces into a small pouch for storing non-food items.
+fabric_pouch,fabric_scraps,steps,0,Select clean pieces.,Choose clean fabric pieces for the pouch.
+fabric_pouch,fabric_scraps,steps,1,Join the sides securely.,Join the sides securely to hold the pouch together.
+fabric_pouch,fabric_scraps,steps,2,Keep the pouch for non-food storage.,Use the finished pouch to store small non-food items.
+fabric_patchwork,fabric_scraps,summary,,Combine compatible scraps into a decorative patchwork piece.,Join compatible fabric scraps into a decorative patchwork piece.
+fabric_patchwork,fabric_scraps,steps,0,Sort by condition.,Sort the fabric scraps by their condition.
+fabric_patchwork,fabric_scraps,steps,1,Plan the pattern.,Arrange the scraps into the pattern you want to make.
+fabric_patchwork,fabric_scraps,steps,2,Join the pieces safely.,Join the arranged pieces safely with a needle and thread.
+coconut_planter,coconut_shells,summary,,Turn a cleaned shell into a small decorative plant holder.,Use a cleaned coconut shell as a small decorative holder for a plant.
+coconut_planter,coconut_shells,steps,0,Remove remaining flesh.,Remove any remaining coconut flesh from the shell.
+coconut_planter,coconut_shells,steps,1,Sand sharp edges.,Sand the shell rim to remove sharp edges.
+coconut_planter,coconut_shells,steps,2,Add a liner or plant safely.,Add a liner or place the plant safely in the prepared shell.
+coconut_bowl,coconut_shells,summary,,Use a smooth shell as a dry decorative holder.,"Use an already-open, cleaned and smoothed coconut shell as a decorative holder for dry, non-food items."
+coconut_bowl,coconut_shells,steps,0,Clean and dry the shell.,Clean the already-open shell and let it dry.
+coconut_bowl,coconut_shells,steps,1,Smooth the edges.,Smooth the shell rim to remove rough or sharp edges.
+coconut_bowl,coconut_shells,steps,2,"Use for dry, non-food items unless independently verified food-safe.","Use the bowl for dry, non-food items unless it has been independently verified as food-safe."
+coconut_craft,coconut_shells,summary,,Use shell pieces for ornaments and classroom craft projects.,Prepare dry coconut-shell pieces for ornaments or classroom craft projects.
+coconut_craft,coconut_shells,steps,0,Plan the design.,Plan the design before working on the shell pieces.
+coconut_craft,coconut_shells,steps,1,Wear protection when cutting.,Wear protective equipment when cutting the shell.
+coconut_craft,coconut_shells,steps,2,Smooth all finished edges.,Smooth all edges of the finished pieces.
+wood_shelf,dry_untreated_wood_scraps,summary,,"Build a simple shelf from dry, untreated pieces that are structurally suitable.","Assemble dry, untreated wood scraps into a small shelf only when the pieces are structurally suitable."
+wood_shelf,dry_untreated_wood_scraps,steps,0,Check for treatment and damage.,Check the wood for treatment and damage before using it.
+wood_shelf,dry_untreated_wood_scraps,steps,1,Remove hardware and sand splinters.,Remove existing hardware and sand away splinters.
+wood_shelf,dry_untreated_wood_scraps,steps,2,Assemble securely.,Assemble the shelf securely with suitable fasteners.
+wood_marker,dry_untreated_wood_scraps,summary,,Cut safe small pieces into labels for a garden or classroom.,Prepare safe small wood scraps as labels for a garden or classroom.
+wood_marker,dry_untreated_wood_scraps,steps,0,Remove nails and staples.,Remove nails and staples from the wood scraps.
+wood_marker,dry_untreated_wood_scraps,steps,1,Sand all edges.,Sand all edges until they are smooth.
+wood_marker,dry_untreated_wood_scraps,steps,2,Label and place in soil.,Write the labels on the markers and place them in the soil.
+wood_craft,dry_untreated_wood_scraps,summary,,Use small pieces for non-structural craft projects.,"Prepare small, dry wood pieces for crafts that do not carry structural loads."
+wood_craft,dry_untreated_wood_scraps,steps,0,Confirm the wood is untreated.,Confirm that the wood is untreated before using it.
+wood_craft,dry_untreated_wood_scraps,steps,1,Smooth the surfaces.,Smooth the surfaces of the wood pieces.
+wood_craft,dry_untreated_wood_scraps,steps,2,Use protective equipment for cutting.,Wear protective equipment when cutting the wood for the craft.

@@ -1,0 +1,8 @@
+flowchart LR
+  resident["E1 Resident / SNAPTURE mobile user"]
+  staff["E2 CESD administrator / staff"]
+  system(["P0 SNAPTURE waste guidance system\nMobile app, Django API, admin SPA, local models"])
+  resident -->|"image, scan inputs, account requests, project choices"| system
+  system -->|"scan results, recognition warnings, guidance, project steps, history"| resident
+  staff -->|"published rules, schedules, guidance, reviews, management requests"| system
+  system -->|"dashboards, scan and review records, content status, exports"| staff
