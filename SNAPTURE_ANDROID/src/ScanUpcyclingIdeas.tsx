@@ -3,7 +3,7 @@ import { startProject, type Prediction } from './api';
 import { ProjectFlowContext } from './ProjectFlowContext';
 import UpcyclingIdeaChoices from './UpcyclingIdeaChoices';
 
-export default function ScanUpcyclingIdeas({prediction}:{prediction:Prediction}) {
+export default function ScanUpcyclingIdeas({prediction,onOpenGuide}:{prediction:Prediction;onOpenGuide?:(prediction:Prediction,id:string)=>Promise<void>}) {
   const openProject=useContext(ProjectFlowContext);
   const [starting,setStarting]=useState('');
   const [error,setError]=useState('');
@@ -11,11 +11,12 @@ export default function ScanUpcyclingIdeas({prediction}:{prediction:Prediction})
   const ideas=(prediction.upcycling_ideas || []).filter(idea=>idea.steps?.length);
   const choose=async(id:string)=>{
     if(busy.current)return;
-    if(!openProject){setError('Reopen this scan from the app to start a project.');return;}
+    if(!openProject && !onOpenGuide){setError('Reopen this scan from the app to start a project.');return;}
     busy.current=true;setStarting(id);setError('');
     try{
+      if(onOpenGuide){await onOpenGuide(prediction,id);return;}
       const result=await startProject(prediction.id,id);
-      openProject(result.project);
+      openProject?.(result.project);
     }catch(reason){setError(reason instanceof Error?reason.message:'Unable to start this task. Try again.');}
     finally{busy.current=false;setStarting('');}
   };

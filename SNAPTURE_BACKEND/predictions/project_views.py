@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -25,11 +26,20 @@ def _body(request):
 
 
 def _serialize(project):
+    from upcycling.models import CompletedProject
+    completion=CompletedProject.objects.filter(project=project).first()
     steps = project.steps if isinstance(project.steps, list) else []
     completed = sorted({index for index in project.completed_steps if type(index) is int and 0 <= index < len(steps)})
+    if project.reference.get('photo_workflow') and not completion:
+        from upcycling.assessment import verified_photo_steps
+        completed=verified_photo_steps(project)
     count = len(completed)
     total = len(steps)
     return {
+        'photo_workflow':bool(project.reference.get('photo_workflow')),
+        'completion_photo_url':f'/api/upcycling/media/completion/{completion.pk}/' if completion else None,
+        'completion_id':completion.pk if completion else None,
+        'completion_verification':completion.verification_status if completion else None,
         "id": project.id,
         "source_prediction_id": project.source_prediction_id,
         "recommendation_id": project.recommendation_id,
@@ -44,7 +54,7 @@ def _serialize(project):
         "completed_count": count,
         "total_steps": total,
         "progress_percent": round(count * 100 / total) if total else 0,
-        "status": "completed" if total and count == total else "active",
+        "status": "completed" if total and count == total and (not project.reference.get('photo_workflow') or completion) else "active",
         "can_change_idea": _can_change_idea(project),
         "created_at": project.created_at.isoformat(),
         "updated_at": project.updated_at.isoformat(),
@@ -53,47 +63,23 @@ def _serialize(project):
 
 def _can_change_idea(project):
     reference = project.reference if isinstance(project.reference, dict) else {}
-    return bool(project.source_prediction_id and project.steps and not project.completed_steps
+    return bool(project.source_prediction_id and project.steps and not project.completed_steps and not project.step_photos.exists()
                 and not reference.get('_progress_started_at'))
 
 
 def _project_choices(record, allow_catalog):
     """Same material, condition and safety gates for starting or changing a task."""
-    from core.preparation_history import preparation_block
-    if preparation_block(record):
-        return []
-    refresh(record)
-    if record.image_quality.get('automatic_routing'):
-        from .item_actions import automatic_route
-        from .views import _serialize as serialize_prediction
-        item = getattr(record, 'scene_item', None)
-        route = automatic_route(item, serialize_prediction(record)) if item else None
-        if (not record.image_quality.get('selected_for_disposal') or not route or
-                route['action'] != 'recover' or route['confirmation_required']):
-            return []
-    choices = record.recommendation_choices
-    action = record.image_quality.get('item_action')
-    if allow_catalog and (not action or action == 'recover' and record.condition in {'Clean and dry', 'Torn or crumpled, clean and dry', 'Clean dry usable scraps'}):
-        choices = [*choices, *record.assessment['upcycling'].get('suggested_ideas', [])]
-    if action in {'keep', 'discard'}:
-        return []
-    if action == 'recover':
-        from .item_actions import advice
-        from .views import _serialize as serialize_prediction
-        from .disposal_workflow import handling
-        item = getattr(record, 'scene_item', None)
-        prediction = serialize_prediction(record)
-        allowed = advice(item, prediction, handling(item, prediction))['projects'] if item else []
-        allowed_ids = {idea['id'] for idea in allowed}
-        choices = [choice for choice in choices if choice['id'] in allowed_ids]
-    from core.project_suitability import fit
-    return [choice for choice in choices if isinstance(choice, dict) and fit(record,choice)[0] and
-            isinstance(choice.get('steps'), list) and choice['steps'] and
-            all(isinstance(step, str) and step.strip() for step in choice['steps'])]
+    from upcycling.workflow import enabled
+    if enabled(record):
+        from upcycling.matching import suggestions
+        return [row for row in suggestions(record)['items'] if row['can_start']]
+    from core.recommendation_requests import requested_choices
+    return requested_choices(record)
+
 
 
 def _project_values(record, choice):
-    return {
+    values = {
         'title': str(choice.get('title', 'Project'))[:160], 'material': record.title[:160],
         'summary': str(choice.get('summary', '')),
         'materials': choice.get('materials') if isinstance(choice.get('materials'), list) else [],
@@ -103,6 +89,18 @@ def _project_values(record, choice):
             'source': 'SNAPTURE built-in upcycling idea catalog',
         },
     }
+    if choice.get('basis') == 'educational_catalog' and isinstance(choice.get('photos'), dict):
+        values['reference'] = {**values['reference'], 'photos': deepcopy(choice['photos'])}
+    from upcycling.workflow import enabled,VERSION
+    if enabled(record):
+        values['reference']={**values['reference'],'photo_workflow':True,'workflow_version':VERSION,
+                             'suitability_requirements':deepcopy(choice.get('requirements',{})),
+                             'suitability_requirements_source':choice.get('requirements_source',''),
+                             'material_label':record.decision}
+        from upcycling.human_assisted import enabled as human_enabled
+        if human_enabled(record):
+            values['reference']['assessment_mode']='human_assisted'
+    return values
 
 
 @csrf_exempt
@@ -122,6 +120,9 @@ def projects(request):
     selected = payload.get('recommendation_id', record.selected_recommendation)
     if not isinstance(selected, str) or len(selected) > 160:
         return JsonResponse({'detail':'Choose a valid upcycling task.'},status=400)
+    existing = UserProject.objects.filter(user=request.api_user, source_prediction=record, recommendation_id=selected).first()
+    if existing:
+        return JsonResponse({'project': _serialize(existing)}, status=200)
     choices = _project_choices(record, allow_catalog='recommendation_id' in payload)
     if record.image_quality.get('item_action') in {'keep','discard'}:
         return JsonResponse({'detail':'Confirm a supported material and suitable condition before starting a project.'},status=400)
@@ -131,11 +132,6 @@ def projects(request):
     )
     if not selected or choice is None:
         return JsonResponse({"detail": "Select a recommendation for this scan before starting a project."}, status=400)
-    from core.project_suitability import fit
-    if choice.get('basis') == 'educational_catalog':
-        suitable, reason = fit(record, choice)
-        if not suitable:
-            return JsonResponse({'detail':reason},status=400)
     steps = choice.get("steps")
     if not isinstance(steps, list) or not steps or any(not isinstance(step, str) or not step.strip() for step in steps):
         return JsonResponse({"detail": "This recommendation has no usable text steps."}, status=400)
@@ -232,6 +228,8 @@ def project_step(request, project_id, step_index):
         return JsonResponse({"detail": "completed must be true or false."}, status=400)
     if step_index >= len(project.steps):
         return JsonResponse({"detail": "Project step not found."}, status=404)
+    if project.reference.get('photo_workflow'):
+        return JsonResponse({'detail':'Submit a photo of this step before proceeding.'},status=409)
     completed = {index for index in project.completed_steps if type(index) is int and 0 <= index < len(project.steps)}
     if payload["completed"]:
         completed.add(step_index)
@@ -254,16 +252,12 @@ def restart_project(request, project_id):
         return JsonResponse({'detail':'Project not found.'},status=404)
     if _serialize(project)['status'] != 'completed':
         return JsonResponse({'detail':'Only a completed project can be restarted.'},status=409)
+    if project.reference.get('photo_workflow'):
+        return JsonResponse({'detail':'Keep the completed photo record. Scan new material to start another project.'},status=409)
     record = PredictionRecord.objects.filter(user=request.api_user,pk=project.source_prediction_id).first()
     if record is None:
         return JsonResponse({'detail':'Assess a suitable item again before starting another project.'},status=400)
-    from core.preparation_history import preparation_block
-    if preparation_block(record):
-        return []
-    refresh(record)
-    choices = record.recommendation_choices
-    if project.reference.get('review_level') == 'educational':
-        choices = [*choices, *record.assessment['upcycling'].get('suggested_ideas', [])]
+    choices = _project_choices(record, allow_catalog=True)
     if not any(choice['id']==project.recommendation_id for choice in choices):
         return JsonResponse({'detail':'This project no longer matches current guidance. Assess the material again.'},status=400)
     project.completed_steps = []

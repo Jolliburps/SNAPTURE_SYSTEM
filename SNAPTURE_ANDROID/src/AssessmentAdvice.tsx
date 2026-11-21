@@ -1,63 +1,48 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Text from './PublicText';
 import { type Prediction } from './api';
-import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
+import ScreeningOutcome from './ScreeningOutcome';
 import PreparationSteps from './PreparationSteps';
 import {materialPreparation,PREPARATION_SOURCES} from './materialPreparation';
-import {materialCategoryName,materialExplanation} from './detectionPresentation';
+import {materialCategoryName} from './detectionPresentation';
 
 export function adviceSummary(prediction: Prediction) {
   const a = prediction.assessment;
   const hazardous = prediction.waste_identifier?.category === 'C' || prediction.previous_contents === 'Chemical or cleaning product';
-  if (['Oil or grease','Chemical or cleaning product','Floodwater, sewage or animal waste','Not sure'].includes(String(prediction.answers?.wetness_cause))) return {title:'Do not reuse this material yet',body:'Drying does not remove the reported contamination or establish suitability. Keep it separate, check appropriate collection guidance, or change the condition if the report was incorrect.',kind:'caution'};
   if (hazardous) return {title:'Keep this item separate',body:'It may need special handling. Do not open, mix, burn or reuse it. Ask your barangay or CESD about collection.',kind:'caution'};
-  if (prediction.decision === 'paper' && prediction.condition === 'Torn or crumpled, clean and dry' && prediction.answers?.contamination === 'None known' && prediction.answers?.moisture === 'Dry') return {title:'Reuse the clean paper pieces',body:'Flatten usable pieces for a collage or paper mosaic. Tears and creases do not prevent these crafts. Remove staples and tape; leave out stained or moldy pieces.',kind:'ready'};
-  if (prediction.condition === 'Clean dry usable scraps' && prediction.upcycling_ideas?.length) return {title:'Use the suitable pieces',body:'Choose a scrap project above. Leave out damaged portions and check that the remaining pieces fit your design.',kind:'ready'};
   if (prediction.condition === 'Not sure') return {title:'Check the condition first',body:'Check for moisture, stains, mold or known chemical contact. Choose Change condition when you can identify the best match. No project is ready while the condition is unknown.',kind:'caution'};
-  if (prediction.condition === 'Damaged or cracked') return {title:'Check the usable portions',body:'Damage does not change the material category. These projects need suitable pieces: cracked containers must not hold liquids, and sharp shells or splintered wood need a suitable preparation guide. Change condition if this was selected by mistake.',kind:'caution'};
-  if (prediction.condition === 'Clean and dry' && (prediction.upcycling_ideas?.length || prediction.recommendation_choices?.length)) return {title:'Choose an idea that fits',body:'Use the project choices above. Check the usable size, quantity and tools for the idea you select. You can change the condition below.',kind:'ready'};
+  if (prediction.condition === 'Damaged or cracked') return {title:'Check the usable portions',body:'Damage does not change the material category. Cracked containers must not hold liquids, and sharp shells or splintered wood need a suitable preparation guide. Change condition if this was selected by mistake.',kind:'caution'};
   if (a?.segregation.status === 'available') return {title:a.segregation.category || 'Sorting advice ready',body:'Keep this material separate. Check that your collector accepts this exact item before handing it over.',kind:'ready'};
   if (prediction.condition === 'Needs cleaning' || prediction.answers?.moisture === 'Wet') return {title:'Set it aside for preparation',body:'Do not mix it with clean recyclables yet. Only clean or dry it if its contents are known and the item-specific instructions say it is safe.',kind:'caution'};
   if (prediction.condition === 'Moldy or contaminated' || ['Oil or grease','Mold or biological waste','Chemical contamination'].includes(String(prediction.answers?.contamination))) return {title:'Keep contaminated material separate',body:'Do not reuse it or mix it with clean recyclables. Ask your barangay or CESD for the right collection route.',kind:'caution'};
   if (a?.material.status === 'needs_confirmation' || !a?.material.label || a.material.label === 'unknown_unsupported') return {title:'We could not confirm this item',body:'You do not need to guess. Keep it out of the recycling pile until you know what it is. Try a closer photo, or ask your barangay or CESD.',kind:'review'};
   if (a.quick_check?.has_sorting_rule) return {title:'We cannot choose a bin yet',body:'Some item details are still unknown. Keep it separate for now. You can change your answers if you know more; there is no need to guess.',kind:'review'};
-  return {title:'No checked local rule yet',body:'SNAPTURE does not have a checked local sorting rule for this item yet. Keep it separate for now and ask your barangay or CESD. You do not need to answer more questions.',kind:'review'};
+  return null;
 }
 
-export default function AssessmentAdvice({prediction, saved, onEdit, onDone, onRetry, onReuse, onSaveProject, busy, onPreparationComplete}: {
-  prediction:Prediction; saved:boolean; onEdit:()=>void; onDone:()=>void; onRetry:()=>void; onReuse:()=>void;
-  onSaveProject:(id:string,title:string)=>void; busy:boolean;onPreparationComplete?:()=>void;
+export default function AssessmentAdvice({prediction, saved, onEdit, onDone, onRetry, busy, onPreparationComplete, onProceed}: {
+  prediction:Prediction; saved:boolean; onEdit:()=>void; onDone:()=>void; onRetry:()=>void;
+   busy:boolean;onPreparationComplete?:()=>void;onProceed?:(prediction:Prediction)=>void;
 }) {
   const [details,setDetails] = useState(false);
   const preparation=materialPreparation(prediction);
-  const summary = preparation ? {title:preparation.title,body:preparation.blocked || 'Complete the preparation steps below, then check suitable upcycling ideas.',kind:'caution'} : adviceSummary(prediction);
+  const summary = preparation ? {title:preparation.title,body:preparation.blocked || 'Complete the preparation steps below, then review the screening result.',kind:'caution'} : adviceSummary(prediction);
   const a = prediction.assessment;
-  const canExplore = Boolean(a?.quick_check?.has_reviewed_projects && summary.kind !== 'caution');
   return <>
-    <Text style={s.small}>Item: {materialCategoryName(prediction)}</Text>{materialExplanation(prediction)?<Text style={s.small}>({materialExplanation(prediction)})</Text>:null}
-    {prediction.answers?.wetness_cause?<Text style={s.small}>Reported exposure: {String(prediction.answers.wetness_cause)}. Drying does not restore original strength; choose a project suited to the remaining usable material.</Text>:null}
-    {!preparation && !prediction.upcycling_ideas?.length && ['Clean and dry','Torn or crumpled, clean and dry','Clean dry usable scraps'].includes(prediction.condition || '')?<View style={s.card}><Text style={s.title}>Check usable size and quantity</Text><Text style={s.body}>No catalog idea matches the saved size, number of pieces and condition yet. Add or correct these details. Smaller batches may fit a smaller craft; strength-dependent projects need intact material.</Text><Pressable accessibilityRole="button" accessibilityLabel="Update usable material details" onPress={onEdit}><Text style={s.link}>Enter size and quantity</Text></Pressable></View>:null}
-    {!preparation?<ScanUpcyclingIdeas key={prediction.id} prediction={prediction}/>:null}
+    <Text style={s.small}>Item: {materialCategoryName(prediction)}</Text>
+    <ScreeningOutcome prediction={prediction} onProceed={onProceed} disabled={busy}/>
     {saved ? <Text accessibilityLiveRegion="polite" style={s.saved}>Your answers are saved. Here is what to do next.</Text> : null}
-    <View style={[s.card,summary.kind === 'ready' ? s.ready : s.caution]}>
+    {summary ? <View style={[s.card,summary.kind === 'ready' ? s.ready : s.caution]}>
       <Text accessibilityRole="header" style={s.title}>{summary.title}</Text>
       <Text style={s.body}>{summary.body}</Text>
       {a?.segregation.status === 'available' ? a.segregation.instructions.map(line=><Text key={line} style={s.body}>{line}</Text>) : null}
       {a?.safety?.instructions.map(line=><Text key={line} style={s.body}>{line}</Text>)}
       <Text style={s.small}>Based on the photo and your answers, not a safety certification.</Text>
-    </View>
+    </View> : a?.safety?.instructions.length ? <View style={s.card}>{a.safety.instructions.map(line=><Text key={line} style={s.body}>{line}</Text>)}</View> : null}
     {preparation?<PreparationSteps key={`${prediction.id}-${prediction.condition}-${String(prediction.answers?.moisture)}-${String(prediction.answers?.contamination)}`} plan={preparation} busy={busy} onComplete={onPreparationComplete} onEdit={onEdit}/>:null}
     <Pressable accessibilityRole="button" accessibilityLabel="Done with this item" disabled={busy} onPress={onDone} style={s.button}><Text style={s.buttonText}>Done</Text></Pressable>
     <Pressable accessibilityRole="button" accessibilityLabel="Change my answers" disabled={busy} onPress={onEdit}><Text style={s.link}>Change condition</Text></Pressable>
-    {(!preparation ? prediction.recommendation_choices || [] : []).map(project=><View key={project.id} style={s.card}>
-      <Text style={s.title}>{project.title}</Text><Text style={s.body}>{project.summary}</Text>
-      <Text style={s.small}>{project.safety_note}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Save this project" disabled={busy} onPress={()=>onSaveProject(project.id,project.title)} style={s.button}><Text style={s.buttonText}>Save this project</Text></Pressable>
-    </View>)}
-    {!preparation && !prediction.recommendation_choices?.length && !prediction.upcycling_ideas?.length ? <View style={s.card}><Text style={s.title}>Want to reuse it?</Text>
-      <Text style={s.body}>{canExplore ? 'Optional: check a few extra details to see whether a reviewed project fits. Sorting advice does not require a project.' : 'No reviewed project is ready for this item. You can finish this check without answering more questions.'}</Text>
-      {canExplore ? <Pressable accessibilityRole="button" accessibilityLabel="Check reuse options" disabled={busy} onPress={onReuse}><Text style={s.link}>Check reuse options</Text></Pressable> : null}
-    </View> : null}
     <Pressable accessibilityRole="button" accessibilityLabel="Scan another item" disabled={busy} onPress={onRetry}><Text style={s.link}>Scan another item</Text></Pressable>
     <Pressable accessibilityRole="button" accessibilityState={{expanded:details}} onPress={()=>setDetails(value=>!value)}><Text style={s.link}>{details ? 'Hide sources and details' : 'Sources and details'}</Text></Pressable>
     {details ? <View style={s.card}>

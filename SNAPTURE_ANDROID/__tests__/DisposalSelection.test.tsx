@@ -1,8 +1,11 @@
 import React from 'react';
 import Renderer from 'react-test-renderer';
 import SceneResults from '../src/SceneResults';
+import ScanResult from '../src/ScanResult';
+import {upcyclingRequest} from '../src/upcyclingApi';
 import {confirmDisposalSelection,getScene,type ScanScene} from '../src/api';
 
+jest.mock('../src/upcyclingApi',()=>({upcyclingRequest:jest.fn().mockResolvedValue({snapshot:null}),getSuggestions:jest.fn().mockResolvedValue({items:[],message:'Assessment pending',facts:{}}),getVisual:jest.fn().mockResolvedValue({assessment:{primary:{status:'unavailable'},observations:[],conflicts:[],views:[],facts:{}}})}));
 jest.mock('../src/api',()=>({getScene:jest.fn(),confirmDisposalSelection:jest.fn(),imageUrl:(uri:string)=>uri}));
 const makeScene=()=>({id:80,image_url:'/original80.jpg',width:200,height:100,status:'complete',quality:{flags:[]},disposal_selection:{confirmed:false,item_ids:[]},items:[
   {id:1,name:'plastic bottle',score:.7,box:[.1,.1,.4,.4],prediction:{id:101,decision:'pete_bottles',input_method:'camera',recommendation_choices:[]},route:{label:'Needs review',reason:'Unconfirmed'}},
@@ -18,36 +21,26 @@ async function render(initial=makeScene()){
 }
 beforeEach(()=>jest.clearAllMocks());
 
-test('single framed material has a direct ideas entry through the existing confirmation screen',async()=>{
+test('single framed material goes directly to shared assessment rather than detector confirmation',async()=>{
   const initial=makeScene();initial.items=initial.items.slice(1);initial.single_item={enabled:true};
-  initial.items[0].identification={object_prediction:{source:'whole_image_classifier'},material_prediction:{title:'Fabric scraps',status:'uncertain'}} as NonNullable<typeof initial.items[0]['identification']>;
-  initial.items[0].name='Unidentified or unsupported object';
-  const confirmed={...initial,disposal_selection:{confirmed:true,item_ids:[2]}};
-  (getScene as jest.Mock).mockResolvedValue({scene:initial});
-  (confirmDisposalSelection as jest.Mock).mockResolvedValue({scene:confirmed});
-  const review=jest.fn(),changed=jest.fn();let tree!:Renderer.ReactTestRenderer;
-  await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={initial} onBack={jest.fn()} onRetry={jest.fn()} onReview={review} onSceneChange={changed}/>);});
-  expect(action(tree,'Check material').props.disabled).toBe(false);
+  const review=jest.fn();const tree=await render(initial);
+  expect(tree.root.findByType(ScanResult).props.prediction).toEqual(initial.items[0].prediction);
+  expect(action(tree,'Check material')).toBeUndefined();
+  expect(action(tree,'Continue with 0 selected items')).toBeUndefined();
+  expect(confirmDisposalSelection).not.toHaveBeenCalled();
   expect(review).not.toHaveBeenCalled();
-  await press(tree,'Check material');
-  expect(confirmDisposalSelection).toHaveBeenCalledWith(80,[2],{},undefined,{2:'Not sure'},true);
-  expect(changed).toHaveBeenLastCalledWith(confirmed);
-  expect(review).toHaveBeenCalledWith(confirmed.items[0].prediction);
-  expect(JSON.stringify(tree.toJSON())).not.toContain('Choose task:');
   await Renderer.act(()=>tree.unmount());
 });
 
-test('direct framed ideas entry does not navigate if confirmation fails',async()=>{
+test('failed shared assessment keeps the framed item available for retry',async()=>{
   const initial=makeScene();initial.items=initial.items.slice(1);initial.single_item={enabled:true};
-  initial.items[0].automatic_route={enabled:true,action:'recover',needs_review:false,confirmation_required:true,label:'Confirm material',note:''};
-  (getScene as jest.Mock).mockResolvedValue({scene:initial});
-  (confirmDisposalSelection as jest.Mock).mockRejectedValue(new Error('Connection lost. Try again.'));
-  const review=jest.fn();let tree!:Renderer.ReactTestRenderer;
-  await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={initial} onBack={jest.fn()} onRetry={jest.fn()} onReview={review}/>);});
-  await press(tree,'Check material');
-  expect(review).not.toHaveBeenCalled();
+  (upcyclingRequest as jest.Mock).mockRejectedValueOnce(new Error('Connection lost. Try again.')).mockResolvedValue({snapshot:null});
+  const tree=await render(initial);
   expect(JSON.stringify(tree.toJSON())).toContain('Connection lost. Try again.');
-  expect(action(tree,'Check material').props.disabled).toBe(false);
+  expect(tree.root.findByType(ScanResult).props.prediction.id).toBe(initial.items[0].prediction.id);
+  await press(tree,'Retry scan result');
+  expect(action(tree,'Retry scan result')).toBeUndefined();
+  expect(confirmDisposalSelection).not.toHaveBeenCalled();
   await Renderer.act(()=>tree.unmount());
 });
 
@@ -56,11 +49,11 @@ test('items are included for automatic guidance without action choices; box and 
   expect(action(tree,'Continue with 0 selected items').props.disabled).toBe(true);
   expect(action(tree,'Select box 1').props.accessibilityState.checked).toBe(false);
   await press(tree,'Select box 1');
-  expect(action(tree,'Select item 1: PETE Bottles').props.accessibilityState.checked).toBe(true);
+  expect(action(tree,'Select item 1: PETE Bottles (Polyethylene Terephthalate)').props.accessibilityState.checked).toBe(true);
   expect(action(tree,'Keep item 1')).toBeUndefined();
   expect(action(tree,'Discard item 1')).toBeUndefined();
   expect(action(tree,'Recycle / upcycle item 1')).toBeUndefined();
-  await press(tree,'Select item 1: PETE Bottles');
+  await press(tree,'Select item 1: PETE Bottles (Polyethylene Terephthalate)');
   expect(action(tree,'Select box 1').props.accessibilityState.checked).toBe(false);
   expect(confirmDisposalSelection).not.toHaveBeenCalled();
   await Renderer.act(()=>tree.unmount());
@@ -68,7 +61,7 @@ test('items are included for automatic guidance without action choices; box and 
 
 test('only selected categories and reported conditions are submitted without rewriting object names',async()=>{
   const tree=await render();
-  await press(tree,'Select item 1: PETE Bottles');await press(tree,'Select item 2: Fabric Scraps');
+  await press(tree,'Select item 1: PETE Bottles (Polyethylene Terephthalate)');await press(tree,'Select item 2: Fabric Scraps');
   await press(tree,'Clean & dry condition item 2');
   expect(action(tree,'Correct name item 2')).toBeUndefined();
   const result=makeScene();result.disposal_selection={confirmed:true,item_ids:[1,2]};
@@ -85,18 +78,18 @@ test('only selected categories and reported conditions are submitted without rew
 });
 
 test('failure keeps selection and corrections, without showing success or navigating',async()=>{
-  const tree=await render();await press(tree,'Select item 1: PETE Bottles');
+  const tree=await render();await press(tree,'Select item 1: PETE Bottles (Polyethylene Terephthalate)');
   (confirmDisposalSelection as jest.Mock).mockRejectedValue(new Error('Connection lost. Try again.'));
   await press(tree,'Continue with 1 selected item');
   expect(JSON.stringify(tree.toJSON())).toContain('Connection lost. Try again.');
-  expect(action(tree,'Select item 1: PETE Bottles').props.accessibilityState.checked).toBe(true);
+  expect(action(tree,'Select item 1: PETE Bottles (Polyethylene Terephthalate)').props.accessibilityState.checked).toBe(true);
   expect(action(tree,'Continue with 1 selected item').props.disabled).toBe(false);
   expect(tree.root.findAllByProps({accessibilityLabel:'Change selected items'})).toHaveLength(0);
   await Renderer.act(()=>tree.unmount());
 });
 
 test('double confirmation sends one request while busy',async()=>{
-  const tree=await render();await press(tree,'Select item 1: PETE Bottles');
+  const tree=await render();await press(tree,'Select item 1: PETE Bottles (Polyethylene Terephthalate)');
   let finish!:(result:{scene:ScanScene})=>void;
   (confirmDisposalSelection as jest.Mock).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
   await Renderer.act(()=>{const node=action(tree,'Continue with 1 selected item');node.props.onPress();node.props.onPress();});
@@ -112,7 +105,7 @@ test('special handling does not expose material reuse or an unrelated guide',asy
   initial.items[0].handling={route:'special_handling',title:'Requires special handling',explanation:'Possible electronics',instructions:['Ask CESD about an accepting electronics service.'],sources:[],recommendations:[],verification_status:'no_project_approval'} as unknown as NonNullable<typeof initial.items[0]['handling']>;
   initial.items[0].prediction.recommendation_choices=[{id:'wrong',title:'Paper craft',summary:'',materials:[],steps:['Wrong project']}];
   const tree=await render(initial);
-  expect(JSON.stringify(tree.toJSON())).toContain('Ask CESD about an accepting electronics service.');
+  expect(JSON.stringify(tree.toJSON())).toContain('Ask local waste service about an accepting electronics service.');
   expect(JSON.stringify(tree.toJSON())).not.toContain('Paper craft');
   expect(tree.root.findAllByProps({accessibilityLabel:'Review item 1'})).toHaveLength(0);
   await Renderer.act(()=>tree.unmount());

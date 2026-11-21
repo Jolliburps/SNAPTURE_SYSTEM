@@ -45,9 +45,11 @@ def publish(entry, user):
     entry.save()
 
 
-def published_guidance(material=None):
+def published_guidance(material=None, *, kinds=None):
     from .models import Guidance
     rows = Guidance.objects.all()
+    if kinds is not None:
+        rows = rows.filter(kind__in=kinds)
     if material:
         rows = rows.filter(material=material)
     latest = {}

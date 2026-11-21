@@ -115,7 +115,10 @@ class FilterSceneTests(TestCase):
         self.assertEqual(corrected['display_name'],'Fabric scraps')
         self.assertFalse(corrected['name_confirmation_required'])
         self.assertEqual(corrected['name'],'towel')
-        self.assertTrue(corrected['action_advice']['projects'])
+        self.assertEqual(corrected['action_advice']['projects'],[])
+        from core.test_support import screen_and_request
+        ideas=screen_and_request(self,PredictionRecord.objects.get(pk=item['prediction']['id']),self.auth)
+        self.assertTrue(ideas)
 
     def test_weak_proposals_do_not_generate_crowding_or_edge_warnings(self):
         rows = [row(score=.15,box=[index*.1,0,index*.1+.08,.1]) for index in range(9)]

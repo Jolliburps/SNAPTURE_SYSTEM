@@ -4,8 +4,8 @@ import ArrowLeft from 'lucide-react-native/icons/arrow-left';
 import X from 'lucide-react-native/icons/x';
 
 /** Fixed navigation above a bounded viewport; long content grows, not the page. */
-export default function ProjectFlowPage({title,onBack,onClose,backLabel,disabled=false,scroll=false,children}:{
-  title:string;onBack:()=>void;onClose:()=>void;backLabel:string;disabled?:boolean;scroll?:boolean;children:React.ReactNode;
+export default function ProjectFlowPage({title,onBack,onClose,backLabel,disabled=false,scroll=false,showClose=true,children}:{
+  title:string;onBack:()=>void;onClose:()=>void;backLabel:string;disabled?:boolean;scroll?:boolean;showClose?:boolean;children:React.ReactNode;
 }) {
   useEffect(()=>{
     const subscription=BackHandler.addEventListener('hardwareBackPress',()=>{if(!disabled)onBack();return true;});
@@ -15,7 +15,7 @@ export default function ProjectFlowPage({title,onBack,onClose,backLabel,disabled
     <View testID="project-flow-header" style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel={backLabel} disabled={disabled} onPress={onBack} style={[s.icon,disabled && s.disabled]} hitSlop={6}><ArrowLeft size={26} color="#143f30"/></Pressable>
       <Text accessibilityRole="header" style={s.title}>{title}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Close upcycling flow" accessibilityHint="Exit without deleting the project or changing progress" disabled={disabled} onPress={onClose} style={[s.icon,disabled && s.disabled]} hitSlop={6}><X size={26} color="#143f30"/></Pressable>
+      {showClose?<Pressable accessibilityRole="button" accessibilityLabel="Close upcycling flow" accessibilityHint="Exit without deleting the project or changing progress" disabled={disabled} onPress={onClose} style={[s.icon,disabled && s.disabled]} hitSlop={6}><X size={26} color="#143f30"/></Pressable>:null}
     </View>
     {scroll?<ScrollView testID="project-ideas-scroll" style={s.viewport} contentContainerStyle={s.content} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">{children}</ScrollView>:<View style={s.viewport}>{children}</View>}
   </View>;

@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'datasets',
     'evaluations',
     'cesd',
+    'upcycling',
 ]
 
 MIDDLEWARE = [
@@ -150,6 +151,21 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Automatic face blurring is disabled for this application's photo flow.
+SNAPTURE_FACE_BLUR_ENABLED = False
+SNAPTURE_VISUAL_ASSESSOR = os.getenv('SNAPTURE_VISUAL_ASSESSOR', '')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+SNAPTURE_VISION_MODEL = os.getenv('SNAPTURE_VISION_MODEL', '')
+SNAPTURE_CLOUD_PHOTOS_ENABLED = os.getenv('SNAPTURE_CLOUD_PHOTOS_ENABLED', '').lower() == 'true'
+SNAPTURE_LOCAL_VISION_MODEL = os.getenv('SNAPTURE_LOCAL_VISION_MODEL', 'qwen3-vl:2b')
+SNAPTURE_LOCAL_VISION_TIMEOUT = 120
+# Deployment validation reference; no assessor is approved by default.
+import json as _assessment_json
+try:
+    SNAPTURE_VISUAL_ASSESSOR_VALIDATION = _assessment_json.loads(os.getenv('SNAPTURE_VISUAL_ASSESSOR_VALIDATION', '{}'))
+except (ValueError, TypeError):
+    SNAPTURE_VISUAL_ASSESSOR_VALIDATION = {}
 
 # Keep development activity visible while testing from the Android app. This
 # intentionally logs request/scan metadata only; image bytes and passwords are

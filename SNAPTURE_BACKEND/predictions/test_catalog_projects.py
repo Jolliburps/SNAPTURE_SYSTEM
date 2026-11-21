@@ -12,6 +12,9 @@ class CatalogProjectTests(TestCase):
         self.record=PredictionRecord.objects.create(user=self.user,model_class='paper',decision='paper',title='Paper',
                     confidence=.95,threshold=.8,model_version='dataset-candidate-unverified-test')
 
+        from core.test_support import screen_and_request
+        screen_and_request(self, self.record, self.auth)
+
     def start(self, **changes):
         data={'prediction_id':self.record.id,'recommendation_id':'paper_gift_wrap'}
         data.update(changes)

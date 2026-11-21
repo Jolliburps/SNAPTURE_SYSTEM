@@ -1,10 +1,14 @@
+import ChevronLeft from 'lucide-react-native/icons/chevron-left';
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, Image, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
+import { BackHandler, Image, Pressable, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
+import Text from './PublicText';
 import { addSceneRegion, confirmDisposalSelection, getScene, imageUrl, type ImageQuality, type Prediction, type ScanScene, type SceneItem } from './api';
 import MarkObjectModal from './MarkObjectModal';
 import DetectionItemCard from './DetectionItemCard';
 import DisposalObjectRow from './DisposalObjectRow';
-import { MATERIAL_NAMES, sceneItemTitle, materialExplanation } from './detectionPresentation';
+import ScreeningOutcome from './ScreeningOutcome';
+import ScanResult from './ScanResult';
+import { MATERIAL_NAMES, sceneItemTitle, isUpcyclingMaterial, hasUnidentifiedMaterial, materialReview } from './detectionPresentation';
 
 export const GROUP_COLORS: Record<string, string> = { biodegradable: '#247544', recyclable: '#19739c', non_biodegradable: '#715a98', special: '#a24432', review: '#896322' };
 const GROUP_NAMES: Record<string, string> = { biodegradable: 'Biodegradable', recyclable: 'Recyclable / reusable', non_biodegradable: 'Residual', special: 'Special / hazardous', review: 'Unidentified / needs review' };
@@ -29,6 +33,7 @@ export function QualityFeedback({ quality }: { quality?: ImageQuality }) {
 }
 
 function Action({ title, onPress, secondary = false, disabled=false }: { title: string; onPress: () => void; secondary?: boolean;disabled?:boolean }) {
+  if(title==='Back')return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[s.back,disabled && s.disabled]}><ChevronLeft size={22} color="#176b45"/><Text style={s.backText}>Back</Text></Pressable>;
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[secondary ? s.secondary : s.action,disabled && s.disabled]}><Text style={secondary ? s.link : s.actionText}>{title}</Text></Pressable>;
 }
 
@@ -51,7 +56,7 @@ export function containRect(width: number, height: number, boxWidth: number, box
   return { x: (boxWidth - width * scale) / 2, y: (boxHeight - height * scale) / 2, width: width * scale, height: height * scale };
 }
 
-export default function SceneResults({ initial, onBack, onReview, onRetry, onOpenGuide, historical=false, selectedPredictionId, onSceneChange }: { initial: ScanScene; onBack: () => void; onReview?: (prediction: Prediction) => void; onRetry: () => void; onOpenGuide?: (prediction: Prediction, ideaId: string) => Promise<void>; historical?:boolean; selectedPredictionId?:number; onSceneChange?:(scene:ScanScene)=>void }) {
+export default function SceneResults({ initial, onBack, onReview, onRetry, onOpenGuide, historical=false, selectedPredictionId, onSceneChange, onProceed }: { initial: ScanScene; onBack: () => void; onReview?: (prediction: Prediction) => void; onRetry: () => void; onOpenGuide?: (prediction: Prediction, ideaId: string) => Promise<void>; historical?:boolean; selectedPredictionId?:number; onProceed?:(prediction:Prediction)=>void; onSceneChange?:(scene:ScanScene)=>void }) {
   const [scene, setScene] = useState(initial);
   const [error, setError] = useState('');
   const [phase,setPhase]=useState<'selection'|'handling'>(initial.disposal_selection?.confirmed?'handling':'selection');
@@ -107,17 +112,18 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
   const focusBox=proposedFocusBox && proposedFocusBox.every(Number.isFinite) &&
     proposedFocusBox.every(value=>value>=0 && value<=1) &&
     proposedFocusBox[2]>proposedFocusBox[0] && proposedFocusBox[3]>proposedFocusBox[1] ? proposedFocusBox : undefined;
-  const reviewItem = single && activeItems[0].prediction.recognition?.status==='needs_review' ? activeItems[0] : undefined;
+  const reviewItem = single && activeItems[0].prediction.waste_identifier?.category!=='C' && activeItems[0].prediction.recognition?.status==='needs_review' ? activeItems[0] : undefined;
   const suggestedCategory = reviewItem?.prediction.recognition?.suggested_label;
-  const unsupportedOnly = scene.status==='complete' && !reviewItem && activeItems.every(item=>sceneItemTitle(item)==='Unsupported');
+  const unsupportedOnly = scene.status==='complete' && !reviewItem && activeItems.every(item=>hasUnidentifiedMaterial(item.prediction));
+  const materialIssue = materialReview((reviewItem || (unsupportedOnly && single ? activeItems[0] : undefined))?.prediction);
   const recommendationItem=!historical && onReview && singleFrame && single &&
-    (reviewItem || sceneItemTitle(activeItems[0])!=='Unsupported') ? activeItems[0] : undefined;
+    (reviewItem || isUpcyclingMaterial(activeItems[0].prediction)) ? activeItems[0] : undefined;
   const highConfidence = recommendationItem?.prediction.assessment?.material.status==='model_high_confidence';
   const numbers = new Map([...scene.items].sort((a,b) => a.id-b.id).map((item,index) => [item.id,index+1]));
   const uncertainCount=scene.items.filter(needsReview).length;
   const visibleItems=scene.items.filter(item=>!suppressed(item) && (single || !needsReview(item) || showUncertain || discardIds.includes(item.id)));
   // Opening the review list must never turn a weak guess back into a photo box.
-  const eligible = scene.items.filter(item=>sceneItemTitle(item)!=='Unsupported' && canDraw(item) && item.display_box!==false && !needsReview(item) && !suppressed(item) && item.identification?.object_prediction.source!=='whole_image_classifier');
+  const eligible = scene.items.filter(item=>!hasUnidentifiedMaterial(item.prediction) && canDraw(item) && item.display_box!==false && !needsReview(item) && !suppressed(item) && item.identification?.object_prediction.source!=='whole_image_classifier');
   const drawn = focusBox ? [] : eligible;
   const stageHeight = single ? 280 : 360;
   const rect = containRect(scene.width,scene.height,photoWidth,stageHeight);
@@ -163,6 +169,7 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     }catch(reason){if(mounted.current)setError(reason instanceof Error?reason.message:'Unable to confirm items. Your selection has been kept.');}
     finally{busy.current=false;if(mounted.current)setConfirming(false);}
   };
+  if(singleFrame && single && scene.status==='complete' && (!historical || activeItems[0].prediction.scan_snapshot_available))return <ScanResult prediction={activeItems[0].prediction} historical={historical} onBack={onBack} onRetry={onRetry} onChange={value=>{const updated={...scene,items:scene.items.map(item=>item.prediction.id===value.id?{...item,prediction:value}:item)};setScene(updated);changed.current?.(updated);}}/>;
   return <View style={s.screen}><ScrollView ref={scroll} contentContainerStyle={s.page}>
     <Action title="Back" onPress={onBack} secondary />
     <Text style={s.title}>{phase==='selection'?(singleFrame?'Check framed item':'Check detected items'):'Your next steps'}</Text>
@@ -170,7 +177,7 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     {historical?<Text style={[s.small,s.resultBody]}>Saved photo · no new detection.</Text>:null}
     {!unsupportedOnly?<Text style={s.small}>{phase==='selection'?(highConfidence?'Continue to check the item condition.':'Check the suggested category before using guidance.'):'Follow the suggested next step.'}</Text>:null}
     <View onLayout={event => { photoY.current = event.nativeEvent.layout.y; setPhotoWidth(event.nativeEvent.layout.width); }} style={[s.photo,{height:stageHeight}]}>
-      {scene.image_url && !photoError?<Image source={{ uri:imageUrl(scene.image_url) }} onError={()=>setPhotoError(true)} accessibilityLabel={singleFrame?'Scanned area inside border':'Original scanned photo'} resizeMode="contain" style={StyleSheet.absoluteFill} />:<Text style={s.missingPhoto}>The photo is unavailable or privacy processing is not ready. Saved item results are still shown below.</Text>}
+      {scene.image_url && !photoError?<Image source={{ uri:imageUrl(scene.image_url) }} onError={()=>setPhotoError(true)} accessibilityLabel={singleFrame?'Scanned area inside border':'Original scanned photo'} resizeMode="contain" style={StyleSheet.absoluteFill} />:<Text style={s.missingPhoto}>The photo is unavailable. Saved item results are still shown below.</Text>}
       {focusBox && scene.image_url && !photoError?<View pointerEvents="none" accessibilityLabel="Object focus boundary" style={{position:'absolute',borderWidth:3,borderColor:'#176b45',left:rect.x+focusBox[0]*rect.width,top:rect.y+focusBox[1]*rect.height,width:(focusBox[2]-focusBox[0])*rect.width,height:(focusBox[3]-focusBox[1])*rect.height}}/>:null}
       {scene.image_url && !photoError?drawn.map(item => {
         const color = OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length];
@@ -187,13 +194,13 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
     {!unsupportedOnly && phase==='handling'?<Action title="Change selected items" secondary onPress={()=>{edited.current=true;setPhase('selection');}}/>:null}
     {error || scene.error ? <Text accessibilityRole="alert" style={s.error}>{error || scene.error}</Text> : null}
     {scene.status==='processing' ? <View style={s.card}><Text style={s.heading}>Analyzing this photo...</Text><Text style={s.body}>This result updates automatically when analysis finishes.</Text></View> : null}
-    {unsupportedOnly?<View style={s.card}><Text style={s.heading}>Unsupported</Text><Text style={s.body}>No supported category was identified in this photo.</Text></View>:null}
-    {reviewItem?<View style={s.card}><Text style={s.heading}>Check category</Text><Text style={s.body}>{suggestedCategory && MATERIAL_NAMES[suggestedCategory]?`Possible ${MATERIAL_NAMES[suggestedCategory]}. This is not a confirmed result.`:'A reliable category could not be confirmed.'}</Text><Text style={s.body}>Check the category yourself, or take a closer photo of the item.</Text></View>:null}
+    {unsupportedOnly?<View style={s.card}><Text style={s.heading}>{materialIssue.title}</Text><Text style={s.body}>{materialIssue.message}</Text></View>:null}
+    {reviewItem?<View style={s.card}><Text style={s.heading}>{materialIssue.title}</Text>{suggestedCategory && MATERIAL_NAMES[suggestedCategory]?<Text style={s.body}>{`Possible ${MATERIAL_NAMES[suggestedCategory]}. This is not a confirmed result.`}</Text>:null}<Text style={s.body}>{materialIssue.message}</Text></View>:null}
     {!unsupportedOnly && !reviewItem && scene.items.length ? <Text accessibilityRole="header" style={s.itemsTitle}>Category result</Text> : null}
     {!unsupportedOnly && !single && phase==='selection' && uncertainCount?<><Action title={`${showUncertain?'Hide':'Show'} uncertain suggestions (${uncertainCount})`} secondary disabled={confirming} onPress={()=>setShowUncertain(value=>!value)}/><Text style={s.small}>Review-only guesses are not counted as matched objects and are not drawn on the photo.</Text></>:null}
     {!unsupportedOnly && !reviewItem && phase==='selection'?<View pointerEvents={confirming?'none':'auto'}>{[...visibleItems].sort((a,b)=>a.id-b.id).map(item=><View key={item.id} onLayout={event=>{cardY.current[item.id]=event.nativeEvent.layout.y;}}>
       {recommendationItem?.id===item.id?<View style={s.card}>
-        <Text style={s.heading}>{sceneItemTitle(item)}</Text>{materialExplanation(item.prediction)?<Text style={s.small}>({materialExplanation(item.prediction)})</Text>:null}
+        <Text style={s.heading}>{sceneItemTitle(item)}</Text>
         <Text style={s.body}>{highConfidence?'Continue to check its condition.':'Continue to check the suggested material.'}</Text>
       </View>:<DisposalObjectRow item={item} number={numbers.get(item.id)!} color={OBJECT_COLORS[(numbers.get(item.id)!-1)%OBJECT_COLORS.length]} checked={discardIds.includes(item.id)}
         condition={itemConditions[item.id] || 'Not sure'}
@@ -207,26 +214,31 @@ export default function SceneResults({ initial, onBack, onReview, onRetry, onOpe
         explanation={GROUP_REASONS[group] || GROUP_REASONS.review} recoveryOptions={RECOVERY_OPTIONS[group] || RECOVERY_OPTIONS.review}
         fallbackPreparation={group==='special'?'Keep suspected hazardous items separate. Ask CESD for handling instructions; do not mix, burn or empty unknown contents.':'Confirm the item and its contents first. Preparation such as rinsing or flattening is shown only when published guidance applies.'}
         expanded={item.action_advice?.chosen_action?Boolean(expanded[item.id]):scene.items.filter(value=>discardIds.includes(value.id)).length===1?expanded[item.id]!==false:Boolean(expanded[item.id])} selected={selected===item.id}
-        onToggle={()=>chooseCard(item)} onShowPhoto={scene.image_url && !photoError?()=>showPhoto(item):undefined} onReview={!historical && onReview?()=>onReview(item.prediction):undefined}
+        onToggle={()=>chooseCard(item)} onShowPhoto={scene.image_url && !photoError?()=>showPhoto(item):undefined} onReview={onReview?()=>onReview(item.prediction):undefined}
         onOpenGuide={onOpenGuide ? ideaId=>{openGuide(item,ideaId);} : undefined} openingGuide={starting} guidesBusy={Boolean(starting)}
         onLayout={y=>{cardY.current[item.id]=y;}} />;
     }):null}
-    <Action title="Scan another photo" onPress={onRetry} />
+    {activeItems.map(item=><View key={`saved-ideas-${item.id}`}>
+      {onReview?<Action title={`Check item ${numbers.get(item.id)} details and recommendations`} secondary onPress={()=>onReview(item.prediction)}/>:null}
+      <ScreeningOutcome prediction={item.prediction} onProceed={historical?undefined:onProceed}/>
+    </View>)}
+    <Action title={!historical && (unsupportedOnly || reviewItem) && materialIssue.retake?'Retake scan':'Scan another photo'} onPress={onRetry} />
     {marking ? <MarkObjectModal image={scene.image_url} width={scene.width} height={scene.height} onClose={() => setMarking(false)} onSave={async (box, requestId) => { const result = await addSceneRegion(scene.id, box, requestId); setScene(result.scene);changed.current?.(result.scene); }} /> : null}
   </ScrollView>{!unsupportedOnly && phase==='selection'?<View style={s.footer}><Action title={confirming?'Confirming...':recommendationItem?(reviewItem?'Check category':highConfidence?'Check condition':'Check material'):`Continue with ${discardIds.length} selected item${discardIds.length===1?'':'s'}`} disabled={(!recommendationItem && !discardIds.length) || confirming || refreshing || scene.status!=='complete'} onPress={()=>confirm(recommendationItem)}/></View>:null}</View>;
 }
 
 
 const s = StyleSheet.create({
+  back:{alignSelf:'flex-start',minHeight:48,flexDirection:'row',alignItems:'center',gap:4,paddingRight:16,marginBottom:8},backText:{fontSize:16,fontWeight:'600',color:'#176b45'},
   screen:{flex:1,backgroundColor:'#f7f9f5'},footer:{paddingHorizontal:20,paddingBottom:16,paddingTop:4,borderTopWidth:1,borderTopColor:'#dce9df',backgroundColor:'#f7f9f5'},
   disabled:{opacity:.5},
   missingPhoto:{padding:20,fontSize:16,lineHeight:25,color:'#35483e'},
   itemsTitle:{fontSize:21,lineHeight:29,color:'#143f30',fontWeight:'700',marginTop:22},resultBody:{fontSize:16,lineHeight:24},
   page: { flexGrow: 1, backgroundColor: '#f7f9f5', padding: 20, paddingBottom: 45 }, title: { color: '#143f30', fontSize: 27, fontWeight: '800', marginBottom: 8 },
   heading: { color: '#143f30', fontSize: 17, fontWeight: '700', marginBottom: 7 }, body: { color: '#35483e', fontSize: 14, lineHeight: 21, marginBottom: 8 }, small: { fontSize: 12, color: '#57645d', lineHeight: 18, marginBottom: 8 },
-  photo: { width: '100%', backgroundColor: '#dae5df', marginVertical: 12, overflow: 'hidden' }, box: { position: 'absolute', borderWidth: 2 }, selectedBox: { borderWidth: 4 },
+  photo: { width: '100%', backgroundColor: '#eef3ec', marginTop: 18,marginBottom:24,borderRadius:18, overflow: 'hidden' }, box: { position: 'absolute', borderWidth: 2 }, selectedBox: { borderWidth: 4 },
   numberBadge: { position: 'absolute', width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }, numberText: { color: '#fff', fontWeight: '800', fontSize: 14 }, low: { color: '#896322', lineHeight: 20, marginBottom: 8 },
   card: { borderWidth: 1, borderColor: '#dce9df', borderRadius: 18, padding: 16, backgroundColor: '#fff', marginTop: 14 },
-  action: { padding: 14, backgroundColor: '#176b45', borderRadius: 12, marginTop: 10 }, actionText: { color: '#fff', fontWeight: '700', textAlign: 'center' }, secondary: { paddingVertical: 12 }, link: { color: '#176b45', fontWeight: '700' },
+  action: { padding: 14, backgroundColor: '#176b45', borderRadius: 12, marginTop: 10 }, actionText: { color: '#fff', fontWeight: '700', textAlign: 'center' }, secondary: { minHeight:48,justifyContent:'center',borderWidth:2,borderColor:'#176b45',borderRadius:12,paddingHorizontal:16,paddingVertical:12,marginTop:10,backgroundColor:'#fff' }, link: { color: '#176b45', fontWeight: '700',textAlign:'center' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, legendText: { fontSize: 14, lineHeight: 22, fontWeight: '700' }, warning: { backgroundColor: '#fff3dc', padding: 14, borderRadius: 14, marginVertical: 10 }, error: { color: '#a12020' }, learn: { backgroundColor: '#e7f2e9', borderRadius: 16, padding: 16, marginTop: 18 }, historyPhoto: { width: '100%', height: 150, borderRadius: 12, marginBottom: 12 },
 });

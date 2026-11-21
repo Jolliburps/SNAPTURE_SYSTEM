@@ -1,26 +1,37 @@
-import React from 'react';
+import React, {useState} from 'react';
+import {projectFit} from './projectFit';
 import {Pressable,StyleSheet,Text,View} from 'react-native';
 import type {Recommendation} from './api';
+import TutorialPhoto, {PhotoCredits} from './TutorialPhoto';
+import {photoFirstRecommendations} from './recommendationOrder';
 
 export type IdeaChoice=Recommendation & {existing_project_id?:number;existing_project_status?:'active'|'completed'};
 /** The original material-specific chooser, shared by first selection and change. */
 export default function UpcyclingIdeaChoices({material,ideas,onChoose,selectedId,busyId='',error='',changing=false}:{
   material:string;ideas:IdeaChoice[];onChoose?:((id:string)=>void);selectedId?:string;busyId?:string;error?:string;changing?:boolean;
 }) {
+  const [checking,setChecking]=useState('');
   return <View style={s.section}>
     <Text accessibilityRole="header" style={s.heading}>Upcycling ideas for {material}</Text>
     <Text style={s.note}>Ideas for clean, suitable material. Check its condition and previous contents before starting.</Text>
     {error?<Text accessibilityRole="alert" style={s.error}>{error}</Text>:null}
-    {ideas.map(idea=>{
+    {photoFirstRecommendations(ideas).map(idea=>{
       const selected=idea.id===selectedId;
       const label=selected?'Current idea':busyId===idea.id?'Saving...':changing && idea.existing_project_id?(idea.existing_project_status==='completed'?'View completed project':'Continue saved project'):`Choose task: ${idea.title}`;
       return <View key={idea.id} style={s.card}>
         <Text style={s.title}>{idea.title}</Text><Text style={s.body}>{idea.summary}</Text>
+        <Text style={s.note}>{idea.basis==='educational_catalog'?'Educational catalog suggestion; not expert approval.':idea.review?.review_level==='expert_reviewed'?'Expert-reviewed project. Your reported details still need to fit this project.':'Project guidance; check its source and suitability.'}</Text>
+        <TutorialPhoto photo={idea.photos?.finished} label={`${idea.title}: finished-product reference`}/>
+        <PhotoCredits photos={idea.photos}/>
         {changing && idea.existing_project_id && !selected?<Text style={s.note}>Already saved for this item. Its progress will be kept.</Text>:null}
-        {idea.fit_note?<Text style={s.note}>{idea.fit_note}</Text>:null}
-        {idea.fit_basis?<Text style={s.note}>{idea.fit_basis}</Text>:null}
-        <Text style={s.note}>Required tools and materials: {idea.materials.join(', ')}</Text>
-        {onChoose?<Pressable accessibilityRole="button" accessibilityLabel={selected?`Current idea: ${idea.title}`:`Choose task: ${idea.title}`} accessibilityState={{selected}} disabled={selected || Boolean(busyId)} onPress={()=>onChoose(idea.id)} style={[s.action,(selected || Boolean(busyId)) && s.disabled]}><Text style={s.actionText}>{label}</Text></Pressable>:null}
+        {checking===idea.id?<View>
+          <Text style={s.title}>Check project fit</Text>
+          <Text style={s.note}>A photo cannot measure actual size or how much usable material you have. Check before starting.</Text>
+          {projectFit(idea).map(line=><Text key={line} style={s.body}>{'\u2022 '}{line}</Text>)}
+          <Pressable accessibilityRole="button" accessibilityLabel="Confirm project fit" disabled={Boolean(busyId)} onPress={()=>onChoose?.(idea.id)} style={s.action}><Text style={s.actionText}>It fits my material - start project</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Choose a different idea" disabled={Boolean(busyId)} onPress={()=>setChecking('')}><Text style={s.note}>Not a fit - choose another idea</Text></Pressable>
+        </View>:null}
+        {onChoose && checking!==idea.id?<Pressable accessibilityRole="button" accessibilityLabel={selected?`Current idea: ${idea.title}`:`Choose task: ${idea.title}`} accessibilityState={{selected}} disabled={selected || Boolean(busyId)} onPress={()=>{if(changing && idea.existing_project_id)onChoose(idea.id);else setChecking(idea.id);}} style={[s.action,(selected || Boolean(busyId)) && s.disabled]}><Text style={s.actionText}>{label}</Text></Pressable>:null}
       </View>;
     })}
   </View>;

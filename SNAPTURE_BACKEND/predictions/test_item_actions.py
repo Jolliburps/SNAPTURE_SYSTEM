@@ -76,11 +76,13 @@ class ItemActionTests(TestCase):
     def test_safe_recovery_uses_existing_educational_guides_not_invented_approval(self):
         item=self.item()
         result=self.select(item,'recover').json()['scene']['items'][0]['action_advice']
-        self.assertTrue(result['projects'])
-        self.assertEqual(result['projects'][0]['basis'],'educational_catalog')
-        self.assertEqual(len(result['projects']),3)
+        self.assertEqual(result['projects'],[])
+        from core.test_support import screen_and_request
+        ideas=screen_and_request(self,item.prediction,self.auth)
+        self.assertEqual(ideas[0]['basis'],'educational_catalog')
+        self.assertEqual(len(ideas),3)
         started=self.client.post('/api/projects/',json.dumps({'prediction_id':item.prediction_id,
-            'recommendation_id':result['projects'][0]['id']}),content_type='application/json',**self.auth)
+            'recommendation_id':ideas[0]['id']}),content_type='application/json',**self.auth)
         self.assertEqual(started.status_code,201)
         self.assertEqual(started.json()['project']['reference']['review_level'],'educational')
 

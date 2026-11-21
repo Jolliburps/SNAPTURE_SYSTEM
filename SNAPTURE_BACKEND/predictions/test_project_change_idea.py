@@ -11,6 +11,9 @@ class ChangeProjectIdeaTests(TestCase):
         self.auth={'HTTP_AUTHORIZATION':f'Bearer {issue_token(self.user)}'}
         self.record=PredictionRecord.objects.create(user=self.user,model_class='paper',decision='paper',title='Paper',
             confidence=.95,threshold=.8,condition='Clean and dry',model_version='dataset-candidate-unverified-test')
+        from core.test_support import screen_and_request
+        screen_and_request(self, self.record, self.auth)
+
         self.project=self.start('paper_gift_wrap').json()['project']
         self.url=f"/api/projects/{self.project['id']}/ideas/"
 
@@ -119,6 +122,8 @@ class ChangeProjectIdeaTests(TestCase):
             image_quality={'item_action':'recover','user_object_name':'blanket'})
         scene=ScanScene.objects.create(user=self.user,request_id='fabric_choice_test',width=100,height=100,status='complete')
         SceneItem.objects.create(scene=scene,prediction=record,name='towel',score=.8,box=[0,0,1,1])
+        from core.test_support import screen_and_request
+        screen_and_request(self,record,self.auth)
         response=self.client.post('/api/projects/',json.dumps({'prediction_id':record.pk,'recommendation_id':'fabric_cleaning_cloth'}),content_type='application/json',**self.auth)
         self.assertEqual(response.status_code,201)
         project=response.json()['project']

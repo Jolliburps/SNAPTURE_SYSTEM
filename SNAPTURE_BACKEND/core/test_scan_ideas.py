@@ -17,25 +17,26 @@ class ScanIdeasTests(TestCase):
     def record(self, **changes):
         values=dict(user=self.user,model_class='paper',decision='paper',title='Paper',
                     confidence=.95,threshold=.8,model_version='dataset-candidate-unverified-test')
-        values.update(dict(quantity=10,condition='Clean and dry',answers={'usable_width_cm':'100','usable_height_cm':'100','usable_capacity_ml':'2000','usable_form':'Intact'}))
         values.update(changes)
-        values['answers']={**{'usable_width_cm':'100','usable_height_cm':'100','usable_capacity_ml':'2000','usable_form':'Intact'},**values.get('answers',{})}
         return PredictionRecord.objects.create(**values)
 
-    def test_known_material_immediately_has_steps_with_an_empty_project_database(self):
+    def test_known_material_waits_for_explicit_request_with_an_empty_project_database(self):
         record=self.record()
         self.assertEqual(Guidance.objects.count(),0)
         refresh(record)
         result=_serialize(record)
-        self.assertEqual(len(result['upcycling_ideas']),3)
-        self.assertEqual(result['upcycling_ideas'][0]['id'],'paper_gift_wrap')
-        self.assertTrue(all(idea['steps'] and idea['materials'] for idea in result['upcycling_ideas']))
+        self.assertEqual(result['upcycling_ideas'],[])
+        from core.test_support import screen_and_request
+        from core.auth import issue_token
+        ideas=screen_and_request(self,record,{'HTTP_AUTHORIZATION':f'Bearer {issue_token(self.user)}'})
+        self.assertEqual(ideas[0]['id'],'paper_gift_wrap')
+        self.assertTrue(all(idea['steps'] and idea['materials'] for idea in ideas))
         self.assertEqual(result['recommendation_choices'],[])
 
     def test_all_seven_recognized_materials_have_catalog_choices(self):
         for label in SCOPE_LABELS:
             with self.subTest(label=label):
-                self.assertEqual(len(scan_ideas(self.record(decision=label,model_class=label))),2 if label=='dry_untreated_wood_scraps' else 3)
+                self.assertEqual(len(scan_ideas(self.record(decision=label,model_class=label))),3)
 
     def test_unknown_low_confidence_and_reported_hazards_have_no_suggestions(self):
         for changes in ({'decision':'unknown_unsupported'},{'confidence':.2},
@@ -59,7 +60,11 @@ class ScanIdeasTests(TestCase):
         record=self.record(condition='Torn or crumpled, clean and dry', previous_contents='No chemical contact known',
                            answers={'user_confirmed_material':'paper','contamination':'None known','moisture':'Dry'})
         refresh(record);record.save();record.refresh_from_db()
-        self.assertEqual([idea['id'] for idea in _serialize(record,saved=True)['upcycling_ideas']],['paper_craft'])
+        self.assertEqual(_serialize(record,saved=True)['upcycling_ideas'],[])
+        from core.test_support import screen_and_request
+        from core.auth import issue_token
+        ideas=screen_and_request(self,record,{'HTTP_AUTHORIZATION':f'Bearer {issue_token(self.user)}'})
+        self.assertEqual([idea['id'] for idea in ideas],['paper_craft'])
         self.assertEqual(record.condition,'Torn or crumpled, clean and dry')
 
     def test_torn_paper_state_does_not_bypass_other_material_or_contamination_checks(self):
@@ -81,9 +86,3 @@ class ScanIdeasTests(TestCase):
     def test_preparation_and_unknown_conditions_do_not_offer_projects_early(self):
         for changes in ({'condition':'Needs cleaning'}, {'condition':'Not sure'}, {'answers':{'moisture':'Wet'}}):
             self.assertEqual(scan_ideas(self.record(**changes)),[])
-
-    def test_dried_paper_history_only_offers_piece_crafts(self):
-        record=self.record(condition='Clean and dry',answers={'wetness_cause':'Clean water'})
-        self.assertEqual([idea['id'] for idea in scan_ideas(record)],['paper_craft'])
-        record.answers['wetness_cause']='Floodwater, sewage or animal waste'
-        self.assertEqual(scan_ideas(record),[])

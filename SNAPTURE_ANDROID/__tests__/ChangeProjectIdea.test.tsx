@@ -33,6 +33,7 @@ test('can cancel without altering the choice, or replace the same project and re
   await press('Keep current idea');expect(changeProjectIdea).not.toHaveBeenCalled();
   expect(JSON.stringify(tree.toJSON())).toContain('Gift wrapping');
   await press('Change idea');await press('Choose task: Paper organizer');
+  expect(changeProjectIdea).not.toHaveBeenCalled();await press('Confirm project fit');
   expect(changeProjectIdea).toHaveBeenCalledWith(31,'paper-organizer');
   expect(JSON.stringify(tree.toJSON())).toContain('Choose dry sheets.');
   expect(tree.root.findAllByProps({accessibilityRole:'header'}).map(node=>node.children.join(''))).toContain('Step 1 of 2');
@@ -43,9 +44,10 @@ test('save failure retains old project and lets the user retry or cancel',async(
   (changeProjectIdea as jest.Mock).mockRejectedValueOnce(new Error('Connection lost.'));
   await Renderer.act(async()=>{tree=Renderer.create(<Harness/>);});
   await press('Change idea');await press('Choose task: Paper organizer');
+  await press('Confirm project fit');
   expect(JSON.stringify(tree.toJSON())).toContain('Connection lost.');
   expect(tree.root.findByType(ProjectIdeaPicker).props.project.recommendation_id).toBe('paper-wrap');
-  await press('Choose task: Paper organizer');
+  await press('Confirm project fit');
   expect(JSON.stringify(tree.toJSON())).toContain('Choose dry sheets.');
 });
 
@@ -79,7 +81,8 @@ test('double taps submit only one replacement request while saving',async()=>{
   let resolve!:(value:{project:UserProject})=>void;
   (changeProjectIdea as jest.Mock).mockImplementation(()=>new Promise(done=>{resolve=done;}));
   await Renderer.act(async()=>{tree=Renderer.create(<Harness/>);});await press('Change idea');
-  await Renderer.act(()=>{const node=button('Choose task: Paper organizer')!;node.props.onPress();node.props.onPress();});
+  await press('Choose task: Paper organizer');expect(changeProjectIdea).not.toHaveBeenCalled();
+  await Renderer.act(()=>{const node=button('Confirm project fit')!;node.props.onPress();node.props.onPress();});
   expect(changeProjectIdea).toHaveBeenCalledTimes(1);
   expect(button('Keep current idea')!.props.disabled).toBe(true);
   await Renderer.act(async()=>resolve({project:next}));

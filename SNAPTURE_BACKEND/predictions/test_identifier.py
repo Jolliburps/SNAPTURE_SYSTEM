@@ -14,12 +14,12 @@ class SafetyGateTests(TestCase):
         self.user = User.objects.create_user('safety-test')
         self.record = PredictionRecord(user=self.user, model_class='paper', decision='paper', title='Paper', confidence=.9,
             quantity=1, condition='Clean and dry', previous_contents='No chemical contact known',
-            answers={'user_confirmed_material':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Dry'})
+            answers={'assessment_checked_at':'test','user_confirmed_material':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Dry'})
 
     def test_source_checked_project_is_not_expert_verified(self):
         call_command('seed_reference_guidance',verbosity=0)
         result = assess(self.record)
-        self.assertEqual(result['upcycling']['status'],'awaiting_review')
+        self.assertEqual(result['upcycling']['status'],'not_requested')
         self.assertEqual(result['upcycling']['recommendations'],[])
         self.assertEqual(result['segregation']['status'],'available')
         from core.materials import public_materials
@@ -29,7 +29,7 @@ class SafetyGateTests(TestCase):
         call_command('seed_reference_guidance',verbosity=0)
         from core.test_support import expert_project_fixtures
         expert_project_fixtures()
-        self.assertTrue(assess(self.record)['upcycling']['recommendations'])
+        self.assertTrue(assess(self.record)['screening']['eligible'])
         for key,value in [('moisture','Wet'),('contamination','Oil or grease'),('contamination','Not sure'),('reported_category','C'),('reported_category','B2')]:
             with self.subTest(key=key,value=value):
                 old = self.record.answers.copy(); self.record.answers[key] = value
@@ -53,6 +53,49 @@ class SafetyGateTests(TestCase):
 
     def test_no_three_predictions_are_invented(self):
         self.assertEqual(identity(self.record,assess(self.record))['top_predictions'],[])
+
+    def test_glass_is_hazardous_and_cannot_unlock_projects_even_if_reported_recyclable(self):
+        from .views import _serialize
+        for name in ('glass', 'glass bottle or glass jar', 'broken glass'):
+            with self.subTest(name=name):
+                self.record.decision = 'unknown_unsupported'
+                self.record.model_class = name
+                self.record.confidence = 0  # No dataset material score for glass.
+                self.record.answers = {'reported_category': 'B1'}
+                self.record.save()
+                result = _serialize(self.record)
+                self.assertEqual(result['title'], 'Hazardous Waste')
+                self.assertEqual(result['waste_identifier']['category_basis'], 'precaution')
+                self.assertFalse(result['waste_identifier']['safety_gate_passed'])
+                self.assertEqual(result['screening']['status'], 'ineligible')
+                self.assertFalse(result['recommendation_choices'])
+                self.assertIn('injuries', str(result['waste_identifier']['general_guidance']))
+
+    def test_saved_glass_with_legacy_eligible_screening_is_excluded(self):
+        from .views import _serialize
+        from core.recommendation_requests import generate
+        self.record.save()
+        self.record.assessment = assess(self.record)
+        self.assertTrue(self.record.assessment['screening']['eligible'])
+        self.record.model_class = 'glass bottle or glass jar'
+        self.record.decision = 'unknown_unsupported'
+        result = _serialize(self.record, saved=True)
+        self.assertEqual(result['screening']['status'], 'ineligible')
+        self.assertFalse(result['waste_identifier']['safety_gate_passed'])
+        self.assertEqual(generate(self.record)[1], [])
+
+    def test_accepted_object_rule_does_not_require_an_upcycling_material_score(self):
+        self.record.decision = 'unknown_unsupported'
+        self.record.model_class = 'metal can'
+        self.record.confidence = 0
+        self.record.answers = {}
+        self.record.image_quality = {'object_source':'model', 'detection_filter':{'status':'accepted'}}
+        result = identity(self.record, assess(self.record))
+        self.assertEqual(result['category'], 'B1')
+        self.assertEqual(result['category_basis'], 'object_label_rule')
+        self.assertFalse(result['safety_gate_passed'])
+        self.record.image_quality['detection_filter']['status'] = 'review'
+        self.assertEqual(identity(self.record, assess(self.record))['category'], 'UNIDENTIFIED')
 
 
 class HumanRegionAndConsentTests(TestCase):

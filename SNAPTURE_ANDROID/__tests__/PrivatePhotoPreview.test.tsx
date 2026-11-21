@@ -28,7 +28,7 @@ test('privacy failure hides the image, permits results without a preview and all
   expect(tree.root.findAllByType(Image)).toHaveLength(0);
   expect(JSON.stringify(tree.toJSON())).toContain('analyze without a photo preview');
   expect(busy).toHaveBeenLastCalledWith(false);
-  await Renderer.act(async()=>tree.root.findAllByProps({accessibilityLabel:'Retry photo privacy'}).find(node=>node.props.onPress)!.props.onPress());
+  await Renderer.act(async()=>tree.root.findAllByProps({accessibilityLabel:'Retry photo preview'}).find(node=>node.props.onPress)!.props.onPress());
   expect(tree.root.findByType(Image).props.source.uri).toBe(safe);
   await Renderer.act(()=>tree.unmount());
 });

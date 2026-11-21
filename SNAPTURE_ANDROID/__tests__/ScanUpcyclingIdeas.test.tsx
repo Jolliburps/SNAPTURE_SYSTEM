@@ -6,7 +6,7 @@ import {getScene,startProject,type Prediction,type ScanScene} from '../src/api';
 import {ProjectFlowContext} from '../src/ProjectFlowContext';
 
 jest.mock('../src/api',()=>({getScene:jest.fn(),startProject:jest.fn(),imageUrl:(uri:string)=>uri}));
-const prediction={id:12,title:'Paper',recommendation_choices:[],upcycling_ideas:[
+const prediction={id:12,decision:'paper',assessment:{material:{label:'paper',status:'needs_confirmation'},segregation:{instructions:[]}},title:'Paper',recommendation_choices:[],upcycling_ideas:[
   {id:'paper_wrap',title:'Gift wrapping',summary:'Reuse a clean sheet.',materials:['Paper','String'],safety_note:'Use clean, dry paper.',steps:['Flatten the paper.','Wrap the gift.','Tie with string.']},
 ]} as unknown as Prediction;
 function action(tree:Renderer.ReactTestRenderer,label:string){return tree.root.findAllByProps({accessibilityLabel:label}).find(node=>typeof node.props.onPress==='function')!;}
@@ -19,6 +19,7 @@ test('choosing a task saves a project and opens its persistent guide',async()=>{
   let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(()=>{tree=Renderer.create(<ProjectFlowContext.Provider value={open}><ScanUpcyclingIdeas prediction={prediction}/></ProjectFlowContext.Provider>);});
   await press(tree,'Choose task: Gift wrapping');
+  await press(tree,'Confirm project fit');
   expect(startProject).toHaveBeenCalledWith(12,'paper_wrap');
   expect(open).toHaveBeenCalledWith(project);
   await Renderer.act(()=>tree.unmount());
@@ -30,10 +31,9 @@ test('scan result keeps general ideas out of the action selection so belongings 
   ]} as unknown as ScanScene;
   (getScene as jest.Mock).mockResolvedValue({scene});
   let tree!:Renderer.ReactTestRenderer;
-  await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onRetry={jest.fn()}/>);});
+  await Renderer.act(()=>{tree=Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onRetry={jest.fn()}/>);});
   expect(action(tree,'Continue with 0 selected items').props.disabled).toBe(true);
   expect(action(tree,'Choose task: Gift wrapping')).toBeUndefined();
-  await press(tree,'Show uncertain suggestions (1)');
   expect(action(tree,'Keep item 1')).toBeUndefined();
   expect(action(tree,'Recycle / upcycle item 1')).toBeUndefined();
   expect(action(tree,'Select item 1: Paper')).toBeDefined();
@@ -46,9 +46,10 @@ test('a failed project save keeps the task choices and does not navigate',async(
   let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(()=>{tree=Renderer.create(<ProjectFlowContext.Provider value={open}><ScanUpcyclingIdeas prediction={prediction}/></ProjectFlowContext.Provider>);});
   await press(tree,'Choose task: Gift wrapping');
+  await press(tree,'Confirm project fit');
   expect(open).not.toHaveBeenCalled();
   expect(JSON.stringify(tree.toJSON())).toContain('Connection lost');
-  expect(action(tree,'Choose task: Gift wrapping').props.disabled).toBe(false);
+  expect(action(tree,'Confirm project fit').props.disabled).toBe(false);
   await Renderer.act(()=>tree.unmount());
 });
 

@@ -14,6 +14,7 @@ from core.auth import require_api_user
 from core.materials import SCOPE_LABELS, material_info
 from core.ml_service import predict_image
 from core.assessment import assess, confirm_material, refresh
+from core.screening import without_projects, evaluate
 from django.utils import timezone
 
 from .models import PredictionRecord
@@ -97,7 +98,15 @@ def _serialize(record, saved=False):
             **management_guidance(assessment, record.model_class),
             'legacy_supplement': True,
         }}
-    recommendations = assessment.get('upcycling', {}).get('recommendations', []) if assessment else []
+    assessment = without_projects(assessment)
+    if assessment:
+        assessment['upcycling'] = {'status': 'not_requested', 'explanation': 'Request recommendations after passing screening.',
+                                   'recommendations': [], 'suggested_ideas': []}
+        assessment['screening'] = assessment.get('screening') or evaluate(record, assessment['material'],
+                                                   assessment.get('missing_information', []), [])
+    screening = assessment.get('screening') if assessment else {'status': 'needs_information', 'eligible': False,
+        'reasons': ['Review this older scan before requesting recommendations.'], 'missing_information': ['condition_review']}
+    recommendations = []
     scene_item = getattr(record, 'scene_item', None)
     scene = scene_item.scene if scene_item and scene_item.scene.user_id == record.user_id else None
     if scene_item and record.image_quality.get('automatic_routing'):
@@ -109,7 +118,17 @@ def _serialize(record, saved=False):
                 assessment = {**assessment, 'upcycling':{**assessment['upcycling'], 'recommendations':[], 'suggested_ideas':[]}}
     from core.waste_taxonomy import identity
     from .material_classifier import recognition_result
+    from core.recommendation_requests import revision
+    waste_identity = identity(record, assessment) if assessment else None
+    if safe_decision == 'unknown_unsupported' and waste_identity and waste_identity['category'] != 'UNIDENTIFIED':
+        safe_title = waste_identity['category_label']
+    # Apply current hazard exclusions even to older screening snapshots.
+    if waste_identity and waste_identity['category'] == 'C' and assessment:
+        screening = evaluate(record, assessment['material'], assessment.get('missing_information', []), [])
+        assessment['screening'] = screening
     return {
+        "scan_snapshot_available":bool(record.image_quality.get('result_snapshot')),
+        "screening_revision": revision(record),
         "id": record.id,
         "image_url": record.image.url if record.image else None,
         # The classifier crop includes context padding; it is not object bounds.
@@ -137,12 +156,13 @@ def _serialize(record, saved=False):
         "answers": record.answers,
         "recommendation_choices": recommendations,
         "upcycling_ideas": assessment.get('upcycling', {}).get('suggested_ideas', []) if assessment else [],
-        "selected_recommendation": record.selected_recommendation if record.selected_recommendation in {item["id"] for item in recommendations} else "",
+        "selected_recommendation": record.selected_recommendation,
+        "screening": screening,
         "assessment": assessment,
-        "waste_identifier": identity(record, assessment) if assessment else None,
+        "waste_identifier": waste_identity,
         "review_contribution": record.identification_review.status if hasattr(record, 'identification_review') else None,
         "input_method": record.input_method,
-        "image_quality": record.image_quality,
+        "image_quality": without_projects({key: value for key, value in record.image_quality.items() if key not in {'handling_snapshot', 'action_snapshot'}}),
         "needs_verification": requires_verification,
         "verification_reasons": (
             ["model_result_requires_material_review"]
@@ -215,16 +235,12 @@ def create_prediction(request):
         except (ValueError,OSError,TypeError):
             return JsonResponse({'detail':'Invalid camera guide. Retake the photo.'},status=400)
     quality = quality_report(oriented_image(image_bytes))
-    if request.POST.get('check_objects') == 'true':
-        from . import scene_detector
-        if scene_detector.available() and scene_detector.inference_lock.acquire(blocking=False):
-            try:
-                located, _ = scene_detector.detect(oriented_image(image_bytes),tiled=False)
-                quality = quality_report(oriented_image(image_bytes),[row['box'] for row in located],single=True)
-            except Exception:
-                logger.warning('single_photo_object_check_unavailable user_id=%s',request.api_user.id)
-            finally:
-                scene_detector.inference_lock.release()
+    from upcycling.workflow import VERSION,scan_details
+    try:details=scan_details(request.POST['scan_details']) if 'scan_details' in request.POST else None
+    except (ValueError,TypeError):return JsonResponse({'detail':'Provide valid initial scan details.'},status=400)
+    if details and details.get('condition_policy'):
+        return JsonResponse({'detail':'Submit inspection details and any close-ups together from Review scan.'},status=400)
+    quality.update(workflow_version=VERSION,scan_details=details,workflow={})
     try:
         result = predict_image(image_bytes)
     except (RuntimeError, ValueError) as error:
@@ -277,7 +293,7 @@ def create_prediction(request):
         record.threshold,
         len(choices),
     )
-    return JsonResponse({"prediction": _serialize(record), "result": result, "recommendations": record.recommendation_choices}, status=201)
+    return JsonResponse({"prediction": _serialize(record), "result": without_projects({key: value for key, value in result.items() if key != 'reuse_options'}), "recommendations": []}, status=201)
 
 
 @csrf_exempt
@@ -312,6 +328,9 @@ def prediction_detail(request, prediction_id):
         record.delete()
         return JsonResponse({"deleted": True, "id": prediction_id})
     if request.method == "PATCH":
+        from upcycling.workflow import enabled
+        if enabled(record):
+            return JsonResponse({'detail':'Update this assessment through the camera assessment endpoint so evidence and inspection are invalidated consistently.'},status=409)
         try:
             payload = json.loads(request.body or "{}")
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -325,7 +344,7 @@ def prediction_detail(request, prediction_id):
         answers = payload.get("answers", {})
         if not isinstance(answers, dict):
             return JsonResponse({"detail": "answers must be a JSON object."}, status=400)
-        allowed_keys = {"material_confirmation", "resin_mark", "wood_treatment", "follow_up", "paper_surface", "contamination", "moisture", "other_material", "reported_category", "wetness_cause", "usable_width_cm", "usable_height_cm", "usable_capacity_ml", "usable_form"}
+        allowed_keys = {"material_confirmation", "resin_mark", "wood_treatment", "follow_up", "paper_surface", "contamination", "moisture", "other_material", "reported_category"}
         incoming = {key: value for key, value in answers.items() if key in allowed_keys}
         if any(not isinstance(value, str) for value in incoming.values()):
             return JsonResponse({"detail": "Confirmation answers must be strings."}, status=400)
@@ -335,17 +354,6 @@ def prediction_detail(request, prediction_id):
         for key, options in {'reported_category': CATEGORY_NAMES, 'other_material': OTHER_MATERIALS, 'contamination': CONTAMINATION, 'moisture': MOISTURE}.items():
             if key in incoming and incoming[key] not in options:
                 return JsonResponse({'detail': 'Choose a listed assessment answer.'}, status=400)
-        from core.preparation_history import CAUSES
-        if 'wetness_cause' in incoming and incoming['wetness_cause'] not in CAUSES:
-            return JsonResponse({'detail':'Choose a listed cause of wetness or dirt.'},status=400)
-        from core.project_suitability import number
-        for key in ['usable_width_cm','usable_height_cm','usable_capacity_ml']:
-            if key in incoming and incoming[key] and number(incoming[key]) is None:
-                return JsonResponse({'detail':'Enter a positive finite measurement.'},status=400)
-        if incoming.get('usable_form') not in {None,'Intact','Usable pieces','Not sure'}:
-            return JsonResponse({'detail':'Choose the usable material form.'},status=400)
-        if 'quantity' in payload and (quantity is None or quantity < 1 or quantity > 100000):
-            return JsonResponse({'detail':'Enter a whole quantity from 1 to 100000.'},status=400)
         merged = {**record.answers, **incoming}
         merged.pop("user_confirmed_material", None)
         old_decision = record.decision
@@ -388,7 +396,7 @@ def prediction_detail(request, prediction_id):
         scene_item = getattr(record, 'scene_item', None)
         scene = scene_item.scene if scene_item and scene_item.scene.user_id == request.api_user.id else None
         return JsonResponse({'prediction': prediction, 'scene': serialize_scene(scene, saved=True) if scene else None})
-    return JsonResponse({"prediction": _serialize(record), "recommendations": record.recommendation_choices})
+    return JsonResponse({"prediction": _serialize(record), "recommendations": []})
 
 
 @csrf_exempt
@@ -426,7 +434,8 @@ def select_recommendation(request, prediction_id):
         return JsonResponse({"detail": "The request body must be a JSON object."}, status=400)
     selected = str(payload.get("recommendation_id", "")).strip()
     refresh(record)
-    allowed = {str(item.get("id")) for item in record.recommendation_choices if isinstance(item, dict)}
+    from core.recommendation_requests import requested_choices
+    allowed = {str(item.get("id")) for item in requested_choices(record) if isinstance(item, dict)}
     if selected not in allowed:
         return JsonResponse({"detail": "Choose one of the available recommendations."}, status=400)
     record.selected_recommendation = selected

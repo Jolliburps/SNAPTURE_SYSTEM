@@ -27,7 +27,7 @@ class QuickAssessmentTests(TestCase):
         self.assertEqual(result['answers']['paper_surface'],'Plain uncoated material without personal details')
         self.assertEqual(result['answers']['contamination'],'None known')
         self.assertIsNone(result['quantity'])
-        self.assertEqual(result['assessment']['upcycling']['status'],'awaiting_review')
+        self.assertEqual(result['assessment']['upcycling']['status'],'not_requested')
 
     def test_no_project_questions_are_required_to_get_sorting_advice(self):
         response=self.client.get('/api/predictions/questions/paper/',**self.auth).json()
@@ -40,7 +40,7 @@ class QuickAssessmentTests(TestCase):
         for label in ('fabric_scraps','dry_untreated_wood_scraps'):
             response=self.client.get(f'/api/predictions/questions/{label}/',**self.auth).json()
             self.assertFalse(response['quick_check']['has_sorting_rule'])
-            self.assertEqual(response['quick_check']['sorting_question_ids'],['material_confirmation'])
+            self.assertEqual(response['quick_check']['sorting_question_ids'],['material_confirmation','condition','previous_contents'] + (['wood_treatment'] if label=='dry_untreated_wood_scraps' else []) + ['contamination','moisture'])
 
     def test_chemical_or_wet_report_never_returns_clean_recyclable_route(self):
         for changes in ({'previous_contents':'Chemical or cleaning product'},{'answers':{'material_confirmation':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Wet'}}):

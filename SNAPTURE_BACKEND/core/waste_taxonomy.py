@@ -2,7 +2,7 @@
 from .materials import SCOPE_LABELS
 
 CATEGORY_NAMES = {'A': 'Biodegradable', 'B1': 'Recyclable / reusable', 'B2': 'Residual',
-                  'C': 'Special / hazardous', 'UNIDENTIFIED': 'Unidentified'}
+                  'C': 'Hazardous Waste', 'UNIDENTIFIED': 'Unidentified'}
 OTHER_MATERIALS = ['Glass', 'Metal', 'Other plastic', 'Food / plant waste', 'Battery / electronic item',
                    'Composite packaging', 'Other', 'Not sure']
 CONTAMINATION = ['None known', 'Food residue that can be removed', 'Oil or grease', 'Mold or biological waste',
@@ -13,7 +13,7 @@ FINE_CLASSES = {
     'plastic bottle': ('B1', None), 'plastic jug or container': ('B1', None),
     'cardboard box or cardboard scrap': ('B1', 'cardboard'), 'paper scrap': ('B1', 'paper'),
     'cloth or fabric scrap': ('B1', 'fabric_scraps'), 'wood scrap': ('UNIDENTIFIED', 'dry_untreated_wood_scraps'),
-    'glass bottle or glass jar': ('B1', None), 'metal can': ('B1', None),
+    'glass bottle or glass jar': ('C', None), 'glass': ('C', None), 'metal can': ('B1', None),
     'food scraps or fruit peel': ('A', None), 'dry leaf': ('A', None),
     'plastic bag or plastic wrapper': ('UNIDENTIFIED', None), 'plastic sachet': ('UNIDENTIFIED', None),
     'disposable diaper': ('B2', None), 'cigarette butt': ('B2', None),
@@ -30,13 +30,17 @@ def identity(record, assessment, box=None):
     label = assessment['material']['label']
     confirmed = assessment['material']['status'] == 'user_selected'
     reported_category = answers.get('reported_category')
+    metadata = record.image_quality or {}
+    object_rule = (metadata.get('detection_filter', {}).get('status') == 'accepted'
+                   and metadata.get('object_source') != 'whole_image_classifier'
+                   and category != 'UNIDENTIFIED')
     hazardous = (bool(special_kind(record)) or record.previous_contents == 'Chemical or cleaning product' or answers.get('contamination') == 'Chemical contamination'
                  or FINE_CLASSES.get(record.model_class, ('', None))[0] == 'C' or answers.get('other_material') == 'Battery / electronic item')
     if hazardous:
         category = 'C'
     elif reported_category in CATEGORY_NAMES:
         category = reported_category
-    elif record.confidence < .55 or record.input_method == 'manual' or 'unverified' in record.model_version:
+    elif not object_rule and (record.confidence < .55 or record.input_method == 'manual' or 'unverified' in record.model_version):
         category = 'UNIDENTIFIED'
     # A user's category is a report, not approval or an instruction to unlock projects.
     proposed_category = FINE_CLASSES.get(record.model_class, ('UNIDENTIFIED', None))[0]
@@ -53,8 +57,7 @@ def identity(record, assessment, box=None):
         excluded = True
     if excluded:
         condition = 'NOT_RECYCLABLE'  # Excluded from this prototype's projects, not a legal landfill ruling.
-    gate = bool(confirmed and label in SCOPE_LABELS and condition == 'OK' and not excluded and
-                assessment['upcycling']['status'] in {'available', 'awaiting_review', 'not_eligible'})
+    gate = not excluded and assessment.get('screening', {}).get('status') == 'eligible'
     candidates = record.image_quality.get('alternatives', []) if isinstance(record.image_quality, dict) else []
     top = [{'label': row['label'], 'score': row['score']} for row in candidates[:3]
            if isinstance(row, dict) and isinstance(row.get('label'), str) and isinstance(row.get('score'), (int, float))]
@@ -65,10 +68,15 @@ def identity(record, assessment, box=None):
     if category == 'C':
         general = {'status':'precaution_only','instructions':['Do not reuse, open, puncture, burn or mix a suspected hazardous item. Follow its label and contact CESD for item-specific collection instructions. Do not pick up exposed sharps.'],
                    'source':{'name':'US EPA, Household Hazardous Waste','url':'https://www.epa.gov/hw/household-hazardous-waste-hhw','section':'Safe handling and local management options','date':None}}
+    if special_kind(record) == 'glass':
+        general = {**general, 'instructions': [
+            'SNAPTURE routes glass to Hazardous Waste as a precaution because broken glass can cause injuries.',
+            'Not eligible for upcycling. Do not break or crush it, and avoid exposed sharp edges.',
+            'Keep it separate and ask your barangay or CESD about safe packaging and collection.']}
     return {
         'box': box, 'fine_class': label if confirmed else None, 'visual_suggestion': record.model_class,
         'category': category, 'category_label': CATEGORY_NAMES[category], 'suggested_category': proposed_category,
-        'category_basis': 'precaution' if hazardous else 'user_report' if reported_category in CATEGORY_NAMES else 'reviewed_rule' if segregation['status'] == 'available' else 'unconfirmed',
+        'category_basis': 'precaution' if hazardous else 'user_report' if reported_category in CATEGORY_NAMES else 'reviewed_rule' if segregation['status'] == 'available' else 'object_label_rule' if object_rule else 'unconfirmed',
         'target_material': label if confirmed and label in SCOPE_LABELS else 'Other' if answers.get('other_material') not in {None, '', 'Not sure'} else None,
         'confidence': record.confidence, 'score_kind': 'uncalibrated model score, not measured accuracy', 'top_predictions': top,
         'condition': condition, 'condition_note': 'NOT_RECYCLABLE means excluded from prototype reuse; ask CESD for the actual disposal route.',

@@ -36,15 +36,15 @@ test('review keeps the capture aspect even in a narrower screen',async()=>{
 });
 
 test('single-item results cannot add more regions or select multiple items',async()=>{
-  const scene={id:7,image_url:'/frame.jpg',width:200,height:200,status:'complete',quality:{flags:[]},single_item:{enabled:true},items:[1,2].map(id=>({id,name:'paper scrap',score:.8,box:[.1,.1,.9,.9],prediction:{id,recommendation_choices:[]},route:{reason:'Check material'}}))} as unknown as ScanScene;
+  const scene={id:7,image_url:'/frame.jpg',width:200,height:200,status:'complete',quality:{flags:[]},single_item:{enabled:true},items:[1,2].map(id=>({id,name:'paper scrap',score:.8,box:[.1,.1,.9,.9],prediction:{id,decision:'paper',recommendation_choices:[]},route:{reason:'Check material'}}))} as unknown as ScanScene;
   (getScene as jest.Mock).mockResolvedValue({scene});
   let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onRetry={jest.fn()}/>);});
   const button=(label:string)=>tree.root.findAllByProps({accessibilityLabel:label}).find(node=>node.props.onPress);
   expect(button('Mark a missed item')).toBeUndefined();
-  await Renderer.act(()=>button('Select item 1: paper scrap')!.props.onPress());
-  await Renderer.act(()=>button('Select item 2: paper scrap')!.props.onPress());
-  expect(button('Select item 1: paper scrap')!.props.accessibilityState.checked).toBe(false);
-  expect(button('Select item 2: paper scrap')!.props.accessibilityState.checked).toBe(true);
+  await Renderer.act(()=>button('Select item 1: Paper')!.props.onPress());
+  await Renderer.act(()=>button('Select item 2: Paper')!.props.onPress());
+  expect(button('Select item 1: Paper')!.props.accessibilityState.checked).toBe(false);
+  expect(button('Select item 2: Paper')!.props.accessibilityState.checked).toBe(true);
   await Renderer.act(()=>tree.unmount());
 });

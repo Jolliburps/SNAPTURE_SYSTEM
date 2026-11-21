@@ -2,8 +2,10 @@ from django.urls import path
 
 from . import views
 from .review_views import contribute
+from .recommendation_views import request_recommendations
 
 urlpatterns = [
+    path('<int:prediction_id>/recommendations/', request_recommendations, name='recommendation-request'),
     path('<int:prediction_id>/review-contribution/', contribute),
     path("", views.list_predictions, name="prediction-list"),
     path("create/", views.create_prediction, name="prediction-create"),

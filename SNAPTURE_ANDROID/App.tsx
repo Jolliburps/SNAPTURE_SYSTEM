@@ -16,16 +16,22 @@ import { Camera, type CameraRef, useCameraDevice, useCameraPermission, usePhotoO
 import { launchImageLibrary } from 'react-native-image-picker';
 import Leaf from 'lucide-react-native/icons/leaf';
 
-import { confirmPasswordReset, deleteAllPredictions, deletePrediction, getAdminOverview, getAdminPredictionDetail, getCurrentUser, getMaterials, listPredictions, loginUser, logoutUser, registerUser, requestPasswordReset, selectRecommendation, updatePrediction, type AdminOverview, type AdminPredictionDetail, type ApiUser, type MaterialGuide, type Prediction, type PredictionSummary } from './src/api';
+import { confirmPasswordReset, deleteAllPredictions, deletePrediction, getAdminOverview, getAdminPredictionDetail, getCurrentUser, getMaterials, listPredictions, loginUser, logoutUser, registerUser, requestPasswordReset, updatePrediction, type AdminOverview, type AdminPredictionDetail, type ApiUser, type MaterialGuide, type Prediction, type PredictionSummary } from './src/api';
 import { BottomNavigation, MainExperience, type MainRoute } from './src/MainExperience';
 import AssessmentScreen from './src/AssessmentScreen';
+import ScanSession from './src/ScanSession';
+import { ScreenHeader } from './src/UpcyclingUI';
 import GalleryThumbnail from './src/GalleryThumbnail';
-import ScanUpcyclingIdeas from './src/ScanUpcyclingIdeas';
+import ScreeningOutcome from './src/ScreeningOutcome';
+import UpcyclingRecommendations from './src/UpcyclingRecommendations';
 import SceneResults, { QualityFeedback } from './src/SceneResults';
+import {MATERIAL_NAMES,materialReview} from './src/detectionPresentation';
 import { imageUrl } from './src/api';
 import SavedScanReview from './src/SavedScanReview';
 import PasswordField from './src/PasswordField';
 import MaterialIdeaReferences from './src/MaterialIdeaReferences';
+import MaterialConditionGuide from './src/MaterialConditionGuide';
+import {neutralPublicText} from './src/PublicText';
 import ProjectGuide from './src/ProjectGuide';
 import ProjectIdeaPicker from './src/ProjectIdeaPicker';
 import ProjectFlowPage from './src/ProjectFlowPage';
@@ -46,7 +52,6 @@ type Screen =
   | 'admin-dashboard'
   | 'home'
   | 'learn'
-  | 'references'
   | 'waste'
   | 'profile'
   | 'calendar'
@@ -56,6 +61,7 @@ type Screen =
   | 'project-guide'
   | 'project-ideas'
   | 'scene-result'
+  | 'upcycling-recommendations'
   | 'scan-review'
   | 'quality'
   | 'result'
@@ -72,8 +78,8 @@ type Screen =
 type Category = { name: string; glyph: string; color: string };
 
 const DISPLAY_CATEGORIES: Category[] = [
-  { name: 'PETE bottles', glyph: 'bottle', color: '#dff3e5' },
-  { name: 'HDPE containers', glyph: 'container', color: '#e6f4df' },
+  { name: MATERIAL_NAMES.pete_bottles, glyph: 'bottle', color: '#dff3e5' },
+  { name: MATERIAL_NAMES.hdpe_containers, glyph: 'container', color: '#e6f4df' },
   { name: 'Cardboard', glyph: 'box', color: '#fff2d1' },
   { name: 'Paper', glyph: 'paper', color: '#e5f1f7' },
   { name: 'Fabric scraps', glyph: 'shirt', color: '#f4e7f5' },
@@ -96,8 +102,8 @@ function CategoryGlyph({ kind, size = 34 }: { kind?: string; size?: number }) {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  'PETE bottles': 'pete_bottles',
-  'HDPE containers': 'hdpe_containers',
+  [MATERIAL_NAMES.pete_bottles]: 'pete_bottles',
+  [MATERIAL_NAMES.hdpe_containers]: 'hdpe_containers',
   Cardboard: 'cardboard',
   Paper: 'paper',
   'Fabric scraps': 'fabric_scraps',
@@ -107,7 +113,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // The app follows the same strict scope as the backend.  A raw model label
 // such as glass, plastic, metal, or trash is never a user-facing
-// identification; it is shown as an unidentified/unsupported object instead.
+// identification; the app shows the material review status instead.
 const SUPPORTED_DECISIONS = new Set(Object.values(CATEGORY_LABELS));
 
 function isSupportedPrediction(prediction: Prediction | null): boolean {
@@ -122,9 +128,13 @@ function isSupportedPrediction(prediction: Prediction | null): boolean {
 }
 
 function displayPredictionTitle(prediction: Prediction | null): string {
+  if (prediction?.waste_identifier && prediction.waste_identifier.category !== 'UNIDENTIFIED') {
+    if (prediction.waste_identifier.category === 'C') return 'Hazardous Waste';
+    if (!SUPPORTED_DECISIONS.has(prediction.decision)) return prediction.waste_identifier.category_label;
+  }
   return isSupportedPrediction(prediction)
-    ? prediction?.title || 'Supported material'
-    : 'Unsupported';
+    ? neutralPublicText(prediction?.title || 'Supported material')
+    : materialReview(prediction).title;
 }
 
 const COLORS = {
@@ -188,12 +198,19 @@ function App() {
   const [guideProject, setGuideProject] = useState<UserProject | null>(null);
   const [guideReturnScreen,setGuideReturnScreen]=useState<Screen>('home');
   const [projectFlowBusy,setProjectFlowBusy]=useState(false);
+  const [recommendationTarget,setRecommendationTarget]=useState<{prediction:Prediction;returnScreen:Screen;intent:number;historyId:number|null}|null>(null);
+  const recommendationIntent=useRef(Date.now());
+  const openRecommendations=(value:Prediction)=>{
+    const result=value.screening || value.assessment?.screening;
+    if(result?.status!=='eligible' || !result.eligible)return;
+    setRecommendationTarget({prediction:value,returnScreen:screen,historyId:savedScanId,intent:++recommendationIntent.current});
+    setScreen('upcycling-recommendations');
+  };
   const [captureFrame, setCaptureFrame] = useState<CaptureFrame | undefined>();
   const requestIdRef = useRef('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryReturn, setCategoryReturn] = useState<'home' | 'waste'>('waste');
   const [prediction, setPrediction] = useState<Prediction | null>(null);
-  const [selectedRecommendation, setSelectedRecommendation] = useState('');
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
   const [authError, setAuthError] = useState('');
   const { showSuccess, successDialog } = useSuccessAlert();
@@ -274,6 +291,7 @@ function App() {
   const signOut = async () => {
     await logoutUser();
     setCurrentUser(null);
+    setRecommendationTarget(null);
     setPrediction(null);
     setCapturedUri(null);
     setFollowUpAnswer('');
@@ -336,11 +354,11 @@ function App() {
   };
 
   const startAnotherScan = () => {
+    setRecommendationTarget(null);
     setScene(null);
     setPrediction(null);
     setCapturedUri(null);
     setFollowUpAnswer('');
-    setSelectedRecommendation('');
     setAnalysisError('');
     navigate('camera');
   };
@@ -348,23 +366,6 @@ function App() {
   const continueFromResult = async () => {
     if (!prediction) return;
     setScreen('assessment');
-  };
-
-  const saveRecommendation = async () => {
-    if (!prediction || !selectedRecommendation) return false;
-    if (!(await saveQuestionnaire())) return false;
-    setAnalysisBusy(true);
-    setAnalysisError('');
-    try {
-      const response = await selectRecommendation(prediction.id, selectedRecommendation);
-      setPrediction(response.prediction);
-      return true;
-    } catch (error) {
-      setAnalysisError(error instanceof Error ? error.message : 'Unable to save your selected project.');
-      return false;
-    } finally {
-      setAnalysisBusy(false);
-    }
   };
 
   return (
@@ -377,19 +378,20 @@ function App() {
         {screen === 'forgot-password' && <ForgotPasswordScreen email={email} setEmail={setEmail} onBack={() => navigate('login')} />}
         {screen === 'admin-login' && <AdminLoginScreen identifier={adminIdentifier} password={adminPassword} setIdentifier={setAdminIdentifier} setPassword={setAdminPassword} onSubmit={submitAdminAuth} onBack={() => navigate('login')} error={adminError} busy={adminBusy} />}
         {screen === 'admin-dashboard' && <AdminDashboardScreen user={currentUser} onLogout={signOut} />}
-        {['home', 'learn', 'references', 'waste', 'profile', 'calendar', 'ideas', 'history', 'projects', 'projects-completed', 'saved', 'settings'].includes(screen) && <MainShell screen={screen} navigate={navigate} user={currentUser} onUserChange={setCurrentUser} onLogout={signOut} onCategory={openCategory} onOpenScan={id=>{setSavedScanId(id);setScreen('scan-review');}} />}
-        {screen==='scan-review' && savedScanId!==null && <SavedScanReview key={savedScanId} id={savedScanId} onBack={()=>navigate('history')} onRetry={startAnotherScan} onOpenGuide={async(value,ideaId)=>{const response=await startProject(value.id,ideaId);setGuideReturnScreen('scan-review');setGuideProject(response.project);setScreen('project-guide');}}/>}
+        {['home', 'learn', 'waste', 'profile', 'calendar', 'ideas', 'history', 'projects', 'projects-completed', 'saved', 'settings'].includes(screen) && <MainShell screen={screen} navigate={navigate} user={currentUser} onUserChange={setCurrentUser} onLogout={signOut} onCategory={openCategory} onOpenScan={id=>{setRecommendationTarget(null);setSavedScanId(id);setScreen('scan-review');}} />}
+        {screen==='upcycling-recommendations' && recommendationTarget && <UpcyclingRecommendations prediction={recommendationTarget.prediction} intent={recommendationTarget.intent} onBack={()=>setScreen(recommendationTarget.returnScreen)}/>}
+        {screen==='scan-review' && savedScanId!==null && <SavedScanReview onProceed={openRecommendations} resumeReview={recommendationTarget?.returnScreen==='scan-review' && recommendationTarget.historyId===savedScanId?recommendationTarget.prediction:undefined} key={savedScanId} id={savedScanId} onBack={()=>navigate('history')} onRetry={startAnotherScan} onOpenGuide={async(value,ideaId)=>{const response=await startProject(value.id,ideaId);setGuideReturnScreen('scan-review');setGuideProject(response.project);setScreen('project-guide');}}/>}
         {screen === 'material-detail' && selectedCategory && <MaterialDetailScreen label={selectedCategory} navigate={navigate} onBack={() => navigate(categoryReturn)} />}
-        {screen === 'camera' && <NativeCameraScreen onManual={() => { setScene(null); navigate('assessment'); }} onBack={() => navigate('home')} onCaptured={(uri, frame) => { setCapturedUri(uri); setCaptureFrame(frame); requestIdRef.current = 'scan_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2); setScene(null); setPrediction(null); setAnalysisError(''); navigate('quality'); }} />}
+        {screen === 'camera' && <ScanSession onBack={()=>navigate('home')} onManual={()=>{setPrediction(null);setScene(null);navigate('assessment');}} onComplete={value=>{setScene(value);setRecommendationTarget(null);setPrediction(null);setScreen('scene-result');}} renderCamera={(capture,back,hint)=><NativeCameraScreen hint={hint} onBack={back} onCaptured={capture} onManual={()=>{setPrediction(null);setScene(null);navigate('assessment');}}/>}/>}
         {screen === 'quality' && <LiveQualityScreen key={capturedUri || 'empty'} photoUri={capturedUri} frame={captureFrame} error={analysisError} analyzing={analysisBusy} onBack={() => { if (!analysisBusy) navigate('camera'); }} onContinue={async () => { if (await analyzeCapturedPhoto()) navigate('scene-result'); }} />}
-        {screen === 'scene-result' && scene && <SceneResults key={scene.id} initial={scene} onSceneChange={setScene} onBack={() => navigate('history')} onReview={(value) => { setPrediction(value); setScreen('assessment'); }} onRetry={startAnotherScan} onOpenGuide={async (value, ideaId) => { const response = await startProject(value.id,ideaId); setGuideReturnScreen('scene-result');setGuideProject(response.project); setScreen('project-guide'); }} />}
+        {screen === 'scene-result' && scene && <SceneResults selectedPredictionId={recommendationTarget?.returnScreen==='scene-result'?recommendationTarget.prediction.id:undefined} onProceed={openRecommendations} key={scene.id} initial={scene} onSceneChange={setScene} onBack={() => navigate('history')} onReview={(value) => { setRecommendationTarget(null); setPrediction(value); setScreen('assessment'); }} onRetry={startAnotherScan} onOpenGuide={async (value, ideaId) => { const response = await startProject(value.id,ideaId); setGuideReturnScreen('scene-result');setGuideProject(response.project); setScreen('project-guide'); }} />}
         {screen === 'project-ideas' && guideProject && <ProjectFlowPage title="Upcycling ideas" scroll disabled={projectFlowBusy} backLabel="Back to current idea" onBack={()=>setScreen('project-guide')} onClose={()=>setScreen(guideReturnScreen)}><ProjectIdeaPicker project={guideProject} onBusyChange={setProjectFlowBusy} onCancel={()=>setScreen('project-guide')} onChanged={updated=>{setGuideProject(updated);setScreen('project-guide');}}/></ProjectFlowPage>}
-        {screen === 'project-guide' && guideProject && <ProjectFlowPage title="Step-by-Step Guide" disabled={projectFlowBusy} backLabel="Back to recommendations" onBack={()=>setScreen(guideReturnScreen)} onClose={()=>setScreen(guideReturnScreen)}><ProjectGuide directCompletion key={guideProject.id} project={guideProject} onBusyChange={setProjectFlowBusy} onChangeIdea={()=>setScreen('project-ideas')} onDone={() => navigate('projects-completed')} onStep={async (id, index, completed) => { const response = await setProjectStep(id, index, completed); setGuideProject(response.project); return response.project; }} onRestart={async id => { const response = await restartProject(id); setGuideProject(response.project); return response.project; }} /></ProjectFlowPage>}
+        {screen === 'project-guide' && guideProject && <ProjectFlowPage title="Step-by-Step Guide" disabled={projectFlowBusy} backLabel="Back to recommendations" onBack={()=>setScreen(guideReturnScreen)} onClose={()=>setScreen(guideReturnScreen)}><ProjectGuide directCompletion key={guideProject.id} project={guideProject} onPhotoChange={setGuideProject} onBusyChange={setProjectFlowBusy} onChangeIdea={()=>setScreen('project-ideas')} onDone={() => navigate(guideProject.status==='completed'?'projects-completed':'projects')} onStep={async (id, index, completed) => { const response = await setProjectStep(id, index, completed); setGuideProject(response.project); return response.project; }} onRestart={async id => { const response = await restartProject(id); setGuideProject(response.project); return response.project; }} /></ProjectFlowPage>}
         {screen === 'result' && <LiveResultScreen photoUri={prediction?.image_url?imageUrl(prediction.image_url):null} prediction={prediction} error={analysisError} onBack={() => navigate('quality')} onContinue={continueFromResult} />}
-        {screen === 'assessment' && <AssessmentScreen prediction={prediction} onChange={value=>{setPrediction(value);setScene(old=>old?{...old,items:old.items.map(item=>item.prediction.id===value.id?{...item,prediction:value}:item)}:old);}} onBack={() => navigate(scene ? 'scene-result' : prediction?.input_method === 'camera' ? 'result' : 'home')} onSaved={() => navigate('saved')} onRetry={startAnotherScan} onManualReset={() => { setPrediction(null); setScene(null); }} />}
+        {screen === 'assessment' && <AssessmentScreen onProceed={openRecommendations} prediction={prediction} onChange={value=>{setRecommendationTarget(null);setPrediction(value);setScene(old=>old?{...old,items:old.items.map(item=>item.prediction.id===value.id?{...item,prediction:value}:item)}:old);}} onBack={() => navigate(scene ? 'scene-result' : prediction?.input_method === 'camera' ? 'result' : 'home')} onSaved={() => navigate('saved')} onRetry={startAnotherScan} onManualReset={() => { setRecommendationTarget(null); setPrediction(null); setScene(null); }} />}
         {screen === 'questions' && <LiveQuestionsScreen quantity={quantity} setQuantity={setQuantity} condition={condition} setCondition={setCondition} previousContents={previousContents} setPreviousContents={setPreviousContents} availableMaterials={availableMaterials} setAvailableMaterials={setAvailableMaterials} prompt={followUpPromptFor(prediction)} answer={followUpAnswer} setAnswer={setFollowUpAnswer} error={analysisError} busy={analysisBusy} onBack={() => navigate('result')} onContinue={async () => { if (await saveQuestionnaire()) navigate('safety'); }} />}
-        {screen === 'safety' && <LiveSafetyScreen prediction={prediction} error={analysisError} onBack={() => navigate('questions')} onContinue={() => navigate('recommendations')} onRetry={startAnotherScan} />}
-        {screen === 'recommendations' && <LiveRecommendationsScreen prediction={prediction} selected={selectedRecommendation} setSelected={setSelectedRecommendation} quantity={quantity} setQuantity={setQuantity} busy={analysisBusy} error={analysisError} onBack={() => navigate(followUpPromptFor(prediction) ? 'safety' : 'result')} onRetry={startAnotherScan} onSave={async () => { if (await saveRecommendation()) showSuccess('Your selected project has been saved to your ideas.', () => navigate('saved')); }} />}
+        {screen === 'safety' && <LiveSafetyScreen prediction={prediction} error={analysisError} onBack={() => navigate('questions')} onContinue={() => {if(prediction)openRecommendations(prediction);}} onRetry={startAnotherScan} />}
+        {screen === 'recommendations' && prediction && <SimplePage title="Item screening" onBack={()=>navigate('assessment')}><ScreeningOutcome prediction={prediction} onProceed={openRecommendations}/></SimplePage>}
         {successDialog}
         </ProjectFlowContext.Provider>
       </SafeAreaView>
@@ -625,15 +627,13 @@ function MaterialDetailScreen({ label, navigate, onBack }: { label: string; navi
     {error ? <Text style={styles.libraryNote}>The guide could not be loaded from the server. Start the backend and try again.</Text> : null}
     {guide ? <>
       <View style={styles.guideHero}><View style={[styles.guideIcon, { backgroundColor: category?.color || '#e6f4df' }]}><CategoryGlyph kind={category?.glyph} size={48} /></View><View style={styles.guideHeroCopy}><Text style={styles.guideTitle}>{guide.title}</Text><Text style={styles.guideDescription}>{guide.description}</Text></View></View>
-      <View style={styles.guideStatus}><Text style={styles.guideStatusTitle}>Before you act</Text><Text style={styles.guideStatusText}>{guide.model_status}</Text></View>
-      <InfoCard title="Common examples" items={guide.examples.length ? guide.examples : ['Examples are not available yet.']} />
-      <InfoCard title="Preparation" items={guide.preparation} />
-      <View style={styles.infoCard}><Text style={styles.infoTitle}>Recycling guidance</Text><Text style={styles.infoText}>{guide.recycling}</Text><Text style={[styles.infoTitle, styles.infoTitleSpacing]}>Disposal guidance</Text><Text style={styles.infoText}>{guide.disposal}</Text></View>
+      <View style={styles.guideStatus}><Text style={styles.guideStatusTitle}>Before you act</Text><Text style={styles.guideStatusText}>{neutralPublicText(guide.model_status)}</Text></View>
+      <MaterialConditionGuide guide={guide}/>
       <Text style={[styles.sectionTitle, styles.guideSectionTitle]}>Reuse &amp; upcycling ideas</Text>
       {guide.upcycling.map((recommendation) => <View key={recommendation.id} style={styles.recommendationCard}><View style={styles.projectIcon}><Text style={styles.projectIconText}>Idea</Text></View><View style={styles.projectCopy}><Text style={styles.projectTitle}>{recommendation.title}</Text><Text style={styles.projectDescription}>{recommendation.summary}</Text><Text style={styles.projectMaterials}>{recommendation.materials.join(' • ')}</Text></View></View>)}
       <MaterialIdeaReferences ideas={guide.idea_references || []} material={guide.title} label={guide.label}/>
       <PrimaryButton label="Scan this material" onPress={() => navigate('camera')} />
-    </> : <View style={styles.emptyState}><Text style={styles.emptyTitle}>{loading ? 'Loading material guide...' : 'Material guide unavailable'}</Text><Text style={styles.emptyText}>{error || 'The guide includes preparation, recycling, disposal, and project ideas.'}</Text>{!loading ? <SecondaryButton label="Try again" onPress={loadGuide} /> : null}</View>}
+    </> : <View style={styles.emptyState}><Text style={styles.emptyTitle}>{loading ? 'Loading material guide...' : 'Material guide unavailable'}</Text><Text style={styles.emptyText}>{error || 'The guide includes visual examples, condition requirements, preparation, and project ideas.'}</Text>{!loading ? <SecondaryButton label="Try again" onPress={loadGuide} /> : null}</View>}
   </SimplePage>;
 }
 
@@ -643,7 +643,7 @@ function toImageUri(uri: string) {
     : `file://${uri}`;
 }
 
-function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => void; onCaptured: (uri: string, frame?: CaptureFrame) => void; onManual: () => void }) {
+function NativeCameraScreen({ onBack, onCaptured, onManual, hint }: { hint?:string; onBack: () => void; onCaptured: (uri: string, frame?: CaptureFrame) => void; onManual: () => void }) {
   const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
   const [flashMode, setFlashMode] = useState<'off' | 'on' | 'auto'>('off');
   const [flashStatusVisible, setFlashStatusVisible] = useState(false);
@@ -804,7 +804,7 @@ function NativeCameraScreen({ onBack, onCaptured, onManual }: { onBack: () => vo
       {flashStatusVisible ? <Text accessibilityLiveRegion="polite" style={styles.flashStatus} pointerEvents="none">Flash: {flashModeLabel}</Text> : null}
     </View>
     {error ? <Text style={styles.cameraError}>{error}</Text> : null}
-    <Text style={styles.cameraFrameHint}>One item inside the border. Only this area is analyzed.</Text>
+    <Text style={styles.cameraFrameHint}>{hint || 'One item inside the border. Only this area is analyzed.'}</Text>
     <View style={styles.cameraControls}><GalleryThumbnail onPress={selectFromGallery} /><View style={styles.shutterGroup}><Pressable style={[styles.shutterOuter, busy && styles.buttonDisabled]} onPress={capture} disabled={busy || !cameraReady || !guideFrame} hitSlop={8} accessibilityRole="button" accessibilityLabel="Take photo"><View style={styles.shutterInner} /></Pressable></View><Pressable style={styles.cameraSwitchButton} onPress={toggleCamera} accessibilityRole="button" accessibilityLabel={`Switch to ${cameraPosition === 'back' ? 'front' : 'rear'} camera`}><SwitchCamera color="#fff" size={30} /></Pressable></View>
     <Pressable accessibilityRole="button" accessibilityLabel="Choose material manually" onPress={onManual} style={styles.cameraManual}><Text style={styles.controlLabel}>No photo? Choose material manually</Text></Pressable>
   </View>;
@@ -829,7 +829,7 @@ function LiveResultScreen({ photoUri, prediction, error, onBack, onContinue }: {
     <View style={styles.resultCard}>{photoUri ? <Image source={{ uri: toImageUri(photoUri) }} style={styles.photoSmall} resizeMode="cover" /> : <View style={styles.photoSmall}><Text style={styles.photoBottle}>Photo</Text></View>}<View style={styles.resultCopy}><Text style={styles.resultName}>{resultTitle}</Text><Text style={styles.resultConfidence}>{confidence}</Text>{prediction ? <Text style={[styles.supportedTag, needsVerification && styles.verificationTag]}>{needsVerification ? 'Needs verification' : 'Educational result'}</Text> : null}</View></View>
     {error ? <Text style={styles.authError}>{error}</Text> : null}
     <InfoCard title="Next step" items={['Confirm the relevant item details before receiving segregation or project guidance.', 'You can select a supported material manually if the model cannot identify it. Manual selection is not AI verification.']} />
-    {prediction?<ScanUpcyclingIdeas key={prediction.id} prediction={prediction}/>:null}
+    {prediction?<ScreeningOutcome prediction={prediction}/>:null}
     {prediction ? <PrimaryButton label="Check details and assessment" onPress={onContinue} /> : <SecondaryButton label="Retake photo" onPress={onBack} />}
   </SimplePage>;
 }
@@ -844,7 +844,7 @@ function LiveQuestionsScreen({ quantity, setQuantity, condition, setCondition, p
       <PrimaryButton label={busy ? 'Saving...' : 'Continue'} onPress={onContinue} disabled={busy || !answer} />
     </SimplePage>;
   }
-  return <SimplePage title="Tell us about the item" onBack={onBack}><Text style={styles.questionIntro}>These answers help SNAPTURE find better reuse options and safety notes.</Text><Text style={styles.inputLabel}>How many items do you have?</Text><TextInput value={quantity} onChangeText={setQuantity} placeholder="Example: 10" placeholderTextColor="#9aa9a0" keyboardType="number-pad" style={styles.input} /><Text style={styles.inputLabel}>What is their current condition?</Text><View style={styles.choiceList}>{['Clean and dry', 'Needs cleaning', 'Damaged or cracked', 'Not sure'].map((choice) => <Choice key={choice} label={choice} selected={condition === choice} onPress={() => setCondition(choice)} />)}</View><Text style={styles.inputLabel}>What was the previous content?</Text><View style={styles.choiceList}>{['Water or beverage', 'Food or oil', 'Chemical or cleaning product', 'Other / unknown'].map((choice) => <Choice key={choice} label={choice} selected={previousContents === choice} onPress={() => setPreviousContents(choice)} />)}</View><Text style={styles.inputLabel}>What tools or materials do you already have?</Text><TextInput value={availableMaterials} onChangeText={setAvailableMaterials} placeholder="Example: scissors, soil, glue" placeholderTextColor="#9aa9a0" style={styles.input} />{error ? <Text style={styles.authError}>{error}</Text> : null}<PrimaryButton label={busy ? 'Saving details...' : 'Continue to safety check'} onPress={onContinue} disabled={busy || !quantity.trim()} /></SimplePage>;
+  return <SimplePage title="Tell us about the item" onBack={onBack}><Text style={styles.questionIntro}>These answers support item condition and safety screening.</Text><Text style={styles.inputLabel}>How many items do you have?</Text><TextInput value={quantity} onChangeText={setQuantity} placeholder="Example: 10" placeholderTextColor="#9aa9a0" keyboardType="number-pad" style={styles.input} /><Text style={styles.inputLabel}>What is their current condition?</Text><View style={styles.choiceList}>{['Clean and dry', 'Needs cleaning', 'Damaged or cracked', 'Not sure'].map((choice) => <Choice key={choice} label={choice} selected={condition === choice} onPress={() => setCondition(choice)} />)}</View><Text style={styles.inputLabel}>What was the previous content?</Text><View style={styles.choiceList}>{['Water or beverage', 'Food or oil', 'Chemical or cleaning product', 'Other / unknown'].map((choice) => <Choice key={choice} label={choice} selected={previousContents === choice} onPress={() => setPreviousContents(choice)} />)}</View>{error ? <Text style={styles.authError}>{error}</Text> : null}<PrimaryButton label={busy ? 'Saving details...' : 'Continue to safety check'} onPress={onContinue} disabled={busy || !quantity.trim()} /></SimplePage>;
 }
 
 function LiveSafetyScreen({ prediction, error, onBack, onContinue, onRetry }: { prediction: Prediction | null; error: string; onBack: () => void; onContinue: () => void; onRetry: () => void }) {
@@ -854,16 +854,7 @@ function LiveSafetyScreen({ prediction, error, onBack, onContinue, onRetry }: { 
   if (!supported) {
     return <SimplePage title="Try another item" onBack={onBack}><View style={styles.safetyCard}><View style={styles.safetyIcon}><Text style={styles.safetyIconText}>!</Text></View><Text style={styles.safetyTitle}>This item is not supported</Text><Text style={styles.safetyDescription}>SNAPTURE cannot provide reliable reuse guidance for this result. Try one clear photo of a supported material.</Text></View><InfoCard title="Identification" items={[identification, `Confidence: ${prediction ? `${Math.round(prediction.confidence * 100)}%` : 'Not available'}`]} />{error ? <Text style={styles.authError}>{error}</Text> : null}<PrimaryButton label="Try another item" onPress={onRetry} /></SimplePage>;
   }
-  return <SimplePage title="Safety check" onBack={onBack}><View style={styles.safetyCard}><View style={styles.safetyIcon}><Text style={styles.safetyIconText}>OK</Text></View><Text style={styles.safetyTitle}>{title}</Text><Text style={styles.safetyDescription}>This is educational decision support based on the image, model output, and information you provided. It is not a safety certification.</Text></View><InfoCard title="Evidence summary" items={[`Identification: ${identification}`, `Confidence: ${prediction ? `${Math.round(prediction.confidence * 100)}%` : 'Not available'}`, `Condition: ${prediction?.condition || 'User-provided'}`]} /><View style={styles.disclaimer}><Text style={styles.disclaimerText}>{error || 'Do not use this result for food-contact, chemical, structural, or medical decisions.'}</Text></View><PrimaryButton label="View recommendations" onPress={onContinue} /></SimplePage>;
-}
-
-function LiveRecommendationsScreen({ prediction, selected, setSelected, quantity, setQuantity, busy, error, onBack, onSave, onRetry }: { prediction: Prediction | null; selected: string; setSelected: (value: string) => void; quantity: string; setQuantity: (value: string) => void; busy: boolean; error: string; onBack: () => void; onSave: () => void; onRetry: () => void }) {
-  if (!isSupportedPrediction(prediction)) {
-    return <SimplePage title="Try another item" onBack={onRetry}><View style={styles.safetyCard}><View style={styles.safetyIcon}><Text style={styles.safetyIconText}>!</Text></View><Text style={styles.safetyTitle}>No reuse choices available</Text><Text style={styles.safetyDescription}>This result is not a supported SNAPTURE material, so recommendations are not available.</Text></View><PrimaryButton label="Try another item" onPress={onRetry} /></SimplePage>;
-  }
-  const quantityLabel = quantity ? `${quantity} item${quantity === '1' ? '' : 's'}` : 'your items';
-  const options = prediction?.recommendation_choices || [];
-  return <SimplePage title="Recommendations" onBack={onBack}><View style={styles.recommendationBanner}><Text style={styles.bannerIcon}>Idea</Text><View style={styles.bannerCopy}><Text style={styles.bannerTitle}>Choose what fits your goal</Text><Text style={styles.bannerSubtitle}>Options are adjusted for {quantityLabel}.</Text></View></View><View style={styles.optionalPanel}><Text style={styles.optionalLabel}>How much do you have? <Text style={styles.optionalHint}>(optional)</Text></Text><View style={styles.quantityChoices}>{[['1', 'One'], ['3', 'A few'], ['10', 'Many']].map(([value, label]) => <Pressable key={value} onPress={() => setQuantity(value)} style={[styles.quantityChoice, quantity === value && styles.quantityChoiceSelected]}><Text style={[styles.quantityChoiceText, quantity === value && styles.quantityChoiceTextSelected]}>{label}</Text></Pressable>)}</View><Text style={styles.optionalHint}>You can continue with the default. The amount only changes the project guidance.</Text></View>{error ? <Text style={styles.authError}>{error}</Text> : null}<Text style={styles.sectionTitle}>Reuse and upcycling choices</Text>{options.map((recommendation) => <Pressable key={recommendation.id} style={[styles.recommendationCard, selected === recommendation.id && styles.recommendationSelected]} onPress={() => setSelected(recommendation.id)}><View style={styles.projectIcon}><Text style={styles.projectIconText}>Idea</Text></View><View style={styles.projectCopy}><Text style={styles.projectTitle}>{recommendation.title}</Text><Text style={styles.projectDescription}>{recommendation.summary}</Text><Text style={styles.projectMaterials}>{recommendation.materials.join(' | ')}</Text>{recommendation.quantity_note ? <Text style={styles.projectQuantity}>{recommendation.quantity_note}</Text> : null}</View><Text style={styles.radio}>{selected === recommendation.id ? 'Selected' : 'Choose'}</Text></Pressable>)}{options.length === 0 ? <Text style={styles.questionIntro}>No recommendations were returned for this result. Retake the photo or choose another item.</Text> : null}<PrimaryButton label={busy ? 'Saving...' : selected ? 'Save selected project' : 'Choose a project'} onPress={onSave} disabled={busy || !selected} /></SimplePage>;
+  return <SimplePage title="Safety check" onBack={onBack}><View style={styles.safetyCard}><View style={styles.safetyIcon}><Text style={styles.safetyIconText}>OK</Text></View><Text style={styles.safetyTitle}>{title}</Text><Text style={styles.safetyDescription}>This is educational decision support based on the image, model output, and information you provided. It is not a safety certification.</Text></View><InfoCard title="Evidence summary" items={[`Identification: ${identification}`, `Confidence: ${prediction ? `${Math.round(prediction.confidence * 100)}%` : 'Not available'}`, `Condition: ${prediction?.condition || 'User-provided'}`]} /><View style={styles.disclaimer}><Text style={styles.disclaimerText}>{error || 'Do not use this result for food-contact, chemical, structural, or medical decisions.'}</Text></View>{prediction?<ScreeningOutcome prediction={prediction} onProceed={onContinue}/>:null}</SimplePage>;
 }
 
 function HistoryScreen({ navigate, onOpenScan }: { navigate: (next: Screen) => void; onOpenScan:(id:number)=>void }) {
@@ -919,9 +910,9 @@ function HistoryScreen({ navigate, onOpenScan }: { navigate: (next: Screen) => v
     ]);
   };
 
-  return <View style={styles.appPage}><ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
-    <Pressable onPress={() => navigate('profile')} style={styles.historyBack}><Text style={styles.historyBackText}>‹  Profile</Text></Pressable>
-    <View style={styles.pageHeaderRow}><View><Text style={styles.pageTitle}>My scans</Text><Text style={styles.pageSubtitle}>Only you can see these saved identification results.</Text></View>{records.length ? <Pressable onPress={clearHistory} disabled={busy}><Text style={styles.deleteLink}>Clear all</Text></Pressable> : null}</View>
+  return <View style={styles.appPage}><ScrollView contentContainerStyle={[styles.pageContent,{paddingTop:8}]} showsVerticalScrollIndicator={false}>
+    <ScreenHeader backLabel="Home" backAccessibilityLabel="Back to Home" onBack={() => navigate('home')} />
+    <View style={styles.pageHeaderRow}><View style={{flex:1,minWidth:0}}><Text style={[styles.pageTitle,{marginTop:0}]}>My scans</Text><Text style={[styles.pageSubtitle,{lineHeight:21,marginBottom:16}]}>Your saved photos and item assessments.</Text></View>{records.length ? <Pressable accessibilityRole="button" accessibilityLabel="Clear all saved scans" style={styles.historyClear} onPress={clearHistory} disabled={busy}><Text style={styles.deleteLink}>Clear all</Text></Pressable> : null}</View>
     {error ? <><Text style={styles.authError}>{error}</Text><Pressable accessibilityRole="button" accessibilityLabel="Retry scan history" onPress={loadHistory}><Text style={styles.historyBackText}>Try again</Text></Pressable></> : null}
     <View style={styles.privacyNotice}><Text style={styles.privacyNoticeTitle}>Your history is private</Text><Text style={styles.privacyNoticeText}>Scans stay attached to your account until you choose to delete them.</Text></View>
     {loading?<Text style={styles.historyMeta}>Loading saved scans...</Text>:null}
@@ -938,7 +929,7 @@ function HistoryScreen({ navigate, onOpenScan }: { navigate: (next: Screen) => v
         <Pressable accessibilityRole="button" accessibilityLabel={`Delete saved scan ${record.id}`} style={styles.historyDelete} onPress={()=>removeRecord(record)} disabled={busy}><Text style={styles.deleteLink}>Delete</Text></Pressable>
       </View>;
     })}
-  </ScrollView><BottomNavigation active="profile" navigate={navigate} /></View>;
+  </ScrollView><BottomNavigation active="home" navigate={navigate} /></View>;
 }
 
 function SimplePage({ title, onBack, children }: { title: string; onBack: () => void; children: React.ReactNode }) {
@@ -1144,13 +1135,13 @@ const styles = StyleSheet.create({
   radio: { color: COLORS.primary, fontSize: 20 },
   pageTitle: { color: COLORS.text, fontSize: 28, fontWeight: '900', marginTop: 12 },
   pageSubtitle: { color: COLORS.muted, fontSize: 14, marginTop: 6, marginBottom: 22 },
-  pageHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  historyBack: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' },
+  pageHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',gap:12 },
+  historyClear: { minHeight: 44, justifyContent: 'center', paddingLeft: 10 },
   historyBackText: { color: COLORS.primary, fontSize: 13, fontWeight: '800' },
   deleteLink: { color: '#b3261e', fontSize: 12, fontWeight: '900', paddingVertical: 14, paddingLeft: 12 },
   historyRow: { backgroundColor: COLORS.surface, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 12, marginBottom: 14 },
   historyOpen:{minHeight:56,paddingVertical:4},
-  historyThumbnail:{width:'100%',height:160,borderRadius:12,backgroundColor:'#e5eee8'},
+  historyThumbnail:{width:'88%',height:150,alignSelf:'center',borderRadius:12,backgroundColor:'#f0f4ed',marginVertical:12},
   historyPhotoFallback:{minHeight:80,borderRadius:12,backgroundColor:'#e5eee8',padding:16,justifyContent:'center'},
   historyScanCopy:{marginTop:12},
   historyDelete:{minHeight:44,justifyContent:'center',alignSelf:'flex-end',paddingHorizontal:8},

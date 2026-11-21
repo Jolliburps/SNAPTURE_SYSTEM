@@ -49,5 +49,5 @@ class IdeaReferenceTests(TestCase):
             answers={'user_confirmed_material':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Dry'})
         assessment = assess(record)
         self.assertEqual(assessment['upcycling']['recommendations'], [])
-        self.assertEqual(assessment['upcycling']['status'], 'awaiting_review')
+        self.assertEqual(assessment['upcycling']['status'], 'not_requested')
         self.assertFalse(assessment['quick_check']['has_reviewed_projects'])

@@ -1,0 +1,96 @@
+{
+  "hdpe_scoop": {
+    "source_url": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/",
+    "credit": "Jeff Johnson / Playvolution HQ",
+    "photo_rights": "Not verified for app reuse",
+    "photo_status": "Downloaded source reference",
+    "relative_dir": "02_HDPE_Containers/HDPE-004_Milk_Jug_Scoop",
+    "verified_date": "2026-11-18",
+    "version": "2026-11-18-v1",
+    "source_id": "HDPE-004",
+    "finished": {
+      "photo_status": "Downloaded source reference",
+      "download_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-09-09.16.28-1024x1024.jpg",
+      "source_stage": "finished",
+      "original_image_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-09-09.16.28-1024x1024.jpg",
+      "source_local_photo": "photos/finished_product.jpg",
+      "visual_note": "",
+      "url": "/api/tutorial-assets/2026-11-18-v1/hdpe_scoop/finished_product-142a605f4146.jpg",
+      "sha256": "142a605f41469b0339e493c14c324ace429fabc695422d703dc597775f9b848c",
+      "visual_type": "Finished-product photograph"
+    },
+    "steps": [
+      {
+        "photo_status": "Downloaded source reference",
+        "visual_type": "Source tutorial visual",
+        "download_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.50.21-1024x1024.jpg",
+        "source_step_url": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/#step3",
+        "source_stage": 3,
+        "original_image_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.50.21-1024x1024.jpg",
+        "source_local_photo": "photos/step_03.jpg",
+        "visual_note": "Cut-piece reference: the handle section has already been cut out; the cutting action is not shown.",
+        "step_index": 0,
+        "url": "/api/tutorial-assets/2026-11-18-v1/hdpe_scoop/step_03-fece08c0af97.jpg",
+        "sha256": "fece08c0af973e048bb7ff2dbdbf5dd2ca9534ba04c20bdc02d78c4227fe67c4"
+      },
+      {
+        "photo_status": "Downloaded source reference",
+        "visual_type": "Source tutorial visual",
+        "download_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.53.55-1024x1024.jpg",
+        "source_step_url": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/#step4",
+        "source_stage": 4,
+        "original_image_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.53.55-1024x1024.jpg",
+        "source_local_photo": "photos/step_04.jpg",
+        "visual_note": "Trimmed-edge reference: shows the scoop after trimming, with scissors beside it; the trimming action is not shown.",
+        "step_index": 1,
+        "url": "/api/tutorial-assets/2026-11-18-v1/hdpe_scoop/step_04-58ae91f64c25.jpg",
+        "sha256": "58ae91f64c251dda0b1b675b7c1535c3c4aae281eadbe1af5deb6039f2b4924e"
+      }
+    ]
+  },
+  "coconut_bowl": {
+    "source_url": "https://www.instructables.com/How-To-Coconut-Bowl/",
+    "credit": "goldenbacon / Instructables",
+    "photo_rights": "Not verified for app reuse",
+    "photo_status": "Downloaded source reference",
+    "relative_dir": "06_Coconut_Shells/COCO-004_Coconut_Trinket_Bowl",
+    "verified_date": "2026-11-18",
+    "version": "2026-11-18-v1",
+    "source_id": "COCO-004",
+    "finished": {
+      "photo_status": "Downloaded source reference",
+      "download_url": "https://content.instructables.com/FI1/0YTP/G61AVQKK/FI10YTPG61AVQKK.jpg?auto=webp&width=1000&fit=bounds",
+      "source_stage": "finished",
+      "original_image_url": "https://content.instructables.com/FI1/0YTP/G61AVQKK/FI10YTPG61AVQKK.jpg?auto=webp",
+      "source_local_photo": "photos/finished_product.jpg",
+      "visual_note": "",
+      "url": "/api/tutorial-assets/2026-11-18-v1/coconut_bowl/finished_product-d65d291403cf.jpg",
+      "sha256": "d65d291403cf7cbfb111c9e726068ff84b2c5e440fbd2ca6bc5bdec6ed651b6f",
+      "visual_type": "Finished-product photograph"
+    },
+    "steps": [
+      {
+        "photo_status": "Dedicated process photo needed",
+        "visual_type": "Source tutorial visual",
+        "source_step_url": "https://www.instructables.com/How-To-Coconut-Bowl/#step4",
+        "source_stage": 4,
+        "original_image_url": null,
+        "source_local_photo": null,
+        "visual_note": "COCO-004 source stage 4 has no dedicated process photo. Follow the text instruction.",
+        "step_index": 0,
+        "url": null
+      },
+      {
+        "photo_status": "Dedicated process photo needed",
+        "visual_type": "Source tutorial visual",
+        "source_step_url": "https://www.instructables.com/How-To-Coconut-Bowl/#step4",
+        "source_stage": 4,
+        "original_image_url": null,
+        "source_local_photo": null,
+        "visual_note": "COCO-004 source stage 4 has no dedicated process photo. Follow the text instruction.",
+        "step_index": 1,
+        "url": null
+      }
+    ]
+  }
+}

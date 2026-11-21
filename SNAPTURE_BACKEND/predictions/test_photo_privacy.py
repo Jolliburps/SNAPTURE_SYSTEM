@@ -10,12 +10,12 @@ from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.files.storage import default_storage
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from core.auth import issue_token
 from .image_quality import oriented_image
 from .models import PredictionRecord, ScanScene
-from .photo_privacy import PrivacyError, detect_faces, redact_image
+from .photo_privacy import PrivacyError, detect_faces, redact_image, privacy_copy
 
 
 def sample():
@@ -63,6 +63,62 @@ class RedactionTests(TestCase):
         self.assertEqual(oriented_image(output.getvalue()).size, (80, 120))
 
 
+class UnblurredPhotoTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('unblurred-photo-test')
+        self.auth = {'HTTP_AUTHORIZATION': f'Bearer {issue_token(self.user)}'}
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        override = self.settings(MEDIA_ROOT=temporary.name, SNAPTURE_FACE_BLUR_ENABLED=False)
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def test_unblurred_copy_keeps_pixels_and_face_presence_for_existing_framing_checks(self):
+        original = sample()
+        with patch('predictions.photo_privacy.detect_faces', return_value=[[30,40,30,40]]):
+            copy, metadata = privacy_copy(original)
+        np.testing.assert_array_equal(np.asarray(copy), np.asarray(original))
+        self.assertEqual(metadata['faces_blurred'], 0)
+        self.assertEqual(metadata['faces_detected'], 1)
+        self.assertEqual(metadata['status'], 'blur_disabled')
+        with patch('predictions.photo_privacy.detect_faces', side_effect=PrivacyError('offline')):
+            copy, metadata = privacy_copy(original)
+        np.testing.assert_array_equal(np.asarray(copy), np.asarray(original))
+
+    def test_preview_and_media_preserve_detail_without_calling_the_blur_function(self):
+        data = encoded(sample())
+        name = default_storage.save('predictions/unblurred.png', ContentFile(data))
+        with patch('predictions.photo_privacy.redact_image', side_effect=AssertionError('Blur must not run')):
+            upload = SimpleUploadedFile('photo.png', data, content_type='image/png')
+            self.assertEqual(self.client.post('/api/photo-privacy/preview/', {'image':upload}).status_code, 401)
+            response = self.client.post('/api/photo-privacy/preview/', {'image':SimpleUploadedFile('photo.png', data, content_type='image/png')}, **self.auth)
+            self.assertEqual(response.status_code, 200)
+            preview = response.json()
+            self.assertEqual(preview['faces_blurred'], 0)
+            self.assertEqual(preview['version'], 'unblurred-v1')
+            image = Image.open(BytesIO(base64.b64decode(preview['preview_uri'].split(',')[1])))
+            self.assertGreater(np.asarray(image.crop((30,40,60,80))).std(), 25)
+            response = self.client.get('/media/' + name)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response['X-SNAPTURE-Photo-Privacy'], 'unblurred-v1')
+            self.assertEqual(response['Cache-Control'], 'private, no-store')
+            self.assertEqual(Image.open(BytesIO(response.content)).getexif(), {})
+            self.assertGreater(np.asarray(Image.open(BytesIO(response.content)).crop((30,40,60,80))).std(), 25)
+
+    def test_new_scan_saves_unblurred_pixels_and_preserves_classifier_input(self):
+        data = encoded(sample())
+        result = {'model_class':'paper','decision':'paper','title':'Paper','confidence':.8,'threshold':.6,'model_version':'test'}
+        with patch('predictions.views.predict_image', return_value=result) as classifier, patch('predictions.photo_privacy.detect_faces', return_value=[[30,40,30,40]]):
+            response = self.client.post('/api/predictions/create/', {'image':SimpleUploadedFile('photo.png', data, content_type='image/png')}, **self.auth)
+        self.assertEqual(response.status_code, 201)
+        classifier.assert_called_once_with(data)
+        record = PredictionRecord.objects.get()
+        self.assertEqual(record.image_quality['photo_privacy']['faces_blurred'], 0)
+        with record.image.open('rb') as file:
+            self.assertGreater(np.asarray(Image.open(file).crop((30,40,60,80))).std(), 25)
+
+
+@override_settings(SNAPTURE_FACE_BLUR_ENABLED=True)
 class PhotoPrivacyApiTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user('privacy-test')
@@ -125,8 +181,8 @@ class PhotoPrivacyApiTests(TestCase):
         observed = []
         def infer(image):
             observed.append(np.asarray(image).copy())
-            return [{'name':'paper scrap','material':'paper','score':.8,'box':[0,0,1,1]}], False
-        with patch('predictions.scene_detector.available', return_value=True), patch('predictions.scene_detector.detect', side_effect=infer), patch('predictions.photo_privacy.detect_faces', return_value=[[30,40,30,40]]):
+            return {'label':'paper','raw_class':'paper','confidence':.8,'threshold':.7,'status':'classified','model_version':'test'}
+        with patch('predictions.scene_detector.available', return_value=True), patch('predictions.scene_views.classify_material', side_effect=infer), patch('predictions.photo_privacy.detect_faces', return_value=[[30,40,30,40]]):
             response = self.client.post('/api/scenes/', {'image':self.upload(),'request_id':'privacy_scene_123'}, **self.auth)
         self.assertEqual(response.status_code, 201)
         np.testing.assert_array_equal(observed[0], np.asarray(sample()))

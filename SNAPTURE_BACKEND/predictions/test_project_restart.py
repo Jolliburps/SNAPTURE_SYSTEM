@@ -16,6 +16,9 @@ class ProjectRestartTests(TestCase):
         self.auth = {'HTTP_AUTHORIZATION':f'Bearer {issue_token(self.user)}'}
         self.record = PredictionRecord.objects.create(user=self.user,model_class='paper',decision='paper',title='Paper',confidence=.9,
             quantity=1,condition='Clean and dry',previous_contents='No chemical contact known',answers={'user_confirmed_material':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Dry'},selected_recommendation='paper-gift-wrap:v1')
+        from core.test_support import screen_and_request
+        screen_and_request(self, self.record, self.auth)
+
         self.project = self.client.post('/api/projects/',json.dumps({'prediction_id':self.record.id}),content_type='application/json',**self.auth).json()['project']
         self.url = f"/api/projects/{self.project['id']}/restart/"
 

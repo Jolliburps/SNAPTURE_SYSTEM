@@ -54,7 +54,7 @@ def high_confidence_scan_material(record):
     return bool(policy and policy['digest'] == evidence.get('policy_digest'))
 
 
-def assess(record):
+def assess(record, *, include_projects=False):
     answers = record.answers if isinstance(record.answers, dict) else {}
     label = record.decision if record.decision in SCOPE_LABELS else "unknown_unsupported"
     confirmed = answers.get("user_confirmed_material") == label and label in SCOPE_LABELS
@@ -67,13 +67,14 @@ def assess(record):
         identified = identified and answers.get("resin_mark") == {"pete_bottles": "PET/PETE code 1", "hdpe_containers": "HDPE code 2"}[label]
     context = {**answers, "condition": record.condition, "previous_contents": record.previous_contents}
     fields = question_schema(label)
+    if high_confidence and label in {'paper', 'cardboard'}:
+        fields.append({'id': 'paper_surface', 'label': 'Check the paper surface and personal details',
+                       'options': ['Plain uncoated material without personal details', 'Coated, glossy, or personal details', 'Not sure'], 'required': True})
     if not identity_ready or (confirmed and label in PLASTICS and not high_confidence):
         fields.insert(0, {"id": "material_confirmation", "label": "Select a material only if you can identify it. This is your selection, not an AI confirmation.",
                           "options": list(SCOPE_LABELS) + ["Not sure"], "required": True})
     pending = [field["id"] for field in fields if field.get('required', True) and field["id"] != "material_confirmation" and (context.get(field["id"], "") in UNKNOWN or context.get(field["id"]) not in field["options"])]
-    from .preparation_history import preparation_block
-    exposure_reason = preparation_block(record)
-    reasons = [exposure_reason] if exposure_reason else []
+    reasons = []
     if not identified:
         reasons.append("Material identity needs confirmation or the item is unsupported.")
     if record.condition in {"Moldy or contaminated", "Damaged or cracked"}:
@@ -93,7 +94,7 @@ def assess(record):
         reasons.append('Potential special-handling or residual item: no prototype reuse project is enabled.')
     if label == "dry_untreated_wood_scraps" and answers.get("wood_treatment") not in {None, "", "Not sure", WOOD[0]}:
         reasons.append("Wood treatment, mold or hardware has not been ruled out.")
-    catalog_entries = published_guidance(label) if label in SCOPE_LABELS else []
+    catalog_entries = published_guidance(label, kinds=None if include_projects else ('segregation', 'information')) if label in SCOPE_LABELS else []
     entries = catalog_entries if identified else []
     rules = [entry for entry in entries if entry.kind == "segregation"]
     matched = [entry for entry in rules if _matches(entry, context)]
@@ -112,28 +113,31 @@ def assess(record):
         segregation["status"] = "needs_information" if pending else "no_matching_rule"
         segregation["explanation"] = "No reviewed rule matches the supplied details. Do not infer a disposal category."
     blocked = len(reasons) > (0 if identified else 1)
-    # A source citation alone is not expert verification of an exact DIY process.
-    projects = [entry for entry in catalog_entries if entry.kind == "project" and entry.review_level == 'expert_reviewed' and entry.reviewed_by_id]
     eligible = []
-    if identified and identity_ready and not pending and not blocked and record.quantity:
-        for entry in projects:
-            if _matches(entry, context) and record.quantity >= entry.minimum_quantity:
-                eligible.append({"id": f"{entry.key}:v{entry.version}", "title": entry.title, "summary": entry.summary,
-                                 "materials": entry.materials, "steps": entry.instructions, "safety_note": entry.warnings,
-                                 "quantity_note": f"Checked against {record.quantity} item(s).", "review": _trace(entry)})
-    if blocked:
-        project_status, explanation = "withheld", " ".join(reasons)
-    elif label in SCOPE_LABELS and not projects:
-        project_status, explanation = "awaiting_review", "No expert-reviewed project is published for this material yet. You do not need to answer extra project questions."
-    elif not identified or not identity_ready or pending or not record.quantity:
-        project_status, explanation = "needs_information", "Confirm the material, relevant history, condition and quantity. Unknown is not a safe answer."
-    elif eligible:
-        project_status, explanation = "available", "These published projects match the supplied details. This is not a safety certification."
-    else:
-        project_status, explanation = "not_eligible", "No published project matches these details and quantity."
+    project_status, explanation = 'not_requested', 'Request recommendations after passing screening.'
+    if include_projects:
+        # A source citation alone is not expert verification of an exact DIY process.
+        projects = [entry for entry in catalog_entries if entry.kind == "project" and entry.review_level == 'expert_reviewed' and entry.reviewed_by_id]
+        eligible = []
+        if identified and identity_ready and not pending and not blocked and record.quantity:
+            for entry in projects:
+                if _matches(entry, context) and record.quantity >= entry.minimum_quantity:
+                    eligible.append({"id": f"{entry.key}:v{entry.version}", "title": entry.title, "summary": entry.summary,
+                                     "materials": entry.materials, "steps": entry.instructions, "safety_note": entry.warnings,
+                                     "quantity_note": f"Checked against {record.quantity} item(s).", "review": _trace(entry)})
+        if blocked:
+            project_status, explanation = "withheld", " ".join(reasons)
+        elif label in SCOPE_LABELS and not projects:
+            project_status, explanation = "awaiting_review", "No expert-reviewed project is published for this material yet. You do not need to answer extra project questions."
+        elif not identified or not identity_ready or pending or not record.quantity:
+            project_status, explanation = "needs_information", "Confirm the material, relevant history, condition and quantity. Unknown is not a safe answer."
+        elif eligible:
+            project_status, explanation = "available", "These published projects match the supplied details. This is not a safety certification."
+        else:
+            project_status, explanation = "not_eligible", "No published project matches these details and quantity."
     safety = None
     if record.previous_contents == "Chemical or cleaning product":
-        precautions = next((entry for entry in published_guidance() if entry.key == "cesd-household-hazardous" and entry.kind == "information"), None)
+        precautions = next((entry for entry in published_guidance(kinds=('information',)) if entry.key == "cesd-household-hazardous" and entry.kind == "information"), None)
         if precautions:
             safety = {"title": precautions.title, "instructions": precautions.instructions,
                       "explanation": "Based on your reported chemical contact, not a hazard detected by the camera. Ask CESD for item-specific handling instructions.",
@@ -147,8 +151,10 @@ def assess(record):
     if label in PLASTICS:
         sorting_keys.add('resin_mark')
     if high_confidence:
+        sorting_keys.add('paper_surface')
         sorting_keys.update({'condition', 'contamination', 'moisture', 'previous_contents'})
-    if label == 'dry_untreated_wood_scraps' and (catalog_rules or high_confidence):
+    sorting_keys.update({'condition', 'contamination', 'moisture', 'previous_contents'})
+    if label == 'dry_untreated_wood_scraps':
         sorting_keys.add('wood_treatment')
     catalog_projects = [entry for entry in catalog_entries if entry.kind == 'project' and entry.review_level == 'expert_reviewed' and entry.reviewed_by_id]
     result = {
@@ -170,18 +176,19 @@ def assess(record):
         },
     }
     from .management_guidance import management_guidance
-    from .scan_ideas import scan_ideas
-    result['upcycling']['suggested_ideas'] = scan_ideas(record)
-    result['management_guidance'] = management_guidance(result, record.model_class)
+    from .screening import evaluate
+    result['screening'] = evaluate(record, result['material'], pending, reasons)
+    result['upcycling']['suggested_ideas'] = []
+    if include_projects and result['screening']['eligible']:
+        from .scan_ideas import scan_ideas
+        result['upcycling']['suggested_ideas'] = scan_ideas(record)
+    result['management_guidance'] = management_guidance(result, record.model_class, include_reuse=include_projects)
     return result
 
 
 def refresh(record):
     record.assessment = assess(record)
-    record.recommendation_choices = record.assessment["upcycling"]["recommendations"]
-    allowed = {choice["id"] for choice in record.recommendation_choices}
-    if record.selected_recommendation not in allowed:
-        record.selected_recommendation = ""
+    # Screening updates must not erase a saved choice or any project snapshot.
     return record.assessment
 
 
@@ -206,7 +213,7 @@ def confirm_material(record, answers, provided_keys=None):
             record.condition = ""
             record.previous_contents = ""
             record.quantity = None
-            for key in ("wood_treatment", "paper_surface", "contamination", "moisture", "other_material", "reported_category"):
+            for key in ("wood_treatment", "paper_surface", "contamination", "moisture", "other_material", "reported_category", "suitability_facts"):
                 if key not in (provided_keys or set()):
                     answers.pop(key, None)
         record.decision = label

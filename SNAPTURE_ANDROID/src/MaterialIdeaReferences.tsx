@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Text from './PublicText';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import type { IdeaReference } from './api';

@@ -13,6 +13,8 @@ PROMPTS = [
     ('sheet of printed paper', 'paper'),
     ('cloth or fabric scrap', 'fabric_scraps'), ('wood scrap', 'dry_untreated_wood_scraps'),
     ('glass bottle or glass jar', 'unknown_unsupported'), ('metal can', 'unknown_unsupported'),
+    ('glass drinking cup', 'unknown_unsupported'), ('broken glass', 'unknown_unsupported'),
+    ('metal spoon or fork', 'unknown_unsupported'), ('metal tool', 'unknown_unsupported'),
     ('food scraps or fruit peel', 'unknown_unsupported'), ('dry leaf', 'unknown_unsupported'),
     ('plastic bag or plastic wrapper', 'unknown_unsupported'), ('battery', 'unknown_unsupported'),
     ('plastic sachet', 'unknown_unsupported'), ('disposable diaper', 'unknown_unsupported'),
@@ -41,6 +43,8 @@ DISPLAY_THRESHOLD = .28  # Proposal-score cutoff, not a calibrated accuracy perc
 MIN_PROPOSAL_SCORE = .1
 FILTER_VERSION = 'conservative-object-filter-v5'
 TEXTILE_NAMES = {'cloth or fabric scrap','towel','blanket','bed sheet','pillow','fabric baseball cap','knitted hat or beanie'}
+GLASS_QUERIES = {'glass bottle or glass jar','glass drinking cup','broken glass'}
+METAL_QUERIES = {'metal can','metal spoon or fork','metal tool'}
 # Provisional abstention rules, not measured accuracy or a calibrated confidence
 # threshold. Exact textile names stay unconfirmed even above these cutoffs.
 TEXTILE_REVIEW_BELOW = .45
@@ -51,7 +55,15 @@ inference_lock = Lock()
 
 
 def available():
-    return (MODEL_DIR / 'model.safetensors').is_file() and (MODEL_DIR / 'config.json').is_file()
+    # OWL-ViT is retired from active inference. Keep historical presentation
+    # helpers so saved scenes remain readable without rewriting old records.
+    return False
+
+
+def preview_available():
+    """The main-photo check uses the installed local weights only."""
+    weights = MODEL_DIR / 'model.safetensors'
+    return weights.is_file() and weights.stat().st_size > 1024 * 1024
 
 
 def iou(a, b):
@@ -60,6 +72,8 @@ def iou(a, b):
 
 
 def family(name):
+    if name in GLASS_QUERIES: return 'glass'
+    if name in METAL_QUERIES: return 'metal'
     if name in {'paper scrap','sheet of printed paper'}: return 'paper'
     if name in {'plastic bottle','plastic jug or container'}: return 'plastic-container'
     if name in TEXTILE_NAMES - {'pillow'}: return 'textile'
@@ -78,9 +92,9 @@ def textile_review_reason(row):
     box = row['box']
     area = max(0,box[2]-box[0])*max(0,box[3]-box[1])
     if area > TEXTILE_MAX_AUTO_AREA:
-        return 'Possible fabric item—exact object needs confirmation. This broad region may contain more than one item.'
+        return 'Possible fabric itemâ€”exact object needs confirmation. This broad region may contain more than one item.'
     if row['score'] < TEXTILE_REVIEW_BELOW:
-        return 'Possible fabric item—exact object needs confirmation. The object score is borderline or weak.'
+        return 'Possible fabric itemâ€”exact object needs confirmation. The object score is borderline or weak.'
     return ''
 
 
@@ -196,12 +210,12 @@ def person_context(outputs):
     return rows
 
 
-def detect(image, tiled=False):
+def detect(image, tiled=False, *, scope_preview=False):
     global _model, _processor
     # Match the classifier's orientation/RGB contract for direct callers too.
     image = ImageOps.exif_transpose(image).convert('RGB')
-    if not available():
-        raise RuntimeError('The local detector is not installed. Choose a material manually or ask the administrator to install it.')
+    if not (preview_available() if scope_preview else available()):
+        raise RuntimeError('OWL-ViT inference is disabled. Scans use the dataset-trained material classifier.')
     import os
     os.environ.setdefault('USE_TF','0')
     import torch

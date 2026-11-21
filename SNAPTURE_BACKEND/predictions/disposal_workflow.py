@@ -10,6 +10,8 @@ ELECTRONICS = {'mobile phone', 'cellphone', 'phone', 'smartphone', 'wristwatch',
                'computer keyboard', 'computer monitor', 'computer mouse', 'laptop computer',
                'electronic waste', 'smartwatch'}
 HAZARDS = {'battery', 'fluorescent light bulb', 'syringe', 'paint can'}
+GLASS = {'glass', 'glass bottle', 'glass jar', 'glass bottle or glass jar',
+         'broken glass', 'window glass', 'jalousie glass'}
 ELECTRONICS_SOURCE = {'title': 'US EPA: Electronics donation and recycling',
                       'url': 'https://www.epa.gov/recycle/electronics-donation-and-recycling'}
 HAZARD_SOURCE = {'title': 'US EPA: Household hazardous waste',
@@ -19,6 +21,9 @@ HAZARD_SOURCE = {'title': 'US EPA: Household hazardous waste',
 def special_kind(record):
     metadata = record.image_quality if isinstance(record.image_quality, dict) else {}
     names = {record.model_class.casefold(), metadata.get('user_object_name', '').casefold()}
+    # Glass is a precautionary waste route in SNAPTURE, outside DIY upcycling.
+    if names & GLASS or (record.answers or {}).get('other_material') == 'Glass':
+        return 'glass'
     return 'electronics' if names & ELECTRONICS else 'hazard' if names & HAZARDS else None
 
 
@@ -35,7 +40,7 @@ def describe(item, prediction):
     plastic = 'plastic' in item.name or label in {'pete_bottles', 'hdpe_containers'}
     # OWL prompt -> material is not a separately scored material classifier.
     display_material = ('Plastic — subtype unconfirmed' if plastic and not confirmed else material_info(label)['title'] if label in SCOPE_LABELS
-                        else 'Plastic — subtype unconfirmed' if plastic else 'Material unsupported / unknown')
+                        else 'Plastic — subtype unconfirmed' if plastic else 'Material unconfirmed')
     manual = record.input_method == 'manual'
     evidence = metadata.get('material_prediction', {})
     classified = evidence.get('status') == 'classified'
@@ -68,10 +73,10 @@ def handling(item, prediction):
                or answers.get('reported_category') == 'C' or answers.get('contamination') == 'Chemical contamination'
                or (prediction.get('waste_identifier') or {}).get('category') == 'C')
     upcycling = assessment.get('upcycling', {})
-    recommendations = upcycling.get('recommendations', [])
+    recommendations = []
     route, title, explanation, instructions, sources = (
-        'no_verified_method', 'No verified upcycling method available',
-        'This item has no matching verified project in the current database. This does not mean it belongs in residual waste.',
+        'screening_pending', 'Review item screening',
+        'Complete the material and condition checks before requesting project recommendations.',
         ['Keep it separate until its material and an accepting local collection route are known. Ask your barangay or CESD; no receiving location is verified here.'], [])
     if not description['selected_for_disposal']:
         route, title = 'not_selected', 'Not selected for disposal'
@@ -86,10 +91,11 @@ def handling(item, prediction):
                                             'Avoid leaking containers and exposed sharps. Ask your barangay or CESD for item-specific collection instructions.'])
         sources = [ELECTRONICS_SOURCE if electronic else HAZARD_SOURCE]
         recommendations = []
-    elif recommendations and upcycling.get('status') == 'available' and description['material_prediction']['status'] in {'user_reported', 'model_high_confidence'}:
-        route, title = 'eligible', 'Eligible for a supported upcycling project'
-        explanation = 'The published project matches the material and the assessment details. This is not a safety certification.'
-        sources = [choice.get('review', {}) for choice in recommendations]
+    elif (prediction.get('screening') or assessment.get('screening') or {}).get('status') == 'eligible':
+        route, title = 'eligible', 'Passed item screening'
+        explanation = 'The item passes screening. Request recommendations separately to check project suitability. This is not a safety certification.'
+        instructions = ['Request recommendations to check whether a project fits your screened item.']
+        sources = []
     elif description['material_prediction']['status'] == 'unsupported' and record.model_class not in {'human-marked unidentified object', 'unfamiliar discarded object'}:
         explanation = 'This recognized object is outside the supported upcycling database. No verified method is available; do not force it into another material category.'
         recommendations = []
@@ -105,7 +111,7 @@ def handling(item, prediction):
         recommendations = []
     return {**description, 'version': VERSION, 'route': route, 'title': title, 'explanation': explanation,
             'instructions': instructions, 'sources': sources, 'upcycling_eligible': route == 'eligible',
-            'recommendations': recommendations, 'verification_status': 'matched_published_project' if route == 'eligible' else 'no_project_approval',
+            'recommendations': recommendations, 'verification_status': 'screened_only' if route == 'eligible' else 'no_project_approval',
             'source_checked_on': '2026-10-22'}
 
 

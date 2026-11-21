@@ -5,7 +5,8 @@ No local acceptance, compost safety or project approval is inferred from a photo
 """
 VERSION = 'item-actions-v1'
 CHOICES = {'keep', 'discard', 'recover'}
-CONDITIONS = {'Clean and dry', 'Needs cleaning', 'Damaged or cracked', 'Moldy or contaminated', 'Not sure'}
+CONDITIONS = {'Clean and dry', 'Needs cleaning', 'Damaged or cracked', 'Moldy or contaminated', 'Not sure',
+              'Torn or crumpled, clean and dry', 'Clean dry usable scraps'}
 EPA = {'title':'US EPA: Common recyclables', 'url':'https://www.epa.gov/recycle/how-do-i-recycle-common-recyclables'}
 COMPOST = {'title':'US EPA: Composting at home', 'url':'https://www.epa.gov/recycle/composting-home'}
 ELECTRONICS = {'title':'US EPA: Electronics donation and recycling', 'url':'https://www.epa.gov/recycle/electronics-donation-and-recycling'}
@@ -53,6 +54,17 @@ def tentative_object(item):
              data.get('object_source') == 'whole_image_classifier'))
 
 
+def project_condition_ready(record):
+    """Accept the imported scrap conditions only for their reported dry material."""
+    if record.condition == 'Clean and dry':
+        return True
+    scrap_conditions = {'paper': 'Torn or crumpled, clean and dry',
+                        'cardboard': 'Clean dry usable scraps', 'fabric_scraps': 'Clean dry usable scraps'}
+    answers = record.answers or {}
+    return (record.condition == scrap_conditions.get(record.decision) and
+            answers.get('contamination') == 'None known' and answers.get('moisture') == 'Dry')
+
+
 def automatic_route(item, prediction):
     """Scope selects a workflow, not a bin or permission to reuse/discard."""
     from core.materials import SCOPE_LABELS
@@ -64,26 +76,16 @@ def automatic_route(item, prediction):
                answers.get('contamination') == 'Chemical contamination' or answers.get('reported_category') == 'C' or
                answers.get('other_material') == 'Battery / electronic item')
     action = 'recover' if material.get('label') in SCOPE_LABELS and not special else 'discard'
-    resin = {'pete_bottles':'PET/PETE code 1', 'hdpe_containers':'HDPE code 2'}
-    identity_ready = material.get('status') in {'user_selected', 'model_high_confidence'}
-    confirmed = identity_ready and (
-        material.get('label') not in resin or answers.get('resin_mark') == resin[material['label']])
     needs_review = tentative_object(item)
-    from core.assessment import CONTENTS, WOOD, high_confidence_scan_material
-    safety_details_missing = high_confidence_scan_material(record) and (
-        record.previous_contents not in CONTENTS[:3] or
-        answers.get('contamination') != 'None known' or answers.get('moisture') != 'Dry' or
-        (record.decision == 'dry_untreated_wood_scraps' and answers.get('wood_treatment') != WOOD[0]) or
-        (record.decision in {'paper', 'cardboard'} and
-         answers.get('paper_surface') != 'Plain uncoated material without personal details'))
-    confirmation_required = action == 'recover' and (not confirmed or not answers.get('assessment_checked_at') or
-                                                    record.condition != 'Clean and dry' or needs_review or safety_details_missing)
+    identity_ready = material.get('status') in {'user_selected', 'model_high_confidence'}
+    screening = prediction.get('screening') or (prediction.get('assessment') or {}).get('screening') or {}
+    confirmation_required = action == 'recover' and screening.get('status') != 'eligible'
     return {'enabled':record.image_quality.get('automatic_routing') is True, 'action':action, 'needs_review':needs_review,
             'confirmation_required':confirmation_required,
-            'label':'Check object first' if needs_review else ('Recycling / upcycling — check item details' if confirmation_required else 'Recycling / upcycling ideas') if action == 'recover' else 'Disposal guidance',
+            'label':'Check object first' if needs_review else ('Recycling / upcycling — check item details' if confirmation_required else 'Passed item screening') if action == 'recover' else 'Disposal guidance',
             'note':'Outside the seven project materials does not mean residual waste. Follow the appropriate collection route.' if action == 'discard' else
                    ('Check condition and any required safety details.' if identity_ready else 'Confirm the material and condition before choosing an idea.') if confirmation_required else
-                   'Ideas use the material and the condition you reported. Check suitability and local acceptance.'}
+                   'Screening uses your reported material and condition. Request project recommendations separately.'}
 
 
 def advice(item, prediction, handling):
@@ -121,12 +123,13 @@ def advice(item, prediction, handling):
     title, steps, caution, status = 'Choose an action', [], '', 'choose_action'
     if action == 'keep':
         title, status = 'Before keeping it', 'condition_check'
-        if hazardous:
+        if glass:
+            steps = ['Do not keep cracked glass for ordinary use.', 'Keep fragments away from children.', 'Ask your collector how to package it safely.']
+            caution = 'Not eligible for upcycling. SNAPTURE routes glass to Hazardous Waste as an injury precaution.'
+        elif hazardous:
             steps = ['Check whether it is working and undamaged.', 'Do not open the casing or handle a leaking/swollen battery.', 'If damaged, keep away from people and ask for special collection.'] if electronic else ['Check the product label and condition.', 'Keep the original container closed if safe.', 'If leaking or damaged, keep people away and ask CESD for help.']
             caution = 'Do not wash electronics or unknown chemical containers.'
             sources = [ELECTRONICS] if electronic else [HAZARD_SOURCE]
-        elif glass and unsafe:
-            steps = ['Do not keep cracked glass for ordinary use.', 'Keep fragments away from children.', 'Ask your collector how to package it safely.']
         elif hygiene or organic:
             steps = ['Keep this waste separate from belongings and recyclables.', 'Use a covered container while awaiting collection.', 'Check the discard guidance; this is not advice to eat or reuse it.']
         elif unsafe:
@@ -139,15 +142,15 @@ def advice(item, prediction, handling):
             steps = ['Check its condition and original contents.', 'Choose a condition below or ask for help.', 'Do not clean or reuse unknown contaminated material.']
     elif action in {'discard','recover'}:
         title, status = ('Before discarding it' if action == 'discard' else 'Recycle / upcycle'), 'conditional_guidance'
-        if hazardous:
+        if glass:
+            group, title = 'special', 'Glass: separate handling'
+            steps = ['Do not break or crush it yourself.', 'Keep bottles separate from window/jalousie glass.', 'Confirm the receiving collector and safe packaging first.']
+            caution = 'Not eligible for upcycling. SNAPTURE routes glass to Hazardous Waste as an injury precaution.'
+            sources = [EPA, INTERVIEW]
+        elif hazardous:
             group, title = 'special', 'Separate handling'
             steps = ['Keep separate from household waste and recycling.', 'Do not open, puncture, burn or rinse it.', 'Ask your barangay or CESD for an accepting service.']
             sources = [ELECTRONICS] if electronic else [HAZARD_SOURCE]
-        elif glass:
-            group, title = 'special', 'Glass: separate handling'
-            steps = ['Do not break or crush it yourself.', 'Keep bottles separate from window/jalousie glass.', 'Confirm the receiving collector and safe packaging first.']
-            caution = 'Glass is not automatically hazardous; the interview calls for a separate local route.'
-            sources = [EPA, INTERVIEW]
         elif hygiene:
             group = 'residual'
             steps = ['Wrap used diapers or sanitary pads securely.', 'Keep separate from compost and recycling.', 'Use the barangay residual collection route; wash hands afterward.']
@@ -190,10 +193,6 @@ def advice(item, prediction, handling):
             title = 'Check the object first'
             steps = ['The object needs a closer check.', 'Retake a clearer photo or correct the object name.', 'Do not choose a bin from this guess alone.']
     projects = []
-    if action == 'recover' and condition == 'Clean and dry' and not unsafe and not hazardous and not glass and not tentative:
-        projects = handling.get('recommendations', [])
-        if not projects and (confirmed or record.confidence >= record.threshold):
-            projects = assessment.get('upcycling', {}).get('suggested_ideas', [])
     if automatic and action == 'recover' and route['confirmation_required']:
         projects = []
         if not hazardous and not tentative:

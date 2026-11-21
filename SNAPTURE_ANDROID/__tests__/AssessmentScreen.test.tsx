@@ -43,7 +43,7 @@ test('does not fill in clean condition or safe history by default', async () => 
   let tree!: Renderer.ReactTestRenderer;
   await Renderer.act(() => { tree = Renderer.create(<AssessmentScreen prediction={prediction} onChange={jest.fn()} onBack={jest.fn()} onSaved={jest.fn()} onRetry={jest.fn()} />); });
   expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
-  const button = tree.root.findAllByProps({ accessibilityLabel: 'Show sorting advice' }).find(node => typeof node.props.onPress === 'function');
+  const button = tree.root.findAllByProps({ accessibilityLabel: 'Confirm' }).find(node => typeof node.props.onPress === 'function');
   expect(button).toBeDefined();
   await Renderer.act(async () => { button?.props.onPress(); });
   expect(updatePrediction).toHaveBeenCalledWith(2, { answers: {} });
@@ -52,24 +52,12 @@ test('does not fill in clean condition or safe history by default', async () => 
   expect(JSON.stringify(tree.toJSON())).toContain('What to do next');
 });
 
-test.each([true, false])('saving a recommendation success=%s navigates only after OK', async success => {
-  const prediction = { id: 4, title: 'Paper', confidence: .5, quantity: 1, recommendation_choices: [{ id: 'wrap', title: 'Gift wrapping', materials: ['Paper'], steps: ['Fold paper'] }] } as unknown as Prediction;
-  if (success) (selectRecommendation as jest.Mock).mockResolvedValue({ prediction });
-  else (selectRecommendation as jest.Mock).mockRejectedValue(new Error('Could not save project'));
-  const onSaved = jest.fn(), onChange = jest.fn();
-  let tree!: Renderer.ReactTestRenderer;
-  await Renderer.act(async () => { tree = Renderer.create(<AssessmentScreen prediction={prediction} onChange={onChange} onBack={jest.fn()} onSaved={onSaved} onRetry={jest.fn()} />); });
-  const save = tree.root.findAllByProps({ accessibilityLabel: 'Save this project' }).find(node => typeof node.props.onPress === 'function')!;
-  await Renderer.act(async () => { await save.props.onPress(); });
-  expect(onSaved).not.toHaveBeenCalled();
-  expect(tree.root.findAllByType(SuccessAlertDialog)).toHaveLength(success ? 1 : 0);
-  if (success) {
-    expect(onChange).toHaveBeenCalledWith(prediction);
-    expect(tree.root.findByType(SuccessAlertDialog).props.message).toContain('Gift wrapping');
-    await Renderer.act(async () => { tree.root.findByType(SuccessAlertDialog).props.onConfirm(); });
-    expect(onSaved).toHaveBeenCalledTimes(1);
-  } else expect(JSON.stringify(tree.toJSON())).toContain('Could not save project');
-  await Renderer.act(async () => { tree.unmount(); });
+test('screening ignores legacy project arrays and cannot save a project inline',async()=>{
+  const prediction={id:4,title:'Paper',confidence:.5,condition:'Clean and dry',recommendation_choices:[{id:'wrap',title:'Gift wrapping',steps:['Old project step']}]} as unknown as Prediction;
+  const tree=await (async()=>{let value!:Renderer.ReactTestRenderer;await Renderer.act(()=>{value=Renderer.create(<AssessmentScreen prediction={prediction} onChange={jest.fn()} onBack={jest.fn()} onSaved={jest.fn()} onRetry={jest.fn()}/>);});return value;})();
+  expect(tree.root.findAllByProps({accessibilityLabel:'Save this project'})).toHaveLength(0);
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Old project step');
+  expect(selectRecommendation).not.toHaveBeenCalled();await Renderer.act(()=>tree.unmount());
 });
 
 test('failed assessment update leaves its inputs and shows no success confirmation', async () => {
@@ -79,7 +67,7 @@ test('failed assessment update leaves its inputs and shows no success confirmati
   await Renderer.act(async () => { tree = Renderer.create(<AssessmentScreen prediction={prediction} onChange={jest.fn()} onBack={jest.fn()} onSaved={jest.fn()} onRetry={jest.fn()} />); });
   const condition = () => tree.root.findAllByProps({ accessibilityLabel:'Clean and dry paper' }).find(node=>node.props.onPress)!;
   await Renderer.act(async () => { condition().props.onPress(); });
-  const save = tree.root.findAllByProps({ accessibilityLabel: 'Show sorting advice' }).find(node => typeof node.props.onPress === 'function')!;
+  const save = tree.root.findAllByProps({ accessibilityLabel: 'Confirm' }).find(node => typeof node.props.onPress === 'function')!;
   await Renderer.act(async () => { await save.props.onPress(); });
   expect(tree.root.findAllByType(SuccessAlertDialog)).toHaveLength(0);
   expect(condition().props.accessibilityState.checked).toBe(true);

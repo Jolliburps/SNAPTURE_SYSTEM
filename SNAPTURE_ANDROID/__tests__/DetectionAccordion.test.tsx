@@ -9,8 +9,8 @@ jest.mock('../src/api',()=>({getScene:jest.fn(),imageUrl:(uri:string)=>uri}));
 
 function sampleScene():ScanScene {
   return {id:41,image_url:'/original.jpg',width:800,height:600,status:'complete',quality:{flags:[]},disposal_selection:{confirmed:true,item_ids:[10,20]},items:[
-    {id:10,name:'A long cardboard item name that should remain fully readable on a narrow phone',score:.9,box:[.1,.1,.4,.4],display_group:'recyclable',route:{key:'recyclable',label:'Accepted by a collector',reason:'Exact material checked.'},prediction:{id:100,title:'Cardboard',image_url:'/crop10.jpg',assessment:{material:{status:'user_selected'},segregation:{instructions:['Keep this cardboard dry.']}},recommendation_choices:[{id:'paper-wrap',title:'Reuse as wrapping'}]}},
-    {id:20,name:'Unidentified object',score:.1,box:[.5,.2,.8,.5],display_group:'review',low_confidence:true,background:true,route:{key:'review',label:'Needs review',reason:'Confirm the object.'},prediction:{id:200,title:'Unknown',assessment:{material:{status:'needs_confirmation'},segregation:{instructions:[]}},recommendation_choices:[]}},
+    {id:10,name:'A long cardboard item name that should remain fully readable on a narrow phone',score:.9,box:[.1,.1,.4,.4],display_group:'recyclable',route:{key:'recyclable',label:'Accepted by a collector',reason:'Exact material checked.'},prediction:{id:100,decision:'cardboard',title:'Cardboard',image_url:'/crop10.jpg',assessment:{material:{label:'cardboard',status:'user_selected'},segregation:{instructions:['Keep this cardboard dry.']}},recommendation_choices:[{id:'paper-wrap',title:'Reuse as wrapping'}]}},
+    {id:20,name:'Unidentified object',score:.1,box:[.5,.2,.8,.5],display_group:'review',low_confidence:true,background:true,route:{key:'review',label:'Needs review',reason:'Confirm the object.'},prediction:{id:200,decision:'unknown_unsupported',title:'Unknown',assessment:{material:{label:'unknown_unsupported',status:'needs_confirmation'},segregation:{instructions:[]}},recommendation_choices:[]}},
   ]} as unknown as ScanScene;
 }
 function action(tree:Renderer.ReactTestRenderer,label:string) {
@@ -22,14 +22,15 @@ async function press(tree:Renderer.ReactTestRenderer,label:string) {
 async function render(scene:ScanScene=sampleScene(),onOpenGuide?:jest.Mock) {
   (getScene as jest.Mock).mockResolvedValue({scene});
   const onReview=jest.fn(),onBack=jest.fn(),onRetry=jest.fn();let tree!:Renderer.ReactTestRenderer;
-  await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={scene} onReview={onReview} onBack={onBack} onRetry={onRetry} onOpenGuide={onOpenGuide}/>);});
+  await Renderer.act(()=>{tree=Renderer.create(<SceneResults initial={scene} onReview={onReview} onBack={onBack} onRetry={onRetry} onOpenGuide={onOpenGuide}/>);});
   return {tree,onReview,onBack,onRetry,scene};
 }
 
 test('every item starts compact with its full name and group visible, then expands independently', async()=>{
   const {tree,scene}=await render();
   expect(tree.root.findAllByType(DetectionItemCard)).toHaveLength(2);
-  expect(JSON.stringify(tree.toJSON())).toContain(scene.items[0].name);
+  expect(JSON.stringify(tree.toJSON())).toContain('Cardboard');
+  expect(tree.root.findAllByType(DetectionItemCard)[0].props.item.name).toBe(scene.items[0].name);
   expect(JSON.stringify(tree.toJSON())).toContain('Recyclable / reusable');
   expect(JSON.stringify(tree.toJSON())).toContain('Possible background object');
   expect(action(tree,'Select item 1 card').props.accessibilityState.expanded).toBe(false);
@@ -56,8 +57,8 @@ test('accepted boxes and weak review cards retain their own data and actions', a
   await press(tree,'Review item 2');
   expect(onReview).toHaveBeenCalledWith(scene.items[1].prediction);
   await press(tree,'Select item 1 card');
-  await press(tree,'Open guide: Reuse as wrapping');
-  expect(openGuide).toHaveBeenCalledWith(scene.items[0].prediction,'paper-wrap');
+  expect(action(tree,'Open guide: Reuse as wrapping')).toBeUndefined();
+  expect(openGuide).not.toHaveBeenCalled();
   await press(tree,'Show item 1 in photo');
   expect(action(tree,'Select box 1').props.accessibilityState.selected).toBe(true);
   expect(action(tree,'Select item 1 card').props.accessibilityState.expanded).toBe(true);
@@ -68,18 +69,20 @@ test('accepted boxes and weak review cards retain their own data and actions', a
   await Renderer.act(()=>tree.unmount());
 });
 
-test('a guide error keeps item details available and uses the existing error message',async()=>{
-  const {tree}=await render(sampleScene(),jest.fn().mockRejectedValue(new Error('Unable to load guide.')));
-  await press(tree,'Select item 1 card');await press(tree,'Open guide: Reuse as wrapping');
-  expect(JSON.stringify(tree.toJSON())).toContain('Unable to load guide.');
+test('legacy guide callbacks cannot expose projects inside item screening',async()=>{
+  const open=jest.fn().mockRejectedValue(new Error('Unable to load guide.'));
+  const {tree}=await render(sampleScene(),open);
+  await press(tree,'Select item 1 card');
+  expect(action(tree,'Open guide: Reuse as wrapping')).toBeUndefined();
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Reuse as wrapping');
+  expect(open).not.toHaveBeenCalled();
   expect(action(tree,'Select item 1 card').props.accessibilityState.expanded).toBe(true);
-  expect(action(tree,'Open guide: Reuse as wrapping').props.disabled).toBe(false);
   await Renderer.act(()=>tree.unmount());
 });
 
 test('names wrap without truncation, classification text is readable, and item actions have large targets',async()=>{
   const {tree,scene}=await render();
-  const name=tree.root.findAllByType(Text).find(node=>node.props.children===scene.items[0].name)!;
+  const name=tree.root.findAllByType(Text).find(node=>node.props.children==='Cardboard')!;
   expect(name.props.numberOfLines).toBeUndefined();expect(name.props.allowFontScaling).not.toBe(false);
   expect(StyleSheet.flatten(name.props.style).fontSize).toBeGreaterThanOrEqual(18);
   const category=tree.root.findAllByType(Text).find(node=>node.props.children==='Recyclable / reusable')!;
@@ -94,7 +97,8 @@ test('empty and processing results keep their existing feedback without empty ac
   const empty={...sampleScene(),items:[]};
   const {tree}=await render(empty);
   expect(tree.root.findAllByType(DetectionItemCard)).toHaveLength(0);
-  expect(JSON.stringify(tree.toJSON())).toContain('No reliable object match');
+  expect(JSON.stringify(tree.toJSON())).toContain('Photo Needs Review');
+  expect(JSON.stringify(tree.toJSON())).toContain('Retake scan');
   expect(JSON.stringify(tree.toJSON())).not.toContain('Detected items');
   await Renderer.act(()=>tree.unmount());
   const processing={...empty,status:'processing'} as ScanScene;

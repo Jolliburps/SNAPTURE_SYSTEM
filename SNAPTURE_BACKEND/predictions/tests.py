@@ -147,7 +147,7 @@ class PredictionQuestionnaireTests(TestCase):
         self.assertTrue(payload["needs_verification"])
         self.assertEqual(payload["recommendation_choices"], [])
 
-    def test_out_of_scope_model_label_is_serialized_as_unidentified(self):
+    def test_glass_keeps_raw_evidence_and_receives_a_waste_category(self):
         self.record.decision = "glass"
         self.record.model_class = "glass"
         self.record.title = "Glass"
@@ -162,7 +162,11 @@ class PredictionQuestionnaireTests(TestCase):
         self.assertEqual(payload["label"], "unknown_unsupported")
         self.assertEqual(payload["model_class"], "unknown_unsupported")
         self.assertEqual(payload["raw_model_class"], "glass")
-        self.assertEqual(payload["title"], "Unidentified or unsupported object")
+        self.assertEqual(payload["title"], "Hazardous Waste")
+        self.assertEqual(payload['waste_identifier']['category'], 'C')
+        self.assertEqual(payload['screening']['status'], 'ineligible')
+        self.assertFalse(payload['screening']['eligible'])
+        self.assertEqual(payload['recommendation_choices'], [])
         self.assertTrue(payload["needs_verification"])
 
     def test_candidate_scan_is_labeled_as_a_prototype_result(self):
@@ -247,6 +251,9 @@ class ProjectApiTests(TestCase):
                 "safety_note": "Use tools carefully.",
             }],
         )
+
+        from core.test_support import screen_and_request
+        screen_and_request(self,self.record,{'HTTP_AUTHORIZATION':f'Bearer {self.token}'})
 
     def _post(self):
         return self.client.post(

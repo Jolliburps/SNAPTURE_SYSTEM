@@ -20,9 +20,15 @@ class FramedRecommendationTests(TestCase):
 
     def check(self, item, **fields):
         return self.client.patch(f'/api/predictions/{item.prediction_id}/', json.dumps({
-            'condition': 'Clean and dry', 'answers': {'material_confirmation': item.prediction.decision},
+            'condition': 'Clean and dry', 'previous_contents':'No chemical contact known',
+            'answers': {'material_confirmation': item.prediction.decision,'contamination':'None known','moisture':'Dry'},
             **fields,
         }), content_type='application/json', **self.auth)
+
+    def requested(self,item):
+        result=self.client.post(f'/api/predictions/{item.prediction_id}/recommendations/',**self.auth)
+        self.assertEqual(result.status_code,200,result.content)
+        return result.json()['recommendations']
 
     def history(self):
         return self.client.get(f'/api/scenes/{self.scene.id}/?history=1', **self.auth).json()['scene']['items'][0]
@@ -37,18 +43,20 @@ class FramedRecommendationTests(TestCase):
                 pending = self.automatic(item).json()['scene']['items'][0]
                 self.assertTrue(pending['automatic_route']['confirmation_required'])
                 self.assertEqual(pending['prediction']['upcycling_ideas'], [])
-                answers = {'material_confirmation': label}
+                answers = {'material_confirmation': label,'contamination':'None known','moisture':'Dry'}
+                if label=='dry_untreated_wood_scraps':answers['wood_treatment']='Known untreated and free of paint, mold and hardware'
                 if label in resin:
                     answers['resin_mark'] = resin[label]
                 checked = self.check(item, answers=answers)
                 self.assertEqual(checked.status_code, 200)
                 result = self.history()
                 self.assertFalse(result['automatic_route']['confirmation_required'])
-                ideas = result['action_advice']['projects']
+                self.assertEqual(result['action_advice']['projects'],[])
+                ideas = self.requested(item)
                 self.assertEqual(len(ideas), 3)
                 self.assertTrue(all(idea['material'] == label for idea in ideas))
                 self.assertEqual(result['name'], 'Unidentified or unsupported object')
-                self.assertIn('confirmed by you', result['display_name'])
+                self.assertEqual(result['prediction']['assessment']['material']['status'],'user_selected')
                 self.assertFalse(result['display_box'])
                 self.assertEqual(result['detection_status'], 'material_only')
                 self.assertIsNone(result['identification']['object_prediction']['confidence'])
@@ -76,10 +84,10 @@ class FramedRecommendationTests(TestCase):
         other = ScanScene.objects.create(user=self.user, request_id='newer_photo', status='complete', width=100, height=100)
         self.scene.items.exclude(pk=item.id).update(scene=other)
         result = self.history()
-        self.assertEqual(len(result['action_advice']['projects']), 3)
-        self.assertTrue(all(idea['material'] == 'fabric_scraps' for idea in result['action_advice']['projects']))
-        self.assertNotEqual(result['action_advice']['status'], 'needs_information')
+        self.assertEqual(result['action_advice']['projects'], [])
+        self.assertEqual(result['prediction']['screening']['status'],'eligible')
         self.assertEqual(PredictionRecord.objects.values().get(pk=record.id), before)
+        self.assertTrue(all(idea['material'] == 'fabric_scraps' for idea in self.requested(item)))
 
     def test_legacy_mixed_photo_fallback_still_requires_object_review(self):
         item = self.fallback()
@@ -97,12 +105,12 @@ class FramedRecommendationTests(TestCase):
         self.automatic(item)
         payload = json.dumps({'prediction_id': item.prediction_id, 'recommendation_id': 'fabric_cleaning_cloth'})
         self.assertEqual(self.client.post('/api/projects/', payload, content_type='application/json', **self.auth).status_code, 400)
-        self.assertEqual(self.check(item, answers={'material_confirmation': 'fabric_scraps'}).status_code, 200)
+        self.assertEqual(self.check(item, answers={'material_confirmation': 'fabric_scraps','contamination':'None known','moisture':'Dry'}).status_code, 200)
         result = self.history()
         self.assertEqual(result['prediction']['assessment']['material']['status'], 'user_selected')
-        self.assertEqual(len(result['action_advice']['projects']), 3)
-        self.assertTrue(all(idea['material'] == 'fabric_scraps' for idea in result['action_advice']['projects']))
-        self.assertEqual(result['automatic_route']['label'], 'Recycling / upcycling ideas')
+        self.assertEqual(result['action_advice']['projects'], [])
+        self.assertTrue(all(idea['material'] == 'fabric_scraps' for idea in self.requested(item)))
+        self.assertEqual(result['automatic_route']['label'], 'Passed item screening')
         self.assertFalse(result['identification']['user_object_name'])
         self.assertEqual(self.client.post('/api/projects/', payload, content_type='application/json', **self.auth).status_code, 201)
 

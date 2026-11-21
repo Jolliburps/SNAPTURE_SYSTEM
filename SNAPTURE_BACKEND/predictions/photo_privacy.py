@@ -1,4 +1,4 @@
-"""Local face redaction only. Originals are never written by this module."""
+"""Photo conversion and optional local face redaction; EXIF is not retained."""
 import base64
 import hashlib
 import math
@@ -19,6 +19,16 @@ from .image_quality import oriented_image
 
 VERSION = 'face-v1'
 MODEL_SHA256 = '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4'
+
+
+def display_version():
+    return VERSION if settings.SNAPTURE_FACE_BLUR_ENABLED else 'unblurred-v1'
+
+
+def display_copy(image):
+    if settings.SNAPTURE_FACE_BLUR_ENABLED:
+        return redact_image(image)
+    return image.convert('RGB').copy(), 0
 
 
 class PrivacyError(Exception):
@@ -71,8 +81,17 @@ def redact_image(image):
 def privacy_copy(image):
     """Failure hides the photo, but must not prevent waste inference/results."""
     try:
-        protected, count = redact_image(image)
-        return protected, {'status': 'processed', 'faces_blurred': count, 'version': VERSION}
+        protected, count = display_copy(image)
+        if not settings.SNAPTURE_FACE_BLUR_ENABLED:
+            # Face presence is still input to the existing item-framing checks;
+            # it no longer changes any displayed or saved pixels.
+            try:
+                detected = len(detect_faces(image))
+            except PrivacyError:
+                detected = 0
+            return protected, {'status': 'blur_disabled', 'faces_blurred': 0,
+                               'faces_detected': detected, 'version': display_version()}
+        return protected, {'status': 'processed', 'faces_blurred': count, 'version': display_version()}
     except Exception:
         return None, {'status': 'unavailable', 'message': 'The photo cannot yet be displayed safely. Item results remain available.', 'version': VERSION}
 
@@ -92,11 +111,11 @@ def preview(request):
         return JsonResponse({'detail': 'Choose an image smaller than 12 MB.'}, status=400)
     try:
         image = oriented_image(uploaded.read())
-        protected, count = redact_image(image)
+        protected, count = display_copy(image)
         protected.thumbnail((1024, 1024))
         # Preview stays in memory. No raw or preview file is persisted here.
         uri = 'data:image/jpeg;base64,' + base64.b64encode(jpeg_bytes(protected)).decode('ascii')
-        response = JsonResponse({'preview_uri': uri, 'faces_blurred': count, 'version': VERSION})
+        response = JsonResponse({'preview_uri': uri, 'faces_blurred': count, 'version': display_version()})
         response['Cache-Control'] = 'no-store'
         return response
     except PrivacyError:
@@ -117,7 +136,7 @@ def protected_media(request, path):
     try:
         source = Path(safe_join(str(settings.MEDIA_ROOT), path))
         data = source.read_bytes()
-        key = 'scan-privacy:' + VERSION + ':' + hashlib.sha256(data).hexdigest()
+        key = 'scan-privacy:' + display_version() + ':' + hashlib.sha256(data).hexdigest()
         encoded = cache.get(key)
         if encoded is None:
             # Do not apply the camera-upload minimum size to saved item crops.
@@ -126,14 +145,14 @@ def protected_media(request, path):
                     raise PrivacyError('Image is too large for safe display.')
                 original.load()
                 image = ImageOps.exif_transpose(original).convert('RGB')
-            protected, _ = redact_image(image)
+            protected, _ = display_copy(image)
             encoded = jpeg_bytes(protected)
             if len(encoded) <= 2 * 1024 * 1024:
                 cache.set(key, encoded, 60)
         response = HttpResponse(b'' if request.method == 'HEAD' else encoded, content_type='image/jpeg')
         response['Cache-Control'] = 'private, no-store'
         response['X-Content-Type-Options'] = 'nosniff'
-        response['X-SNAPTURE-Photo-Privacy'] = VERSION
+        response['X-SNAPTURE-Photo-Privacy'] = display_version()
         return response
     except FileNotFoundError:
         return HttpResponse('Photo unavailable.', status=404)

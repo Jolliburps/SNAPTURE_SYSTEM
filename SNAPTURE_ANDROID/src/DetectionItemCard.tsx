@@ -1,11 +1,12 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import Text from './PublicText';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import { imageUrl, type SceneItem } from './api';
-import ScanUpcyclingIdeas from './ScanUpcyclingIdeas';
+
 import ItemActionAdvice from './ItemActionAdvice';
-import { sceneItemTitle, materialExplanation } from './detectionPresentation';
+import { sceneItemTitle } from './detectionPresentation';
 
 function CardAction({title,onPress,disabled=false}:{title:string;onPress:()=>void;disabled?:boolean}) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[s.action,disabled && s.disabled]}><Text style={s.actionText}>{title}</Text></Pressable>;
@@ -23,12 +24,11 @@ export default function DetectionItemCard({item,number,category,color,explanatio
   const instructions=assessment?.segregation.instructions || [];
   const handling=item.handling;
   const special=handling?.route==='special_handling';
-  const ideas=item.automatic_route?.enabled && item.automatic_route.confirmation_required?[]:handling?handling.recommendations:item.prediction.recommendation_choices || [];
   return <View onLayout={event=>onLayout(event.nativeEvent.layout.y)} style={[s.card,selected && s.selected]}>
     <Pressable accessibilityRole="button" accessibilityLabel={`Select item ${number} card`} accessibilityValue={{text:`${title}. ${category}`}} accessibilityState={{expanded,selected}} accessibilityHint={expanded?'Collapse item details':'Expand classification and sorting details'} onPress={onToggle} style={s.header}>
       <View style={[s.number,{backgroundColor:color}]}><Text style={s.numberText}>{number}</Text></View>
       <View style={s.copy}>
-        <Text style={s.name}>{title}</Text>{materialExplanation(item.prediction)?<Text style={s.body}>({materialExplanation(item.prediction)})</Text>:null}
+        <Text style={s.name}>{title}</Text>
         {assessment?.material.status==='user_selected'?<Text style={s.status}>Selected by you</Text>:null}
         <Text style={[s.category,{color}]}>{item.action_advice?.chosen_action?({keep:'Keep',discard:'Disposal guidance',recover:'Recycle / upcycle'}[item.action_advice.chosen_action]):handling?.title || category}</Text>
         {low?<Text style={s.status}>Unconfirmed suggestion</Text>:null}
@@ -52,13 +52,6 @@ export default function DetectionItemCard({item,number,category,color,explanatio
       <Text style={s.section}>Preparation</Text>
       {instructions.length?instructions.map((line,index)=><Text key={index} style={s.body}>{line}</Text>):<Text style={s.body}>{fallbackPreparation}</Text>}
       {onReview?<CardAction title={`Review item ${number}`} onPress={onReview}/>:null}
-      {!item.action_advice?.chosen_action?<ScanUpcyclingIdeas key={item.prediction.id} prediction={item.prediction}/>:null}
-      <Text style={s.section}>Reuse / recycling options</Text>
-      {ideas.length?ideas.map(idea=><View key={idea.id}><Text style={s.body}>{idea.title}</Text>{onOpenGuide?<CardAction title={openingGuide===idea.id?'Opening guide...':`Open guide: ${idea.title}`} disabled={guidesBusy} onPress={()=>onOpenGuide(idea.id)}/>:null}</View>):<>
-        <Text style={s.reference}>General reference, not item-specific approval:</Text>
-        {recoveryOptions.map((line,index)=><Text key={index} style={s.body}>{line}</Text>)}
-        {onReview?<Text style={s.reference}>Use Review item to check whether a reviewed project is available.</Text>:null}
-      </>}
       </>:null}
       {onShowPhoto?<CardAction title={`Show item ${number} in photo`} onPress={onShowPhoto}/>:null}
     </View>:null}

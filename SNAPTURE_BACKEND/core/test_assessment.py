@@ -35,7 +35,8 @@ class AssessmentTests(TestCase):
 
     def test_identification_does_not_automatically_approve_project(self):
         value = assess(self.record)
-        self.assertEqual(value["upcycling"]["status"], "needs_information")
+        self.assertEqual(value["upcycling"]["status"], "not_requested")
+        self.assertFalse(value["screening"]["eligible"])
         self.assertEqual(value["upcycling"]["recommendations"], [])
 
     def test_unverified_checkpoint_needs_material_confirmation_even_at_high_confidence(self):
@@ -47,12 +48,14 @@ class AssessmentTests(TestCase):
         self.assertEqual(value["recommendation_choices"], [])
         value = self.complete(answers={"material_confirmation": "paper", "paper_surface": "Plain uncoated material without personal details", "contamination": "None known", "moisture": "Dry"})
         self.assertEqual(value["assessment"]["material"]["status"], "user_selected")
-        self.assertEqual(len(value["recommendation_choices"]), 1)
+        self.assertEqual(value["recommendation_choices"], [])
+        self.assertTrue(value["screening"]["eligible"])
 
     def test_complete_paper_path_has_independent_outputs_and_versioned_evidence(self):
         value = self.complete()["assessment"]
         self.assertEqual(value["segregation"]["status"], "available")
-        self.assertEqual(value["upcycling"]["status"], "available")
+        self.assertEqual(value["upcycling"]["status"], "not_requested")
+        self.assertTrue(value["screening"]["eligible"])
         self.assertIn("not cesd", value["segregation"]["sources"][0]["review_note"].lower())
         self.assertEqual(value["segregation"]["sources"][0]["review_level"], "source_checked")
         self.record.refresh_from_db()
@@ -68,7 +71,8 @@ class AssessmentTests(TestCase):
         Guidance.objects.filter(kind="project").update(state="archived")
         value = self.complete()["assessment"]
         self.assertEqual(value["segregation"]["status"], "available")
-        self.assertEqual(value["upcycling"]["status"], "awaiting_review")
+        self.assertEqual(value["upcycling"]["status"], "not_requested")
+        self.assertTrue(value["screening"]["eligible"])
 
     def test_manual_selection_does_not_fabricate_ai_confidence(self):
         response = self.client.post("/api/predictions/manual/", json.dumps({"label": "paper"}), content_type="application/json", **self.auth)
@@ -108,7 +112,7 @@ class AssessmentTests(TestCase):
 
     def test_archived_recommendation_cannot_be_selected_or_started(self):
         value = self.complete()
-        choice = value["recommendation_choices"][0]["id"]
+        choice = self.client.post(f"/api/predictions/{self.record.id}/recommendations/", **self.auth).json()["recommendations"][0]["id"]
         Guidance.objects.filter(kind="project").update(state="archived")
         url = f"/api/predictions/{self.record.id}/recommendation/"
         response = self.client.post(url, json.dumps({"recommendation_id": choice}), content_type="application/json", **self.auth)

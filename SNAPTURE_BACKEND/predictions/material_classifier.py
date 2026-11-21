@@ -75,14 +75,21 @@ def recognition_result(record):
     This is presentation of this record's evidence only, never a new prediction
     or an override of the classifier threshold or stored assessment.
     """
-    if record.decision in SCOPE_LABELS:
-        return {'status':'supported', 'suggested_label':None, 'reason':''}
     evidence = (record.image_quality or {}).get('material_prediction') or {}
     status = evidence.get('status')
+    scope = ((record.answers or {}).get('suitability_facts') or {}).get('material_scope_report') or {}
+    if scope.get('value') == 'out_of_scope':
+        return {'status':'unsupported', 'suggested_label':None,
+                'reason':'You reported an item outside the seven supported categories.'}
     if status == 'not_applicable':
         return {'status':'unsupported', 'suggested_label':None,
                 'reason':'This item is outside the seven supported categories.'}
-    if status in {'needs_review','conflicting_evidence','unavailable'} or evidence.get('raw_class') in SCOPE_LABELS:
+    if record.decision in SCOPE_LABELS:
+        return {'status':'supported', 'suggested_label':None, 'reason':''}
+    if status == 'unavailable':
+        return {'status':'needs_review', 'suggested_label':None,
+                'reason':'Material recognition is unavailable right now.', 'unavailable':True}
+    if status in {'needs_review','conflicting_evidence'} or evidence.get('raw_class') in SCOPE_LABELS:
         suggestion = evidence.get('raw_class') if status != 'conflicting_evidence' else None
         return {'status':'needs_review', 'suggested_label':suggestion if suggestion in SCOPE_LABELS else None,
                 'reason':evidence.get('basis') or 'Check the category or take a clearer photo.'}

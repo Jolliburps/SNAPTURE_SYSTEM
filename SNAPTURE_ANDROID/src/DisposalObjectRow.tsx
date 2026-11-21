@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { type SceneItem } from './api';
-import { sceneItemTitle, materialExplanation } from './detectionPresentation';
+import { sceneItemTitle, isUpcyclingMaterial } from './detectionPresentation';
 
 /** Select a material result to check its details. */
 export default function DisposalObjectRow({item,number,color,checked,onToggle,onDetails,condition,onCondition}:{
@@ -10,12 +10,12 @@ export default function DisposalObjectRow({item,number,color,checked,onToggle,on
   condition?:string;onCondition?:(condition:string)=>void;
 }) {
   const itemTitle=sceneItemTitle(item);
-  const supported=itemTitle!=='Unsupported';
+  const supported=isUpcyclingMaterial(item.prediction);
   const materialStatus=item.prediction.assessment?.material.status;
   return <View style={[s.card,checked && s.chosen]}>
     <Pressable accessibilityRole="checkbox" accessibilityLabel={`Select item ${number}: ${itemTitle}`} accessibilityState={{checked}} onPress={onToggle} style={s.row}>
       <View style={[s.badge,{backgroundColor:color}]}><Text style={s.white}>{number}</Text></View>
-      <View style={s.copy}><Text style={s.name}>{itemTitle}</Text>{materialExplanation(item.prediction)?<Text style={s.body}>({materialExplanation(item.prediction)})</Text>:null}<Text style={s.body}>{checked?'Selected for guidance':'Tap to include this item'}</Text></View>
+      <View style={s.copy}><Text style={s.name}>{itemTitle}</Text><Text style={s.body}>{checked?'Selected for guidance':'Tap to include this item'}</Text></View>
       <Text style={s.tick}>{checked?'✓':'○'}</Text>
     </Pressable>
     {supported && materialStatus!=='user_selected' && materialStatus!=='model_high_confidence'

@@ -1,0 +1,58 @@
+[
+  {
+    "label": "pete_bottles",
+    "caption": "Water bottles",
+    "source": "https://www.pexels.com/photo/water-bottles-on-a-wooden-floor-12496883/",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "sha256": "d68fbb429fb3910eafc8aceff59bb9fc6341af9a72e47fe35420aa212e7b084a"
+  },
+  {
+    "label": "hdpe_containers",
+    "caption": "Household product container",
+    "source": "https://www.pexels.com/photo/bottle-of-cleaning-product-on-table-5217898/",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "sha256": "b793c2dc305aa40a6d8440173bcfc3f64f7cb08cfa7ccf328a9262e898f57cba"
+  },
+  {
+    "label": "cardboard",
+    "caption": "Cardboard box",
+    "source": "https://www.pexels.com/photo/a-brown-kraft-box-8015700/",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "sha256": "ea4fe6773acc6603d065333838ab9a3382bca0ff44db91c74329c51173daa7a3"
+  },
+  {
+    "label": "paper",
+    "caption": "Paper sheets",
+    "source": "https://www.pexels.com/photo/stack-of-paper-files-14935583/",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "sha256": "c2724e1cb9c2dda760be264fc3358293b886277cfc5a3ceef6ed7e38c87fcb66"
+  },
+  {
+    "label": "fabric_scraps",
+    "caption": "Fabric pieces",
+    "source": "https://www.pexels.com/photo/hand-holding-fabric-swatch-against-beige-wall-23495785/",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "sha256": "930605e3bd81ed2e3fce61ac68052ea16c9e6b7d6c9c7201d9ddaffae84836c3"
+  },
+  {
+    "label": "coconut_shells",
+    "caption": "Coconut halves before preparation",
+    "source": "https://www.pexels.com/photo/close-up-of-coconuts-halves-11865861/",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "sha256": "8b2604f62539bcccb90018056c60ffbc0101d34b7897c41289785ab5bc6997f3"
+  },
+  {
+    "label": "dry_untreated_wood_scraps",
+    "caption": "Wooden boards; treatment must be confirmed",
+    "source": "https://www.pexels.com/photo/stacks-of-wooden-planks-8817836/",
+    "license": "Pexels License",
+    "license_url": "https://www.pexels.com/license/",
+    "sha256": "75ebe5ecdc5bb098b3dff00c7a81893320188d2ddf5081237f386ec43da1df6e"
+  }
+]

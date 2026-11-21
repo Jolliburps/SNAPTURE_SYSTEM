@@ -2,8 +2,10 @@ import React from 'react';
 import Renderer from 'react-test-renderer';
 import SceneResults, { containRect, QualityFeedback } from '../src/SceneResults';
 import { getScene, confirmDisposalSelection, type ScanScene } from '../src/api';
+import {getSuggestions,getVisual} from '../src/upcyclingApi';
 
 jest.mock('../src/api', () => ({ getScene: jest.fn(), confirmDisposalSelection: jest.fn(), imageUrl: (uri: string) => uri }));
+jest.mock('../src/upcyclingApi',()=>({upcyclingRequest:jest.fn().mockResolvedValue({snapshot:null}),getSuggestions:jest.fn().mockResolvedValue({items:[],outcome:'needs_information',message:'Preliminary suggestions are available after identification.',facts:{}}),getVisual:jest.fn().mockResolvedValue({assessment:{primary:{status:'unavailable'},observations:[],conflicts:[],views:[],facts:{}}})}));
 
 test('does not show tips when quality checks flag nothing', async () => {
   let tree!: Renderer.ReactTestRenderer;
@@ -87,7 +89,7 @@ test('draws accepted object bounds in green and rejects invalid coordinates', as
 });
 
 
-test.each(['paper','cardboard','fabric_scraps','pete_bottles','hdpe_containers','coconut_shells','dry_untreated_wood_scraps'])('single %s goes directly to material check without item selection', async label => {
+test.each(['paper','cardboard','fabric_scraps','pete_bottles','hdpe_containers','coconut_shells','dry_untreated_wood_scraps'])('single %s opens preliminary projects without the old mandatory material-check screen', async label => {
   const prediction={id:41,decision:label,title:label,recognition:{status:'supported'},assessment:{material:{status:'needs_confirmation'},missing_information:[],segregation:{instructions:[]}},recommendation_choices:[]};
   const scene={id:41,image_url:'/photo.jpg',width:200,height:200,frame:[0,0,1,1],status:'complete',single_item:{enabled:true},quality:{flags:[]},items:[{id:41,box:[.1,.1,.9,.9],name:label,score:.9,prediction,route:{key:'review',label:'Review'}}]} as unknown as ScanScene;
   (getScene as jest.Mock).mockResolvedValue({scene});
@@ -96,9 +98,10 @@ test.each(['paper','cardboard','fabric_scraps','pete_bottles','hdpe_containers',
   await Renderer.act(async()=>{tree=Renderer.create(<SceneResults initial={scene} onBack={jest.fn()} onRetry={jest.fn()} onReview={review}/>);});
   expect(JSON.stringify(tree.toJSON())).not.toContain('Tap to include this item');
   expect(tree.root.findAllByProps({accessibilityRole:'checkbox'})).toHaveLength(0);
-  const next=tree.root.findAllByProps({accessibilityLabel:'Check material'}).find(node=>typeof node.props.onPress==='function');
-  expect(next).toBeDefined();
-  await Renderer.act(async()=>{await next!.props.onPress();});
-  expect(review).toHaveBeenCalledWith(prediction);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Check material'})).toHaveLength(0);
+  expect(JSON.stringify(tree.toJSON())).toContain('Projects for this item');
+  expect(getSuggestions).toHaveBeenCalledWith(prediction.id,'',false);
+  expect(getVisual).toHaveBeenCalledWith(prediction.id);
+  expect(review).not.toHaveBeenCalled();
   await Renderer.act(()=>tree.unmount());
 });

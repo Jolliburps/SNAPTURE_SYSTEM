@@ -14,8 +14,8 @@ SCOPE_LABELS = (
 
 MATERIALS = {
     "pete_bottles": {
-        "title": "PETE bottle",
-        "short_title": "PETE",
+        "title": "PETE Bottles (Polyethylene Terephthalate)",
+        "short_title": "PETE Bottles (Polyethylene Terephthalate)",
         "description": "A polyethylene terephthalate bottle, commonly used for water and beverage containers.",
         "examples": ["Water bottles", "Soft-drink bottles", "Clear beverage bottles"],
         "preparation": [
@@ -27,8 +27,8 @@ MATERIALS = {
         "disposal": "If it is contaminated or not accepted locally, use the appropriate waste collection service.",
     },
     "hdpe_containers": {
-        "title": "HDPE container",
-        "short_title": "HDPE",
+        "title": "HDPE Containers (High-Density Polyethylene)",
+        "short_title": "HDPE Containers (High-Density Polyethylene)",
         "description": "A high-density polyethylene container used for household and personal-care products.",
         "examples": ["Shampoo bottles", "Detergent containers", "Sturdy household containers"],
         "preparation": [
@@ -105,8 +105,8 @@ MATERIALS = {
         "disposal": "Do not burn painted or treated wood; use the appropriate local collection service.",
     },
     "unknown_unsupported": {
-        "title": "Unsupported",
-        "short_title": "Unsupported",
+        "title": "Material Unconfirmed",
+        "short_title": "Material Unconfirmed",
         "description": "The available evidence is not enough for a supported material decision.",
         "examples": [],
         "preparation": [
@@ -129,6 +129,8 @@ def material_info(label: str) -> dict:
 def public_materials() -> list[dict]:
     from .content import published_guidance
     from .idea_references import idea_references
+    from .recommendations import CATALOG
+    from .home_tutorials import home_tutorials
 
     return [
         {
@@ -145,6 +147,14 @@ def public_materials() -> list[dict]:
             ],
             "model_status": "General educational reference, not CESD approval. Confirm item details in the assessment before selecting a project.",
             "idea_references": idea_references(label),
+            "home_tutorials": home_tutorials(label),
+            "photo_ideas": [
+                {**idea, 'status': 'educational', 'can_start': False,
+                 'source': idea['photos']['source_url'],
+                 'review_note': 'Educational catalog preview; not expert or CESD approval.',
+                 'conditions': []}
+                for idea in CATALOG.get(label, []) if idea.get('photos')
+            ],
         }
         for label in SCOPE_LABELS
     ]

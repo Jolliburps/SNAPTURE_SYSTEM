@@ -1,0 +1,718 @@
+{
+  "pete_bottles": [
+    {
+      "id": "tutorial:PET-003:home-2026-11-18-v1",
+      "title": "Self-watering bottle planter",
+      "summary": "The maker designed a bottle planter for people who struggle to keep up with watering.",
+      "materials": [
+        "Clean PET bottle, screen mesh, absorbent cord, cutting tools, soil and seeds."
+      ],
+      "steps": [
+        "Cut the bottle so the inverted top fits inside the base.",
+        "Thread a wick through mesh and fit it inside the inverted top.",
+        "Add soil and seeds above, water below, then assemble."
+      ],
+      "safety_note": "Confirm PET/#1 and known contents. Adult cutting required. Check wick contact, stable assembly and water level; empty stagnant water.",
+      "photos": {
+        "source_url": "https://www.instructables.com/Self-Watering-Planter-From-a-Plastic-Bottle/",
+        "credit": "CamrynCreates / Instructables",
+        "photo_rights": "Not verified for app reuse",
+        "relative_dir": "01_PET_Bottles/PET-003_Self_Watering_Planter",
+        "verified_date": "2026-11-18",
+        "version": "home-2026-11-18-v1",
+        "source_id": "PET-003",
+        "steps": [
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Self-Watering-Planter-From-a-Plastic-Bottle/#step1",
+            "download_url": "https://content.instructables.com/FUW/Z51J/K931PWEQ/FUWZ51JK931PWEQ.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 1,
+            "source_local_photo": "photos/step_01.jpg",
+            "original_image_url": "https://content.instructables.com/FUW/Z51J/K931PWEQ/FUWZ51JK931PWEQ.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PET-003/step_01-67a0097168de.jpg",
+            "step_index": 0,
+            "visual_note": "Shows the marked cut line, not the cutting action.",
+            "sha256": "67a0097168de30007b870f8337ce633e148c15e5c94ad092ee16613266f96e15"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Self-Watering-Planter-From-a-Plastic-Bottle/#step2",
+            "download_url": "https://content.instructables.com/FLE/3WEY/K931PWF0/FLE3WEYK931PWF0.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 2,
+            "source_local_photo": "photos/step_02.jpg",
+            "original_image_url": "https://content.instructables.com/FLE/3WEY/K931PWF0/FLE3WEYK931PWF0.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PET-003/step_02-b3416c4129fd.jpg",
+            "step_index": 1,
+            "visual_note": "Shows prepared wick and mesh parts; fitting them inside the bottle is not shown.",
+            "sha256": "b3416c4129fd175f15e30d9153fe34ef4ab83166f79b8ebb2714d30687b65b76"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Self-Watering-Planter-From-a-Plastic-Bottle/#step3",
+            "download_url": "https://content.instructables.com/F5T/HN9A/K931PWF2/F5THN9AK931PWF2.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 3,
+            "source_local_photo": "photos/step_03.jpg",
+            "original_image_url": "https://content.instructables.com/F5T/HN9A/K931PWF2/F5THN9AK931PWF2.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PET-003/step_03-b874fea1f442.jpg",
+            "step_index": 2,
+            "visual_note": "Shows the assembled soil and water sections, not separate filling actions.",
+            "sha256": "b874fea1f442e195da753ce4dbfaca95bdd632d0361f42c77cc446abe3a64cc1"
+          }
+        ],
+        "finished": {
+          "photo_status": "Downloaded source reference",
+          "download_url": "https://content.instructables.com/FSP/PSVA/K970G4UC/FSPPSVAK970G4UC.jpg?auto=webp&width=1000&fit=bounds",
+          "source_stage": "finished",
+          "source_local_photo": "photos/finished_product.jpg",
+          "original_image_url": "https://content.instructables.com/FSP/PSVA/K970G4UC/FSPPSVAK970G4UC.jpg?auto=webp",
+          "url": "/api/tutorial-assets/home-2026-11-18-v1/PET-003/finished_product-ca6d136b4f63.jpg",
+          "visual_type": "Finished-product photograph",
+          "sha256": "ca6d136b4f63f52eb921802a5b6860a98ddc589382c6b11a3c1cbe5fbf832954"
+        }
+      },
+      "status": "educational",
+      "can_start": false,
+      "source": "https://www.instructables.com/Self-Watering-Planter-From-a-Plastic-Bottle/",
+      "review_note": "Read-only research tutorial; not expert or CESD approval. Photo reuse permission is unverified.",
+      "conditions": []
+    }
+  ],
+  "hdpe_containers": [
+    {
+      "id": "tutorial:HDPE-004:home-2026-11-18-v1",
+      "title": "Milk-jug scoop",
+      "summary": "Playvolution HQ turns discarded jugs into inexpensive scoops for sensory activities and practical scooping.",
+      "materials": [
+        "Clean HDPE jug, marker, utility knife and scissors."
+      ],
+      "steps": [
+        "Choose a clean jug with an intact handle.",
+        "Sketch the scoop outline around the handle.",
+        "Cut out the scoop in a controlled sequence.",
+        "Round corners and trim rough edges with scissors."
+      ],
+      "safety_note": "Confirm HDPE/#2 and known contents. An adult handles curved-plastic cutting. Trim every sharp edge; limit this candidate to non-food uses.",
+      "photos": {
+        "source_url": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/",
+        "credit": "Jeff Johnson / Playvolution HQ",
+        "photo_rights": "Not verified for app reuse",
+        "relative_dir": "02_HDPE_Containers/HDPE-004_Milk_Jug_Scoop",
+        "verified_date": "2026-11-18",
+        "version": "home-2026-11-18-v1",
+        "source_id": "HDPE-004",
+        "steps": [
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/#step1",
+            "download_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.47.47-1024x1024.jpg",
+            "source_stage": 1,
+            "source_local_photo": "photos/step_01.jpg",
+            "original_image_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.47.47-1024x1024.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/HDPE-004/step_01-8be8521bce8a.jpg",
+            "step_index": 0,
+            "sha256": "8be8521bce8ac20ecdbddbde5016bc53f5d9033b0a66023555bd3db00cfb8ae7"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/#step2",
+            "download_url": "https://i0.wp.com/playvolutionhq.com/wp-content/uploads/2020/01/milk-jug-scoop.jpg?fit=1024%2C1024&ssl=1",
+            "source_stage": 2,
+            "source_local_photo": "photos/step_02.jpg",
+            "original_image_url": "https://i0.wp.com/playvolutionhq.com/wp-content/uploads/2020/01/milk-jug-scoop.jpg?fit=1024%2C1024&ssl=1",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/HDPE-004/step_02-50cc59f6e4ef.jpg",
+            "step_index": 1,
+            "visual_note": "Annotated cutting diagram on a jug photograph.",
+            "sha256": "50cc59f6e4ef765415d1cb0e3da95b4257299080fb2c91839fd511627485626f"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/#step3",
+            "download_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.50.21-1024x1024.jpg",
+            "source_stage": 3,
+            "source_local_photo": "photos/step_03.jpg",
+            "original_image_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.50.21-1024x1024.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/HDPE-004/step_03-fece08c0af97.jpg",
+            "step_index": 2,
+            "visual_note": "Shows the cut-out handle section; the cutting action is not shown.",
+            "sha256": "fece08c0af973e048bb7ff2dbdbf5dd2ca9534ba04c20bdc02d78c4227fe67c4"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/#step4",
+            "download_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.53.55-1024x1024.jpg",
+            "source_stage": 4,
+            "source_local_photo": "photos/step_04.jpg",
+            "original_image_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-04-08.53.55-1024x1024.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/HDPE-004/step_04-58ae91f64c25.jpg",
+            "step_index": 3,
+            "visual_note": "Shows the trimmed scoop beside scissors; trimming action is not shown.",
+            "sha256": "58ae91f64c251dda0b1b675b7c1535c3c4aae281eadbe1af5deb6039f2b4924e"
+          }
+        ],
+        "finished": {
+          "photo_status": "Downloaded source reference",
+          "download_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-09-09.16.28-1024x1024.jpg",
+          "source_stage": "finished",
+          "source_local_photo": "photos/finished_product.jpg",
+          "original_image_url": "https://playvolutionhq.com/wp-content/uploads/2020/01/2020-01-09-09.16.28-1024x1024.jpg",
+          "url": "/api/tutorial-assets/home-2026-11-18-v1/HDPE-004/finished_product-142a605f4146.jpg",
+          "visual_type": "Finished-product photograph",
+          "sha256": "142a605f41469b0339e493c14c324ace429fabc695422d703dc597775f9b848c"
+        }
+      },
+      "status": "educational",
+      "can_start": false,
+      "source": "https://playvolutionhq.com/diy-milk-jug-sensory-play-scoops/",
+      "review_note": "Read-only research tutorial; not expert or CESD approval. Photo reuse permission is unverified.",
+      "conditions": []
+    }
+  ],
+  "paper": [
+    {
+      "id": "tutorial:PAPER-003:home-2026-11-18-v1",
+      "title": "Scrap-paper notepad",
+      "summary": "Wasteful printing at work motivated the creator to reuse discarded sheets as handy notepads.",
+      "materials": [
+        "Usable scrap paper, paper cutter, brush, thick glue and optional clamp."
+      ],
+      "steps": [
+        "Collect flat usable sheets and binding supplies.",
+        "Cut small stacks to one consistent size.",
+        "Align the page edges and hold them together.",
+        "Brush glue along the binding edge.",
+        "Leave until the glued spine has dried fully.",
+        "Use the pad for notes and lists."
+      ],
+      "safety_note": "Exclude confidential printed sheets. Use blank reverse sides. Check glue drying before separating pages.",
+      "photos": {
+        "source_url": "https://www.instructables.com/Scrap-Paper-Note-Pad/",
+        "credit": "JRArndt / Instructables",
+        "photo_rights": "Not verified for app reuse",
+        "relative_dir": "03_Paper/PAPER-003_Scrap_Paper_Notepad",
+        "verified_date": "2026-11-18",
+        "version": "home-2026-11-18-v1",
+        "source_id": "PAPER-003",
+        "steps": [
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Scrap-Paper-Note-Pad/#step1",
+            "download_url": "https://content.instructables.com/FH2/DA42/IRUT5X0G/FH2DA42IRUT5X0G.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 1,
+            "source_local_photo": "photos/step_01.jpg",
+            "original_image_url": "https://content.instructables.com/FH2/DA42/IRUT5X0G/FH2DA42IRUT5X0G.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PAPER-003/step_01-acb5f91cbaa7.jpg",
+            "step_index": 0,
+            "sha256": "acb5f91cbaa71029a2ce342cea58a88c71edc64eb302b04b8f74dc5cd08bc3c8"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Scrap-Paper-Note-Pad/#step2",
+            "download_url": "https://content.instructables.com/F7P/83VS/IRUT5X18/F7P83VSIRUT5X18.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 2,
+            "source_local_photo": "photos/step_02.jpg",
+            "original_image_url": "https://content.instructables.com/F7P/83VS/IRUT5X18/F7P83VSIRUT5X18.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PAPER-003/step_02-47cdb4bef305.jpg",
+            "step_index": 1,
+            "sha256": "47cdb4bef305107b2fac239859e900a04ec849ede5d4514bfc30772526bc46b7"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Scrap-Paper-Note-Pad/#step3",
+            "download_url": "https://content.instructables.com/F9I/M8SN/IRUT5X4S/F9IM8SNIRUT5X4S.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 3,
+            "source_local_photo": "photos/step_03.jpg",
+            "original_image_url": "https://content.instructables.com/F9I/M8SN/IRUT5X4S/F9IM8SNIRUT5X4S.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PAPER-003/step_03-ebba512f6c17.jpg",
+            "step_index": 2,
+            "sha256": "ebba512f6c1770f6d19086f89aa15918a951a02b366e47c7c27b18e8905c6e00"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Scrap-Paper-Note-Pad/#step4",
+            "download_url": "https://content.instructables.com/FTV/HFOZ/IRUT5XB6/FTVHFOZIRUT5XB6.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 4,
+            "source_local_photo": "photos/step_04.jpg",
+            "original_image_url": "https://content.instructables.com/FTV/HFOZ/IRUT5XB6/FTVHFOZIRUT5XB6.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PAPER-003/step_04-a45b5426b2fb.jpg",
+            "step_index": 3,
+            "sha256": "a45b5426b2fbd987bb201a863e315fa92f847568286f94f7939a2a6bcaa728c2"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Scrap-Paper-Note-Pad/#step5",
+            "download_url": "https://content.instructables.com/F5V/C5ZS/IRUT5XH6/F5VC5ZSIRUT5XH6.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 5,
+            "source_local_photo": "photos/step_05.jpg",
+            "original_image_url": "https://content.instructables.com/F5V/C5ZS/IRUT5XH6/F5VC5ZSIRUT5XH6.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PAPER-003/step_05-b14ad93c9c3c.jpg",
+            "step_index": 4,
+            "visual_note": "Shows the bound edge; drying over time is not photographed.",
+            "sha256": "b14ad93c9c3cd8c6f71a24ef4a6e5d3d2acfb6140b330c23cc83b890a8f86daa"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/Scrap-Paper-Note-Pad/#step6",
+            "download_url": "https://content.instructables.com/FXH/2GZZ/IRUT5XQ8/FXH2GZZIRUT5XQ8.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 6,
+            "source_local_photo": "photos/step_06.jpg",
+            "original_image_url": "https://content.instructables.com/FXH/2GZZ/IRUT5XQ8/FXH2GZZIRUT5XQ8.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/PAPER-003/step_06-c77df0d08147.jpg",
+            "step_index": 5,
+            "sha256": "c77df0d081470586825dc6881e02572c338464e2d10342f3e5afd306e75049bb"
+          }
+        ],
+        "finished": {
+          "photo_status": "Downloaded source reference",
+          "download_url": "https://content.instructables.com/FCL/9YCB/IRUT3CRA/FCL9YCBIRUT3CRA.jpg?auto=webp&width=1000&fit=bounds",
+          "source_stage": "finished",
+          "source_local_photo": "photos/finished_product.jpg",
+          "original_image_url": "https://content.instructables.com/FCL/9YCB/IRUT3CRA/FCL9YCBIRUT3CRA.jpg?auto=webp",
+          "url": "/api/tutorial-assets/home-2026-11-18-v1/PAPER-003/finished_product-38139d30343b.jpg",
+          "visual_type": "Finished-product photograph",
+          "sha256": "38139d30343bb37d8d04c077b0acdd8bc55b1f22af4ed479d2bd7c2710f946fa"
+        }
+      },
+      "status": "educational",
+      "can_start": false,
+      "source": "https://www.instructables.com/Scrap-Paper-Note-Pad/",
+      "review_note": "Read-only research tutorial; not expert or CESD approval. Photo reuse permission is unverified.",
+      "conditions": []
+    }
+  ],
+  "cardboard": [
+    {
+      "id": "tutorial:CARD-004:home-2026-11-18-v1",
+      "title": "Cereal-box magazine file",
+      "summary": "Kristen Hubert reused cereal and toy boxes to organize sewing patterns, magazines and printer paper.",
+      "materials": [
+        "Cereal box, ruler, scissors, contact paper, wallpaper scraps and clear tape."
+      ],
+      "steps": [
+        "Mark the low edge on the narrow side.",
+        "Draw diagonal lines to the upper corners.",
+        "Cut away the cardboard above the lines.",
+        "Cover the box with contact or label paper.",
+        "Decorate the spine with wallpaper scraps.",
+        "Secure the covering with clear tape.",
+        "Add labels and arrange documents."
+      ],
+      "safety_note": "Use a box tall enough for the documents. Choose clean dry cardboard; reinforce if needed. Do not overload.",
+      "photos": {
+        "source_url": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/",
+        "credit": "Kristen Hubert / Upcycle My Stuff",
+        "photo_rights": "Not verified for app reuse",
+        "relative_dir": "04_Cardboard/CARD-004_Cereal_Box_Magazine_File",
+        "verified_date": "2026-11-18",
+        "version": "home-2026-11-18-v1",
+        "source_id": "CARD-004",
+        "steps": [
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/#step1",
+            "download_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box.jpg",
+            "source_stage": 1,
+            "source_local_photo": "photos/step_01.jpg",
+            "original_image_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/CARD-004/step_01-773bdf0acb1c.jpg",
+            "step_index": 0,
+            "sha256": "773bdf0acb1c72a31d86bafa09870bade490255de8fee4db97256f70888f5c21"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/#step2",
+            "download_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box-1-1024x1024.jpg",
+            "source_stage": 2,
+            "source_local_photo": "photos/step_02.jpg",
+            "original_image_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box-1-1024x1024.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/CARD-004/step_02-61155898f0c9.jpg",
+            "step_index": 1,
+            "sha256": "61155898f0c9f6b1b9fbe41473e4b6db83e7629c420a4ad7086013d374ab9a26"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/#step3",
+            "download_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box-1-1.jpg",
+            "source_stage": 3,
+            "source_local_photo": "photos/step_03.jpg",
+            "original_image_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box-1-1.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/CARD-004/step_03-d08bf969de24.jpg",
+            "step_index": 2,
+            "sha256": "d08bf969de242b99815e90995c621e5d0f917d2edd1e684a63816b69035f6d1b"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/#step4",
+            "download_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box-3-874x1024.jpg",
+            "source_stage": 4,
+            "source_local_photo": "photos/step_04.jpg",
+            "original_image_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box-3-874x1024.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/CARD-004/step_04-156aa74e743f.jpg",
+            "step_index": 3,
+            "sha256": "156aa74e743f08f1396879f45fad5a91e5741c817435bf7c89b2ee076b90a25d"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/#step5",
+            "download_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-decorated-spine-1024x1024.jpg",
+            "source_stage": 5,
+            "source_local_photo": "photos/step_05.jpg",
+            "original_image_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-decorated-spine-1024x1024.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/CARD-004/step_05-c69a7e998888.jpg",
+            "step_index": 4,
+            "visual_note": "Shows the covered spine; applying the decorative scraps is not separately photographed.",
+            "sha256": "c69a7e998888c5326826c203a99aebce39d3ab4960ef2c706b17eced513d5ed4"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/#step6",
+            "download_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box-1-2-874x1024.jpg",
+            "source_stage": 6,
+            "source_local_photo": "photos/step_06.jpg",
+            "original_image_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-from-a-cereal-box-1-2-874x1024.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/CARD-004/step_06-88c643c1b3ee.jpg",
+            "step_index": 5,
+            "visual_note": "Shows the finished covering; tape application is not separately photographed.",
+            "sha256": "88c643c1b3ee8a8987c816bd56c928b2cf172439182e191a98568682725795ca"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/#step7",
+            "download_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-labels--1024x1024.jpg",
+            "source_stage": 7,
+            "source_local_photo": "photos/step_07.jpg",
+            "original_image_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/DIY-magazine-holder-labels--1024x1024.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/CARD-004/step_07-41225f33958b.jpg",
+            "step_index": 6,
+            "sha256": "41225f33958b7ecad386b960aa3fa375a78330a41ead0df03ad21c8d1131f452"
+          }
+        ],
+        "finished": {
+          "photo_status": "Downloaded source reference",
+          "download_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/magazine-holders-made-from-cereal-boxes-807x1024.jpg",
+          "source_stage": "finished",
+          "source_local_photo": "photos/finished_product.jpg",
+          "original_image_url": "https://upcyclemystuff.com/wp-content/uploads/2021/02/magazine-holders-made-from-cereal-boxes-807x1024.jpg",
+          "url": "/api/tutorial-assets/home-2026-11-18-v1/CARD-004/finished_product-f309326db8e5.jpg",
+          "visual_type": "Finished-product photograph",
+          "sha256": "f309326db8e5d53a2ac36a77d21657dbbf42f0d0e826ac903724bb3a0c4a11c4"
+        }
+      },
+      "status": "educational",
+      "can_start": false,
+      "source": "https://upcyclemystuff.com/easy-diy-magazine-holders-made-from-cereal-boxes/",
+      "review_note": "Read-only research tutorial; not expert or CESD approval. Photo reuse permission is unverified.",
+      "conditions": []
+    }
+  ],
+  "fabric_scraps": [
+    {
+      "id": "tutorial:FABRIC-001:home-2026-11-18-v1",
+      "title": "Braided coasters",
+      "summary": "Sarah Delaney uses leftover fabric to create colorful braided coasters, suggesting larger versions as placemats.",
+      "materials": [
+        "Fabric scraps, scissors, fabric glue, felt backing and a circular guide."
+      ],
+      "steps": [
+        "Cut long, narrow fabric strips.",
+        "Braid the strips and secure the ends temporarily.",
+        "Trace the coaster circle on felt.",
+        "Coil the braid outward, gluing onto the backing.",
+        "Leave overnight to set; trim the excess felt."
+      ],
+      "safety_note": "Use clean, dry fabric. Confirm glue suitability and drying time. Treat as a coaster, not a heatproof trivet.",
+      "photos": {
+        "source_url": "https://delaneydesigns.co.uk/coasters/",
+        "credit": "Sarah Delaney / Delaney Designs",
+        "photo_rights": "Not verified for app reuse",
+        "relative_dir": "05_Fabric_Scraps/FABRIC-001_Braided_Coasters",
+        "verified_date": "2026-11-18",
+        "version": "home-2026-11-18-v1",
+        "source_id": "FABRIC-001",
+        "steps": [
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 1,
+            "source_local_photo": "photos/step_01.jpg",
+            "original_image_url": "https://delaneydesigns.co.uk/wp-content/uploads/2021/03/Fabric-Scraps-Cutting-Out.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/FABRIC-001/step_01-819264539000.jpg",
+            "step_index": 0,
+            "sha256": "819264539000c90e753fb36db6561e02ae4b6f14227987f8ac62ecde500ca20b"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 2,
+            "source_local_photo": "photos/step_02.jpg",
+            "original_image_url": "https://delaneydesigns.co.uk/wp-content/uploads/2021/03/Plaiting-the-fabric.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/FABRIC-001/step_02-02cbbd20c85d.jpg",
+            "step_index": 1,
+            "sha256": "02cbbd20c85db7c90ec34569c5259802ed02896d86fe08feb26389d8587c437a"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 3,
+            "source_local_photo": "photos/step_03.jpg",
+            "original_image_url": "https://delaneydesigns.co.uk/wp-content/uploads/2021/03/Fabric-felt-base.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/FABRIC-001/step_03-6033ff2f0257.jpg",
+            "step_index": 2,
+            "visual_note": "Shows a circle traced around a glass on a sheet; tracing onto felt is not demonstrated.",
+            "sha256": "6033ff2f0257ed026c642a6b599745c351f89642523439fe129837e84373958c"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 4,
+            "source_local_photo": "photos/step_04.jpg",
+            "original_image_url": "https://delaneydesigns.co.uk/wp-content/uploads/2021/03/Fabric-glueing.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/FABRIC-001/step_04-5c3164edbaf6.jpg",
+            "step_index": 3,
+            "sha256": "5c3164edbaf646128121e5ce73c132931ff24e0f4b57a41a618a8ac10f28b2fc"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 5,
+            "source_local_photo": "photos/step_05.jpg",
+            "original_image_url": "https://delaneydesigns.co.uk/wp-content/uploads/2021/03/Fabric-cutting-the-felt.jpg",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/FABRIC-001/step_05-6f9eace661fa.jpg",
+            "step_index": 4,
+            "sha256": "6f9eace661fac71263c0bbf6e933eaa7171e15b4fa18fa27f86748d4e1961a8f"
+          }
+        ],
+        "finished": {
+          "photo_status": "Downloaded source reference",
+          "source_stage": "finished",
+          "source_local_photo": "photos/finished_product.jpg",
+          "original_image_url": "https://delaneydesigns.co.uk/wp-content/uploads/2021/03/Fabric-coasters-stack.jpg",
+          "url": "/api/tutorial-assets/home-2026-11-18-v1/FABRIC-001/finished_product-c475bdf7da1e.jpg",
+          "visual_type": "Finished-product photograph",
+          "sha256": "c475bdf7da1e05aebd221b4be2ac6d0fe0dedf3655eadf507d090d05fcb37705"
+        }
+      },
+      "status": "educational",
+      "can_start": false,
+      "source": "https://delaneydesigns.co.uk/coasters/",
+      "review_note": "Read-only research tutorial; not expert or CESD approval. Photo reuse permission is unverified.",
+      "conditions": []
+    }
+  ],
+  "coconut_shells": [
+    {
+      "id": "tutorial:COCO-004:home-2026-11-18-v1",
+      "title": "Coconut-shell trinket bowl",
+      "summary": "The source demonstrates a coconut bowl. SNAPTURE adapts the result for decorative storage of small non-food items.",
+      "materials": [
+        "Dry shell half, sandpaper, suitable holding tools and optional decorative finish."
+      ],
+      "steps": [
+        "Gather the shell and preparation tools.",
+        "If starting whole, have a capable adult drain it.",
+        "Have the adult mark and open the shell safely.",
+        "Remove remaining flesh; clean, dry and sand inside.",
+        "Smooth the outside and apply an optional suitable finish."
+      ],
+      "safety_note": "Prefer an already-open shell. Adult cutting and sanding; control dust. The source sealant is unspecified, so this adaptation is for non-food storage only.",
+      "photos": {
+        "source_url": "https://www.instructables.com/How-To-Coconut-Bowl/",
+        "credit": "goldenbacon / Instructables",
+        "photo_rights": "Not verified for app reuse",
+        "relative_dir": "06_Coconut_Shells/COCO-004_Coconut_Trinket_Bowl",
+        "verified_date": "2026-11-18",
+        "version": "home-2026-11-18-v1",
+        "source_id": "COCO-004",
+        "steps": [
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/How-To-Coconut-Bowl/#step1",
+            "download_url": "https://content.instructables.com/FEF/9Q3Z/G619KJ6G/FEF9Q3ZG619KJ6G.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 1,
+            "source_local_photo": "photos/step_01.jpg",
+            "original_image_url": "https://content.instructables.com/FEF/9Q3Z/G619KJ6G/FEF9Q3ZG619KJ6G.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/COCO-004/step_01-19b1f45f9cdd.jpg",
+            "step_index": 0,
+            "sha256": "19b1f45f9cdd832870286f1f19c24a878be8c4d8ef6d17225dcb79e5ec406e4c"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/How-To-Coconut-Bowl/#step2",
+            "download_url": "https://content.instructables.com/FJZ/1WQ5/G61ARM0E/FJZ1WQ5G61ARM0E.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 2,
+            "source_local_photo": "photos/step_02.jpg",
+            "original_image_url": "https://content.instructables.com/FJZ/1WQ5/G61ARM0E/FJZ1WQ5G61ARM0E.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/COCO-004/step_02-8b89aeb588a0.jpg",
+            "step_index": 1,
+            "sha256": "8b89aeb588a0b0a44024eabc2dd2f7d2d679e9ae72f142e34550e95d9627f98d"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/How-To-Coconut-Bowl/#step3",
+            "download_url": "https://content.instructables.com/F52/E7S3/G619KJAU/F52E7S3G619KJAU.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 3,
+            "source_local_photo": "photos/step_03.jpg",
+            "original_image_url": "https://content.instructables.com/F52/E7S3/G619KJAU/F52E7S3G619KJAU.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/COCO-004/step_03-aafef855d126.jpg",
+            "step_index": 2,
+            "sha256": "aafef855d126f46c28ab24fb21ab37ba5dda6a829bcb6d4223c529d155cdf702"
+          },
+          {
+            "photo_status": "Dedicated process photo needed",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/How-To-Coconut-Bowl/#step4",
+            "source_stage": 4,
+            "source_local_photo": null,
+            "original_image_url": null,
+            "url": null,
+            "step_index": 3,
+            "visual_note": "Dedicated process photo needed. Follow the reference text."
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source tutorial visual",
+            "source_step_url": "https://www.instructables.com/How-To-Coconut-Bowl/#step5",
+            "download_url": "https://content.instructables.com/FI1/0YTP/G61AVQKK/FI10YTPG61AVQKK.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1000",
+            "source_stage": 5,
+            "source_local_photo": "photos/step_05.jpg",
+            "original_image_url": "https://content.instructables.com/FI1/0YTP/G61AVQKK/FI10YTPG61AVQKK.jpg?auto=webp&fit=bounds&frame=1&height=1024&width=1024",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/COCO-004/step_05-d65d291403cf.jpg",
+            "step_index": 4,
+            "visual_note": "Finished-bowl reference; sanding and finish application are not separately photographed.",
+            "sha256": "d65d291403cf7cbfb111c9e726068ff84b2c5e440fbd2ca6bc5bdec6ed651b6f"
+          }
+        ],
+        "finished": {
+          "photo_status": "Downloaded source reference",
+          "download_url": "https://content.instructables.com/FI1/0YTP/G61AVQKK/FI10YTPG61AVQKK.jpg?auto=webp&width=1000&fit=bounds",
+          "source_stage": "finished",
+          "source_local_photo": "photos/finished_product.jpg",
+          "original_image_url": "https://content.instructables.com/FI1/0YTP/G61AVQKK/FI10YTPG61AVQKK.jpg?auto=webp",
+          "url": "/api/tutorial-assets/home-2026-11-18-v1/COCO-004/finished_product-d65d291403cf.jpg",
+          "visual_type": "Finished-product photograph",
+          "sha256": "d65d291403cf7cbfb111c9e726068ff84b2c5e440fbd2ca6bc5bdec6ed651b6f"
+        }
+      },
+      "status": "educational",
+      "can_start": false,
+      "source": "https://www.instructables.com/How-To-Coconut-Bowl/",
+      "review_note": "Read-only research tutorial; not expert or CESD approval. Photo reuse permission is unverified.",
+      "conditions": []
+    }
+  ],
+  "dry_untreated_wood_scraps": [
+    {
+      "id": "tutorial:WOOD-001:home-2026-11-18-v1",
+      "title": "Wooden pencil holder",
+      "summary": "Bosch combines natural wood texture with desk storage by drilling stationery holes in a short log section. This is a design rationale.",
+      "materials": [
+        "Thick untreated wood offcut, measuring tool, pencil, saw, clamps, sandpaper, drill and eye protection; optional glue decoration."
+      ],
+      "steps": [
+        "Measure and mark the intended height.",
+        "Clamp securely and saw to length.",
+        "Sand the cut surface.",
+        "Re-clamp and drill stationery holes.",
+        "Add optional decoration and allow it to set."
+      ],
+      "safety_note": "Only suitable for a thick dry untreated offcut, not arbitrary scraps. Inspect for embedded metal. Sawing and drilling require practical safety review.",
+      "photos": {
+        "source_url": "https://www.bosch-diy.com/gb/en/all-about-diy/step-by-step-project/penholder",
+        "credit": "Bosch DIY / Robert Bosch Power Tools",
+        "photo_rights": "Not verified for app reuse",
+        "relative_dir": "07_Dry_Untreated_Wood_Scraps/WOOD-001_Wooden_Pencil_Holder",
+        "verified_date": "2026-11-18",
+        "version": "home-2026-11-18-v1",
+        "source_id": "WOOD-001",
+        "steps": [
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 1,
+            "source_local_photo": "photos/step_01.jpg",
+            "original_image_url": "https://www.bosch-diy.com/images/penholder-1-bosch-diy--d4f5af839bbb48a6b74fb3e819cc2af7.jpg?imgWidth=960&imgHeight=540&scale=1",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/WOOD-001/step_01-58313bf2868f.jpg",
+            "step_index": 0,
+            "sha256": "58313bf2868f69ffa90b8164cb128051bece5b4d0b6b6232c73eb8a246c5769d"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 2,
+            "source_local_photo": "photos/step_02.jpg",
+            "original_image_url": "https://www.bosch-diy.com/images/penholder-2-bosch-diy--ca0d373f6ad1476c8cffc3d79c05d28e.jpg?imgWidth=960&imgHeight=540&scale=1",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/WOOD-001/step_02-440e325c0eed.jpg",
+            "step_index": 1,
+            "sha256": "440e325c0eeddb8dde76dbafbe234aea5bb515f1effda1016e8d30fe3f225d94"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 3,
+            "source_local_photo": "photos/step_03.jpg",
+            "original_image_url": "https://www.bosch-diy.com/images/penholder-3-bosch-diy--156521e7a9f341449d4c57cffdaf1937.jpg?imgWidth=960&imgHeight=540&scale=1",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/WOOD-001/step_03-36ecf4664e43.jpg",
+            "step_index": 2,
+            "sha256": "36ecf4664e43197c8f7bb3f8c7a3b68db38e239736b02cdb5d581076b8291484"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 4,
+            "source_local_photo": "photos/step_04.jpg",
+            "original_image_url": "https://www.bosch-diy.com/images/penholder-4-bosch-diy--24e56dab0fee4f15b88c902abb344efd.jpg?imgWidth=960&imgHeight=540&scale=1",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/WOOD-001/step_04-0fe02da99ce7.jpg",
+            "step_index": 3,
+            "sha256": "0fe02da99ce7c0b9084ff75aa525d9c6ea1c90cf9d99b61c67d085bb93949c6c"
+          },
+          {
+            "photo_status": "Downloaded source reference",
+            "visual_type": "Source process photograph",
+            "source_stage": 5,
+            "source_local_photo": "photos/step_05.jpg",
+            "original_image_url": "https://www.bosch-diy.com/images/penholder-5a-bosch-diy--6e3e7985ce3243cf9d485d83d9b28bd4.jpg?imgWidth=960&imgHeight=540&scale=1",
+            "url": "/api/tutorial-assets/home-2026-11-18-v1/WOOD-001/step_05-403dbbdd4719.jpg",
+            "step_index": 4,
+            "sha256": "403dbbdd47193ea0dc2689f169e73aef4423a0d28713038f19ec41e6f6a70e92"
+          }
+        ],
+        "finished": {
+          "photo_status": "Downloaded source reference",
+          "source_stage": "finished",
+          "source_local_photo": "photos/finished_product.jpg",
+          "original_image_url": "https://www.bosch-diy.com/images/penholder-5b-bosch-diy--12fcdff966464d0898056238eac2cd72.jpg?imgWidth=960&imgHeight=540&scale=1",
+          "url": "/api/tutorial-assets/home-2026-11-18-v1/WOOD-001/finished_product-1643ae320eac.jpg",
+          "visual_type": "Finished-product photograph",
+          "sha256": "1643ae320eacbf659b68e051d5ae99349f57a29a39cec101b21eabf3ac4c412e"
+        }
+      },
+      "status": "educational",
+      "can_start": false,
+      "source": "https://www.bosch-diy.com/gb/en/all-about-diy/step-by-step-project/penholder",
+      "review_note": "Read-only research tutorial; not expert or CESD approval. Photo reuse permission is unverified.",
+      "conditions": []
+    }
+  ]
+}

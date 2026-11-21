@@ -1,0 +1,20 @@
+import React from 'react';
+import Renderer from 'react-test-renderer';
+import SavedScanReview from '../src/SavedScanReview';
+import AssessmentScreen from '../src/AssessmentScreen';
+import {getSavedScan,requestUpcyclingRecommendations,type Prediction} from '../src/api';
+jest.mock('../src/AssessmentScreen',()=>jest.fn(()=>null));
+jest.mock('../src/api',()=>({...jest.requireActual('../src/api'),getSavedScan:jest.fn(),requestUpcyclingRecommendations:jest.fn()}));
+test('history is read-only and legacy ideas require an explicit review of that saved ID',async()=>{
+ const prediction={id:72,decision:'paper',created_at:'2026-11-18T00:00:00Z',condition:'Clean and dry',recommendation_choices:[{id:'old',title:'Old project'}],upcycling_ideas:[{id:'old',title:'Old project'}],answers:{},assessment:{material:{label:'paper',status:'user_selected'},segregation:{instructions:[]}}} as unknown as Prediction;
+ (getSavedScan as jest.Mock).mockResolvedValue({prediction,scene:null});
+ const proceed=jest.fn();let tree!:Renderer.ReactTestRenderer;
+ await Renderer.act(()=>{tree=Renderer.create(<SavedScanReview id={72} onBack={jest.fn()} onRetry={jest.fn()} onProceed={proceed}/>);});
+ expect(requestUpcyclingRecommendations).not.toHaveBeenCalled();expect(JSON.stringify(tree.toJSON())).not.toContain('Old project');
+ const review=tree.root.findAllByProps({accessibilityLabel:'Review saved item for recommendations'}).find(node=>node.props.onPress)!;
+ await Renderer.act(()=>review.props.onPress());
+ const check=tree.root.findByType(AssessmentScreen);expect(check.props.prediction.id).toBe(72);expect(check.props.startInCheck).toBe(true);
+ await Renderer.act(()=>check.props.onProceed({...prediction,condition:'Clean dry usable scraps'}));
+ expect(proceed).toHaveBeenCalledWith(expect.objectContaining({id:72,condition:'Clean dry usable scraps'}));expect(requestUpcyclingRecommendations).not.toHaveBeenCalled();
+ await Renderer.act(()=>tree.unmount());
+});

@@ -26,112 +26,76 @@ class SingleItemFrameTests(TestCase):
         data = BytesIO(); image.save(data,format='PNG')
         payload = {'request_id':'single_frame_123','single_item':'1','frame':json.dumps(FRAME),
                    'image':SimpleUploadedFile('frame.png',data.getvalue(),content_type='image/png'),**fields}
-        with patch('predictions.scene_detector.available',return_value=True), patch(
-                'predictions.scene_detector.detect',return_value=(rows if rows is not None else [PAPER],truncated)) as detect:
-            response = self.client.post('/api/scenes/',payload,**self.auth)
-        return response, detect
+        material={'label':'paper','raw_class':'paper','confidence':.91,'threshold':.7,
+                  'model_version':'test-material-model','status':'classified'}
+        with patch('predictions.scene_views.model_status',return_value={'loaded':True}), patch('predictions.scene_views.classify_material',return_value=material) as classifier, patch('predictions.scene_detector.detect',side_effect=AssertionError('OWL is retired')) as detect:
+            response=self.client.post('/api/scenes/',payload,**self.auth)
+        return response,classifier
 
     def test_only_inside_pixels_reach_inference_and_saved_photo(self):
-        response, detect = self.upload_single()
-        self.assertEqual(response.status_code,201)
-        focused = detect.call_args.args[0]
+        response,classifier=self.upload_single()
+        self.assertEqual(response.status_code,201,response.content)
+        focused=classifier.call_args.args[0]
         self.assertEqual(focused.size,(150,150))
         self.assertEqual(focused.getpixel((0,0)),(0,255,0))
         self.assertEqual(focused.getpixel((149,149)),(0,255,0))
-        result = response.json()['scene']
-        self.assertEqual(result['items'][0]['prediction']['focus_box'], PAPER['box'])
-        record = PredictionRecord.objects.get()
-        self.assertNotEqual(record.image_quality['classification_crop'], PAPER['box'])
-        self.assertEqual((result['width'],result['height']),(150,150))
-        self.assertEqual(result['frame'],[0,0,1,1])
-        self.assertTrue(result['single_item']['enabled'])
-        self.assertEqual(result['single_item']['input_frame'],[.3125,.25,.6875,.75])
-        scene = ScanScene.objects.get(pk=result['id'])
-        with scene.image.open('rb') as source:
-            saved = Image.open(source).convert('RGB')
-        self.assertEqual(saved.size,(150,150))
-        self.assertLess(saved.getpixel((0,0))[0],10)
-        self.assertGreater(saved.getpixel((0,0))[1],240)
+        scene=response.json()['scene'];record=PredictionRecord.objects.get()
+        self.assertIsNone(scene['items'][0]['prediction']['focus_box'])
+        self.assertEqual(record.image_quality['classification_crop'],[0,0,1,1])
+        self.assertEqual(scene['single_item']['input_frame'],[.3125,.25,.6875,.75])
+        with record.image.open('rb') as source:
+            saved=Image.open(source).convert('RGB')
+            self.assertEqual(saved.size,(150,150));self.assertGreater(saved.getpixel((0,0))[1],240)
 
-    def test_multiple_reliable_items_require_retake_without_saving_partial_scan(self):
-        other = {'name':'metal can','material':'unknown_unsupported','score':.8,'box':[.65,.1,.95,.4]}
-        response, _ = self.upload_single(rows=[{**PAPER,'box':[.05,.1,.4,.5]},other])
-        self.assertEqual(response.status_code,422)
-        self.assertEqual(response.json()['code'],'multiple_items_in_frame')
-        self.assertFalse(ScanScene.objects.exists())
-        self.assertFalse(PredictionRecord.objects.exists())
-        self.assertEqual([path for path in Path(settings.MEDIA_ROOT).rglob('*') if path.is_file()],[])
+    def test_detector_proposals_do_not_claim_multiple_item_detection(self):
+        response,_=self.upload_single(rows=[PAPER,{**PAPER,'name':'metal can'}])
+        self.assertEqual(response.status_code,201)
+        scene=response.json()['scene']
+        self.assertEqual(len(scene['items']),1)
+        self.assertFalse(scene['items'][0]['display_box'])
+        self.assertIn('No objects are located',scene['limitations'])
 
     def test_duplicate_proposals_do_not_count_as_two_objects(self):
         response, _ = self.upload_single(rows=[PAPER,{**PAPER,'score':.7,'box':[.11,.11,.89,.89]}])
         self.assertEqual(response.status_code,201)
         self.assertEqual(len(response.json()['scene']['items']),1)
 
-    def test_proposal_limit_does_not_silently_choose_the_strongest_item(self):
-        response, _ = self.upload_single(truncated=True)
-        self.assertEqual(response.status_code,422)
-        self.assertEqual(response.json()['code'],'uncertain_single_item')
-        self.assertFalse(ScanScene.objects.exists())
-
-    def test_uncertain_frame_gets_one_real_material_result_not_fake_object_boxes(self):
-        material = {'label':'paper','raw_class':'paper','confidence':.91,'threshold':.8,
-                    'model_version':'dataset-candidate-unverified-test','status':'classified','basis':'test classifier'}
-        with patch('predictions.scene_views.classify_material',return_value=material) as classifier:
-            response, _ = self.upload_single(rows=[])
+    def test_retired_proposal_limit_cannot_block_material_classification(self):
+        response,classifier=self.upload_single(truncated=True)
         self.assertEqual(response.status_code,201)
-        self.assertEqual(classifier.call_args.args[0].size,(150,150))
-        scene = response.json()['scene']
-        self.assertEqual(scene['single_item']['status'],'needs_review')
-        self.assertEqual(len(scene['items']),1)
-        item = scene['items'][0]
-        self.assertEqual(item['identification']['object_prediction']['source'],'whole_image_classifier')
+        classifier.assert_called_once()
+
+    def test_frame_gets_one_material_result_without_object_boxes(self):
+        response,classifier=self.upload_single(rows=[])
+        self.assertEqual(response.status_code,201)
+        scene=response.json()['scene'];item=scene['items'][0]
+        self.assertEqual(scene['single_item']['status'],'material_only')
         self.assertIsNone(item['identification']['object_prediction']['confidence'])
         self.assertFalse(item['display_box'])
-        self.assertEqual(item['prediction']['confidence'],.91)
-        self.assertEqual(item['prediction']['decision'],'unknown_unsupported')
-        self.assertEqual(item['prediction']['recognition']['status'],'needs_review')
-        self.assertEqual(item['prediction']['recognition']['suggested_label'],'paper')
+        self.assertEqual(item['prediction']['decision'],'paper')
+        self.assertEqual(item['prediction']['image_quality']['workflow_version'],'camera-assessment-v2')
 
-    def test_held_item_uses_same_padded_crop_for_classification_and_preview(self):
-        material = {'label':'unknown_unsupported','raw_class':'paper','confidence':.79,'threshold':.8,
-                    'model_version':'dataset-candidate-unverified-test','status':'classified','basis':'test'}
-        with patch('predictions.scene_views.classify_detected_material',return_value=material) as classifier:
-            response, _ = self.upload_single(rows=[PAPER,{'name':'human hand','material':None,'score':.9,'box':[.3,.75,.6,1]}])
+    def test_guide_area_is_same_for_classification_and_saved_preview(self):
+        response,classifier=self.upload_single(rows=[PAPER,{'name':'human hand','score':.9,'box':[.3,.75,.6,1]}])
         self.assertEqual(response.status_code,201)
-        item = response.json()['scene']['items'][0]
-        record = PredictionRecord.objects.get(pk=item['prediction']['id'])
-        with record.image.open('rb') as source:
-            saved = Image.open(source)
-            self.assertEqual(saved.size,classifier.call_args.args[0].size)
-        self.assertEqual(item['prediction']['decision'],'unknown_unsupported')
-        self.assertEqual(item['prediction']['recognition']['suggested_label'],'paper')
-        # Review is an explicit user action, not a lower classifier cutoff.
-        selected = self.client.post(f"/api/scenes/{response.json()['scene']['id']}/disposal-selection/",
-            json.dumps({'item_ids':[item['id']],'automatic_routing':True}),content_type='application/json',**self.auth)
-        self.assertEqual(selected.status_code,200)
-        updated = self.client.patch(f"/api/predictions/{record.id}/",json.dumps({'answers':{
-            'material_confirmation':'paper'},'condition':'Clean and dry','previous_contents':'No chemical contact known'}),
-            content_type='application/json',**self.auth)
-        self.assertEqual(updated.status_code,200)
-        self.assertEqual(updated.json()['prediction']['decision'],'paper')
-        saved = self.client.get(f"/api/scenes/{response.json()['scene']['id']}/?history=1",**self.auth).json()['scene']
-        self.assertEqual(saved['items'][0]['prediction']['recognition']['status'],'supported')
+        item=response.json()['scene']['items'][0]
+        record=PredictionRecord.objects.get(pk=item['prediction']['id'])
+        with record.image.open('rb') as source:self.assertEqual(Image.open(source).size,classifier.call_args.args[0].size)
+        updated=self.client.patch(f'/api/predictions/{record.pk}/',json.dumps({'condition':'Clean and dry'}),content_type='application/json',**self.auth)
+        self.assertEqual(updated.status_code,409)
 
-    def test_weak_target_keeps_crop_review_and_hides_box(self):
-        response, _ = self.upload_single(rows=[{**PAPER,'score':.13}])
+    def test_no_object_score_is_exposed_for_weak_retired_proposals(self):
+        response,_=self.upload_single(rows=[{**PAPER,'score':.13}])
         self.assertEqual(response.status_code,201)
-        item = response.json()['scene']['items'][0]
+        item=response.json()['scene']['items'][0]
         self.assertFalse(item['display_box'])
-        self.assertEqual(item['prediction']['decision'],'unknown_unsupported')
-        self.assertEqual(item['prediction']['recognition']['status'],'needs_review')
+        self.assertIsNone(item['identification']['object_prediction']['confidence'])
 
-    def test_person_only_frame_is_rejected_without_forcing_a_material(self):
-        with patch('predictions.scene_views.classify_material') as classifier:
-            response, _ = self.upload_single(rows=[{'name':'person','material':'unknown_unsupported','score':.8,'box':[0,0,1,1]}])
-        self.assertEqual(response.status_code,422)
-        self.assertEqual(response.json()['code'],'main_object_not_found')
-        classifier.assert_not_called()
-        self.assertFalse(ScanScene.objects.exists())
+    def test_new_scan_does_not_claim_person_detection(self):
+        response,classifier=self.upload_single(rows=[{'name':'person','score':.8,'box':[0,0,1,1]}])
+        self.assertEqual(response.status_code,201)
+        classifier.assert_called_once()
+        self.assertFalse(response.json()['scene']['items'][0]['display_box'])
 
     def test_single_scan_cannot_add_extra_regions_or_select_multiple_objects(self):
         response, _ = self.upload_single()

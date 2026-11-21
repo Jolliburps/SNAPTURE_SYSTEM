@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
+import { Alert, Animated, Pressable, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
+import Text from './PublicText';
 import Check from 'lucide-react-native/icons/check';
 import type { UserProject } from './api';
+import TutorialPhoto, {PhotoCredits} from './TutorialPhoto';
+import PhotoProjectGuide from './PhotoProjectGuide';
 
 type Props = {
   project: UserProject;
@@ -11,13 +14,14 @@ type Props = {
   directCompletion?: boolean;
   onChangeIdea?: (project:UserProject)=>void;
   onBusyChange?: (busy:boolean)=>void;
+  onPhotoChange?:(project:UserProject)=>void;
 };
 
 function Button({ title, onPress, secondary = false, disabled = false }: { title: string; onPress: () => void; secondary?: boolean; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[secondary ? s.secondary : s.primary, disabled && s.disabled]}><Text style={secondary ? s.link : s.primaryText}>{title}</Text></Pressable>;
 }
 
-export default function ProjectGuide({ project, onStep, onRestart, onDone, directCompletion=false, onChangeIdea, onBusyChange }: Props) {
+export default function ProjectGuide({ project, onStep, onRestart, onDone, directCompletion=false, onChangeIdea, onBusyChange,onPhotoChange }: Props) {
   const [index, setIndex] = useState(() => Math.max(0, project.steps.findIndex((_, i) => !project.completed_steps.includes(i))));
   const [summary, setSummary] = useState(project.status === 'completed');
   const [busy, setBusy] = useState(false);
@@ -76,6 +80,7 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone, direc
     } },
   ]);
   const done = project.completed_steps.includes(index);
+  if(project.photo_workflow)return <PhotoProjectGuide initial={project} onDone={onDone} onBusyChange={onBusyChange} onChange={onPhotoChange}/>;
   const last = index === project.steps.length - 1;
   const earlierComplete = project.steps.every((_,i)=>i>=index || project.completed_steps.includes(i));
   const canChange=Boolean(onChangeIdea && project.can_change_idea!==false && !started && !project.completed_steps.length && project.status!=='completed');
@@ -85,11 +90,13 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone, direc
     {details?<View style={s.card}>
       <Text style={s.heading}>{project.title}</Text><Text style={s.body}>Input material: {project.material}</Text>
       <Text style={s.body}>{project.summary || 'No separate finished-product description was saved.'}</Text>
+      <TutorialPhoto photo={project.reference?.photos?.finished} label={`${project.title}: finished-product reference`}/>
       <Text style={s.heading}>Required materials and tools</Text>{project.materials.map((line,i)=><Text key={i} style={s.body}>{line}</Text>)}
       <Text style={s.heading}>Safety precautions</Text><Text style={s.body}>{project.safety_note}</Text>
       <Text style={s.heading}>Source and verification status</Text>
       <Text selectable style={s.body}>{project.reference?.source || 'No source snapshot was saved for this older project. Ask for a reviewed version before starting it again.'}</Text>
       <Text style={s.small}>{project.reference?.review_level?`Review status: ${project.reference.review_level.replace(/_/g,' ')}. Not a safety certification or CESD endorsement.`:'Verification status unavailable for this older saved project.'}</Text>
+      <PhotoCredits photos={project.reference?.photos}/>
     </View>:null}
     {summary ? <>
       <Animated.View accessibilityLabel="Completed checkmark" style={[s.celebration, { transform: [{ scale }] }]}><Check color="#fff" size={46} /></Animated.View>
@@ -108,6 +115,7 @@ export default function ProjectGuide({ project, onStep, onRestart, onDone, direc
       {project.safety_note ? <View style={s.safety}><Text style={s.safetyLabel}>Caution</Text><Text style={s.safetyText} numberOfLines={expandedSafety ? undefined : 2}>{project.safety_note}</Text><Pressable accessibilityRole="button" accessibilityLabel={expandedSafety ? 'Hide full caution' : 'Read full caution'} onPress={() => setExpandedSafety(value => !value)}><Text style={s.link}>{expandedSafety ? 'Show less' : 'Read full caution'}</Text></Pressable></View> : null}
       <Text accessibilityRole="header" style={s.title}>Step {index + 1} of {project.total_steps}</Text>
       <View style={s.instruction}><Text style={s.instructionText}>{project.steps[index]}</Text>{done ? <Text style={s.badge}>Step completed</Text> : null}</View>
+      {project.reference?.photos?.steps.filter(photo=>photo.step_index===index).map((photo,i)=><TutorialPhoto key={`${index}:${i}`} photo={photo} label={`${project.title}: step ${index+1} reference`}/>)}
       {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
       {transitioning ? <Text accessibilityLiveRegion="polite" style={s.badge}>Step saved. Moving on...</Text> : null}
       {directCompletion && last && !earlierComplete?<Text style={s.small}>Complete the earlier steps to enable Completed.</Text>:null}

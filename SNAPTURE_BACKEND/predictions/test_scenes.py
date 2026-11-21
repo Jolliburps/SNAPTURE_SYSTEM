@@ -82,10 +82,238 @@ class SceneApiTests(TestCase):
         if frame is not None: fields['frame'] = json.dumps(frame)
         return self.client.post('/api/scenes/',fields,**self.auth)
 
+    def test_material_preview_uses_the_guide_crop_without_saving_a_scan(self):
+        image=BytesIO()
+        Image.new('RGB',(200,100),'brown').save(image,format='JPEG')
+        def fields():
+            return {'image':SimpleUploadedFile('main.jpg',image.getvalue(),content_type='image/jpeg'),
+                    'frame':json.dumps({'aspect':1,'x':0,'y':0,'width':1,'height':1})}
+        url='/api/scenes/material-preview/'
+        self.assertEqual(self.client.post(url,fields()).status_code,401)
+        base={'status':'classified','label':'cardboard','raw_class':'cardboard','confidence':.7,'threshold':.7}
+        proposal={'name':'cardboard box or cardboard scrap','material':'cardboard','score':.6,'box':[.2,.2,.8,.8]}
+        rows=[(proposal,base,base,'supported'),(proposal,base,{**base,'confidence':.699},'photo_review'),
+              ({**proposal,'name':'plastic bottle','material':'unknown_unsupported'}, {**base,'confidence':.4},None,'photo_review'),
+              ({**proposal,'name':'comb','material':'unknown_unsupported'},None,None,'out_of_scope'),
+              ({**proposal,'name':'glass bottle or glass jar','material':'unknown_unsupported'},None,None,'special_handling'),
+              ({**proposal,'name':'metal can','material':'unknown_unsupported'},None,None,'special_handling'),
+              (proposal,{'status':'unavailable'},None,'unavailable')]
+        supported_token=None
+        disposal_token=None
+        for target,evidence,guide,status in rows:
+            with (self.subTest(status=status,target=target['name']),
+                  patch('predictions.scene_views.model_status',return_value={'loaded':True}),
+                  patch('predictions.scene_detector.preview_available',return_value=True),
+                  patch('predictions.scene_detector.detect',return_value=([target],False)) as detect,
+                  patch('predictions.material_preview.classify_material',return_value=guide),
+                  patch('predictions.material_preview.classify_detected_material',return_value=evidence) as classify):
+                response=self.client.post(url,fields(),**self.auth)
+                self.assertEqual(response.status_code,200,response.content)
+                result=response.json()
+                self.assertEqual(result['status'],status)
+                self.assertEqual(detect.call_args.args[0].size,(100,100))
+                self.assertEqual(result.get('label'),'cardboard' if status=='supported' else None)
+                if evidence is None:classify.assert_not_called()
+                if status != 'unavailable':self.assertEqual(result['box'],[.35,.2,.65,.8])
+                if status=='supported':supported_token=result['token']
+                else:self.assertNotIn('token',result)
+                if status=='out_of_scope':disposal_token=result['disposal_token']
+                if target['name']=='plastic bottle':self.assertIn('recycling code',result['reason'])
+        self.assertFalse(ScanScene.objects.exists())
+        self.assertFalse(PredictionRecord.objects.exists())
+        submission={'request_id':'test_with_preview','single_item':'1','material_preview_token':supported_token,
+                    'scan_details':json.dumps({'mode':'single','quantity':1,'approximate_size':'A4'})}
+        changed={**fields(),**submission,'frame':json.dumps({'aspect':2,'x':0,'y':0,'width':1,'height':1})}
+        self.assertEqual(self.client.post('/api/scenes/',changed,**self.auth).status_code,409)
+        self.assertFalse(ScanScene.objects.exists())
+        with patch('predictions.scene_views.classify_material',side_effect=AssertionError('Reuse checked material')):
+            response=self.client.post('/api/scenes/',{**fields(),**submission},**self.auth)
+        self.assertEqual(response.status_code,201,response.content)
+        record=PredictionRecord.objects.get()
+        self.assertEqual(record.decision,'cardboard')
+        self.assertEqual(record.image_quality['localized_box'],[.2,.2,.8,.8])
+        self.assertIsNotNone(disposal_token)
+        disposal={'request_id':'test_with_disposal','single_item':'1','material_preview_token':disposal_token,
+                  'scan_details':json.dumps({'mode':'single','quantity':1,'approximate_size':'Not applicable',
+                    'inspection_report':'none_seen','previous_contents':'No chemical contact known',
+                    'condition_policy':'inspection-first-v1'})}
+        response=self.client.post('/api/scenes/',{**fields(),**disposal},**self.auth)
+        self.assertEqual(response.status_code,201,response.content)
+        result=PredictionRecord.objects.get(model_class='comb').image_quality['result_snapshot']
+        self.assertEqual(result['classification']['kind'],'disposal')
+        self.assertFalse(result['suggestions']['items'])
+
+        def condition(_record,_image,**context):
+            found=[{'field':'visible_contamination','value':'suspected mold','certainty':'clear'}] if context['view']=='inside' else []
+            return {'status':'available','validated':True,'observations':found}
+
+        guided={**submission,'request_id':'test_with_interior','primary_view':'front','same_item_confirmed':'true',
+                'scan_details':json.dumps({'mode':'single','quantity':1,'approximate_size':'A4',
+                    'inspection_report':'none_seen','previous_contents':'No chemical contact known',
+                    'condition_policy':'inspection-first-v1','capture_mode':'material-guided-v1'})}
+        missing=self.client.post('/api/scenes/',{**fields(),**guided},**self.auth)
+        self.assertEqual(missing.status_code,400,missing.content)
+        with (patch('upcycling.human_assisted.condition_record',side_effect=condition),
+              patch('predictions.material_classifier.classify_material',return_value=base) as identify_views):
+            response=self.client.post('/api/scenes/',{**fields(),**guided,'view_names':json.dumps(['back','side','inside']),
+                'view_frames':'[null,null,null]','additional_views':[fields()['image'] for _ in range(3)]},**self.auth)
+        self.assertEqual(response.status_code,201,response.content)
+        self.assertEqual(identify_views.call_count,2)
+        record=PredictionRecord.objects.order_by('-pk').first()
+        self.assertEqual(record.image_quality['result_snapshot']['classification']['kind'],'hazardous')
+        self.assertEqual(record.additional_views.get(view='inside').observations['purpose'],'interior')
+
+    def test_localized_paper_uses_crop_when_wider_guide_sees_background(self):
+        from .material_preview import screen
+        target={'name':'paper scrap','material':'paper','score':.6,'box':[.2,.2,.8,.8]}
+        paper={'status':'classified','label':'paper','raw_class':'paper','confidence':.843,'threshold':.7}
+        with (patch('predictions.scene_detector.detect',return_value=([target],False)),
+              patch('predictions.material_preview.classify_detected_material',return_value=paper),
+              patch('predictions.material_preview.classify_material') as guide):
+            for wider,status in [('fabric_scraps','supported'),('cardboard','photo_review')]:
+                with self.subTest(wider=wider):
+                    guide.return_value={**paper,'label':wider,'raw_class':wider}
+                    outcome,_=screen(Image.new('RGB',(200,100),'white'))
+                    self.assertEqual(outcome['status'],status)
+
+    def test_inspection_first_none_skips_inference_and_returns_project_ideas(self):
+        image=BytesIO()
+        Image.new('RGB',(200,100),'brown').save(image,format='JPEG')
+        details={'mode':'single','quantity':1,'approximate_size':'A4','inspection_report':'none_seen',
+                 'previous_contents':'No chemical contact known','condition_policy':'inspection-first-v1'}
+        material={'label':'cardboard','raw_class':'cardboard','status':'classified','confidence':.9,'threshold':.7}
+        with (patch('predictions.scene_views.model_status',return_value={'loaded':True}),
+              patch('predictions.scene_views.classify_material',return_value=material),
+              patch('upcycling.human_assisted.condition_record') as assess):
+            response=self.client.post('/api/scenes/',{
+                'request_id':'inspection_first_none','single_item':'1',
+                'image':SimpleUploadedFile('item.jpg',image.getvalue(),content_type='image/jpeg'),
+                'frame':json.dumps({'aspect':1,'x':0,'y':0,'width':1,'height':1}),
+                'scan_details':json.dumps(details),
+            },**self.auth)
+        self.assertEqual(response.status_code,201,response.content)
+        assess.assert_not_called()
+        result=PredictionRecord.objects.get().image_quality['result_snapshot']['suggestions']
+        self.assertEqual(result['verdict']['code'],'suitable')
+        self.assertEqual(result['verdict']['basis'],'user_reported')
+        self.assertTrue(result['items'])
+        self.assertTrue(all(not idea['can_start'] for idea in result['items']))
+
+    def test_guided_scan_requires_closeup_and_keeps_it_out_of_material_votes(self):
+        image=BytesIO()
+        Image.new('RGB',(200,100),'brown').save(image,format='JPEG')
+        def photo():return SimpleUploadedFile('item.jpg',image.getvalue(),content_type='image/jpeg')
+        frame=json.dumps({'aspect':1,'x':0,'y':0,'width':1,'height':1})
+        details={'mode':'single','quantity':1,'approximate_size':'20 x 10 cm','inspection_report':'concern_photo'}
+        fields={'request_id':'guided_concern_1','image':photo(),'single_item':'1','frame':frame,'scan_details':json.dumps(details)}
+        self.assertEqual(self.client.post('/api/scenes/',fields,**self.auth).status_code,400)
+        self.assertFalse(ScanScene.objects.exists())
+        material={'label':'cardboard','raw_class':'cardboard','status':'classified','confidence':.9,'threshold':.7}
+        with (patch('predictions.scene_views.model_status',return_value={'loaded':True}),
+              patch('predictions.scene_views.classify_material',return_value=material),
+              patch('predictions.material_classifier.classify_material',side_effect=AssertionError('Close-up is not material evidence'))):
+            response=self.client.post('/api/scenes/',{**fields,'image':photo(),'concern_photo':photo(),'concern_frame':frame},**self.auth)
+        self.assertEqual(response.status_code,201,response.content)
+        record=PredictionRecord.objects.get()
+        self.assertEqual(record.decision,'cardboard')
+        self.assertEqual(record.additional_views.get().observations['purpose'],'closeup')
+        self.assertFalse(record.image_quality['workflow'].get('inspection_confirmed'))
+
+    def test_batch_saves_all_closeups_and_preserves_later_hazard_evidence(self):
+        def photo(color):
+            image=BytesIO()
+            Image.new('RGB',(200,100),color).save(image,format='JPEG')
+            return SimpleUploadedFile('item.jpg',image.getvalue(),content_type='image/jpeg')
+        frame={'aspect':1,'x':0,'y':0,'width':1,'height':1}
+        details={'mode':'batch','quantity':3,'approximate_size':'A4','inspection_report':'concern_photo',
+                 'previous_contents':'No chemical contact known','usable_quantity':2,
+                 'condition_policy':'inspection-first-v1','reported_concern':'minor_damage'}
+        def fields(frames):
+            return {'request_id':'guided_multiple_concerns','image':photo('brown'),'single_item':'1',
+                    'frame':json.dumps(frame),'scan_details':json.dumps(details),
+                    'concern_photo':[photo('tan'),photo('green')],'concern_frames':json.dumps(frames)}
+        self.assertEqual(self.client.post('/api/scenes/',fields([frame]),**self.auth).status_code,400)
+        material={'label':'cardboard','raw_class':'cardboard','status':'classified','confidence':.9,'threshold':.7}
+        clear={'status':'available','validated':True,'observations':[]}
+        hazard={**clear,'observations':[{'field':'visible_contamination','value':'suspected mold','certainty':'clear'}]}
+        with (patch('predictions.scene_views.model_status',return_value={'loaded':True}),
+              patch('predictions.scene_views.classify_material',return_value=material),
+              patch('predictions.material_classifier.classify_material',side_effect=AssertionError('Close-up is not material evidence')),
+              patch('upcycling.human_assisted.condition_record',side_effect=[clear,hazard]) as assess):
+            response=self.client.post('/api/scenes/',fields([frame,frame]),**self.auth)
+        self.assertEqual(response.status_code,201,response.content)
+        self.assertEqual(assess.call_count,2)
+        self.assertTrue(all(call.kwargs['view']=='close-up' for call in assess.call_args_list))
+        record=PredictionRecord.objects.get()
+        self.assertEqual(record.additional_views.count(),2)
+        self.assertEqual(record.quantity,2)
+        self.assertEqual(record.previous_contents,details['previous_contents'])
+        self.assertEqual(record.image_quality['scan_details']['quantity'],3)
+        self.assertEqual(record.image_quality['result_snapshot']['classification']['code'],'for_disposal')
+
+    def test_resin_mark_continues_an_uncertain_bottle_without_inventing_a_model_score(self):
+        image=BytesIO()
+        Image.new('RGB',(200,100),'white').save(image,format='JPEG')
+        def fields():
+            return {'image':SimpleUploadedFile('main.jpg',image.getvalue(),content_type='image/jpeg'),
+                    'frame':json.dumps({'aspect':1,'x':0,'y':0,'width':1,'height':1})}
+        bottle={'name':'plastic bottle','material':'unknown_unsupported','score':.6,'box':[.2,.2,.8,.8]}
+        evidence={'status':'classified','label':'unknown_unsupported','raw_class':'pete_bottles','confidence':.52,'threshold':.7}
+        with (patch('predictions.scene_views.model_status',return_value={'loaded':True}),
+              patch('predictions.scene_detector.preview_available',return_value=True),
+              patch('predictions.scene_detector.detect',return_value=([bottle],False)),
+              patch('predictions.material_preview.classify_detected_material',return_value=evidence)):
+            response=self.client.post('/api/scenes/material-preview/',fields(),**self.auth)
+        self.assertEqual(response.json()['status'],'photo_review')
+        submission={'request_id':'resin_code_preview','material_preview_token':response.json()['resin_review_token'],'single_item':'1',
+                    'scan_details':json.dumps({'mode':'single','quantity':1,'approximate_size':'500 mL','inspection_report':'none_seen'})}
+        rejected=self.client.post('/api/scenes/',{**fields(),**submission,'resin_code':'5'},**self.auth)
+        self.assertEqual(rejected.status_code,409)
+        accepted=self.client.post('/api/scenes/',{**fields(),**submission,'resin_code':'2'},**self.auth)
+        self.assertEqual(accepted.status_code,201,accepted.content)
+        record=PredictionRecord.objects.get()
+        self.assertEqual(record.decision,'hdpe_containers')
+        self.assertEqual(record.answers['resin_mark'],'HDPE code 2')
+        self.assertEqual(record.image_quality['material_prediction']['status'],'user_reported_resin')
+        self.assertEqual(record.confidence,0)
+
     def create(self, rows=None, request_id='scene_request_123', frame=None):
-        if rows is None: rows = [{'name':'paper scrap','material':'paper','score':.22,'box':[.1,.1,.4,.8]}]
-        with patch('predictions.scene_detector.available',return_value=True), patch('predictions.scene_detector.detect',return_value=(rows,False)):
-            return self.upload(request_id,frame)
+        """Construct a historical detector-era snapshot, never invoke retired OWL.
+
+        These fixtures exercise legacy rendering, privacy, ownership and user
+        corrections. New inference is covered by test_classifier_scans.
+        """
+        from django.core.files.base import ContentFile
+        from django.http import JsonResponse as DjangoResponse
+        def JsonResponse(payload,status=200):
+            response=DjangoResponse(payload,status=status);response.json=lambda:json.loads(response.content);return response
+        from core.assessment import refresh
+        from .models import SceneItem
+        from .scene_views import serialize_scene
+        from .scene_detector import presentation,FILTER_VERSION,BACKGROUND_NAMES
+        existing=ScanScene.objects.filter(user=self.user,request_id=request_id).first()
+        if existing:return JsonResponse({'scene':serialize_scene(existing)},status=200)
+        image=Image.new('RGB',(200,100),'white')
+        try:bounds=frame_bounds(image,frame)
+        except ValueError:return JsonResponse({'detail':'Invalid frame'},status=400)
+        normalized=[bounds[0]/200,bounds[1]/100,bounds[2]/200,bounds[3]/100]
+        scene=ScanScene.objects.create(user=self.user,request_id=request_id,width=200,height=100,frame=normalized,status='complete')
+        data=BytesIO();image.save(data,format='JPEG');scene.image.save(request_id+'.jpg',ContentFile(data.getvalue()))
+        if rows is None:rows=[{'name':'paper scrap','material':'paper','score':.22,'box':[.1,.1,.4,.8]}]
+        kept,_=clean_detections(rows)
+        cleaned=presentation(kept)
+        scene.quality={'background_objects':[{'name':name,'count':sum(row['name']==name for row in rows)} for name in sorted({row['name'] for row in rows if row['name'] in BACKGROUND_NAMES})],'detection_filter':{'version':FILTER_VERSION,'excluded_count':sum(r['name'] in {'human leg','human hand','person'} for r in rows)}}
+        scene.save()
+        for row in cleaned:
+            if row['detection_status'] in {'excluded','duplicate'}:continue
+            from .scene_views import classify_detected_material
+            material=classify_detected_material(image,row)
+            label=material['label']
+            record=PredictionRecord(user=self.user,model_class=row['name'],decision=label,title=label,confidence=material.get('confidence',0),threshold=material.get('threshold',1),model_version=material.get('model_version','legacy-test'),image_quality={'material_prediction':material,'detection_filter':{'status':row['detection_status'],'reason':row['detection_reason']},'alternatives':row.get('alternatives',[])})
+            refresh(record);record.image.save(request_id+'-crop.jpg',ContentFile(data.getvalue()),save=False);record.save()
+            box=[normalized[0]+row['box'][0]*(normalized[2]-normalized[0]),normalized[1]+row['box'][1]*(normalized[3]-normalized[1]),normalized[0]+row['box'][2]*(normalized[2]-normalized[0]),normalized[1]+row['box'][3]*(normalized[3]-normalized[1])]
+            SceneItem.objects.create(scene=scene,prediction=record,name=row['name'],score=row['score'],box=box)
+        return JsonResponse({'scene':serialize_scene(scene)},status=201)
 
     def test_items_get_real_boxes_but_no_automatic_approval(self):
         response = self.create(); self.assertEqual(response.status_code,201)
@@ -149,6 +377,21 @@ class SceneApiTests(TestCase):
         with patch('predictions.scene_detector.available',return_value=False), patch('predictions.scene_views.model_status',return_value={'loaded':False}):
             self.assertEqual(self.upload().status_code,503)
         self.assertEqual(self.create(frame={'aspect':1,'x':1,'y':1,'width':1,'height':1}).status_code,400)
+
+    def test_windows_block_explains_pc_runtime_failure_and_keeps_retry_available(self):
+        from . import scene_detector
+        with patch('predictions.scene_detector.available', return_value=True), patch(
+                'predictions.scene_views.classify_material', side_effect=ImportError(
+                    'DLL load failed while importing _regex: An Application Control policy has blocked this file.')):
+            response = self.upload()
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('Windows Security on the computer', response.json()['detail'])
+        self.assertIn('Smart App Control', response.json()['detail'])
+        self.assertNotIn('Try another photo', response.json()['detail'])
+        self.assertFalse(ScanScene.objects.exists())
+        self.assertFalse(PredictionRecord.objects.exists())
+        self.assertFalse(scene_detector.inference_lock.locked())
+        self.assertEqual(self.create().status_code, 201)
 
     def test_dataset_model_can_classify_the_whole_photo_without_fabricating_a_detection_score(self):
         material={'label':'cardboard','raw_class':'cardboard','confidence':.93,'threshold':.8,
@@ -227,7 +470,7 @@ class SceneApiTests(TestCase):
         self.assertEqual(corrected['prediction']['confidence'],0)
         self.assertEqual(corrected['prediction']['decision'],'unknown_unsupported')
         unknown = self.select(scene,[item['id']],{str(item['id']):''}).json()['scene']['items'][0]
-        self.assertEqual(unknown['handling']['route'],'no_verified_method')
+        self.assertEqual(unknown['handling']['route'],'screening_pending')
 
     def test_confirmed_supported_material_without_reviewed_project_says_so(self):
         scene = self.create().json()['scene']; item = scene['items'][0]
@@ -236,7 +479,7 @@ class SceneApiTests(TestCase):
         }),content_type='application/json',**self.auth)
         self.assertEqual(response.status_code,200)
         result = self.select(scene,[item['id']]).json()['scene']['items'][0]
-        self.assertEqual(result['handling']['route'],'no_verified_method')
+        self.assertEqual(result['handling']['route'],'screening_pending')
         self.assertFalse(result['handling']['upcycling_eligible'])
 
     def test_selection_validation_owner_scope_and_failed_detection(self):
@@ -251,7 +494,7 @@ class SceneApiTests(TestCase):
         self.assertEqual(self.client.post('/api/scenes/',{'request_id':'empty_image_test'},**self.auth).status_code,415)
         for data in (b'',b'not an image'):
             self.assertEqual(self.client.post('/api/scenes/',{'request_id':'invalid_image_test','image':SimpleUploadedFile('bad.jpg',data,content_type='image/jpeg')},**self.auth).status_code,400)
-        with patch('predictions.scene_detector.available',return_value=True), patch('predictions.scene_detector.detect',side_effect=RuntimeError('test failure')):
+        with patch('predictions.scene_detector.available',return_value=True), patch('predictions.scene_views.classify_material',side_effect=RuntimeError('test failure')):
             self.assertEqual(self.upload('failure_request_test').status_code,503)
 
     def test_disposal_selection_and_handling_history_remain_attached_to_original_scene(self):
@@ -296,7 +539,7 @@ class SceneApiTests(TestCase):
         from core.test_support import expert_project_fixtures
         call_command('seed_reference_guidance',verbosity=0); expert_project_fixtures()
         scene = self.create().json()['scene']; item = scene['items'][0]
-        self.select(scene,[item['id']])
+        self.client.post(f"/api/scenes/{scene['id']}/disposal-selection/",json.dumps({'item_ids':[item['id']], 'object_names':{str(item['id']):'paper scrap'}}),content_type='application/json',**self.auth)
         response = self.client.patch(f"/api/predictions/{item['prediction']['id']}/",json.dumps({
             'quantity':1,'condition':'Clean and dry','previous_contents':'No chemical contact known',
             'answers':{'material_confirmation':'paper','paper_surface':'Plain uncoated material without personal details','contamination':'None known','moisture':'Dry'},
@@ -305,7 +548,8 @@ class SceneApiTests(TestCase):
         saved = self.client.get(f"/api/scenes/{scene['id']}/?history=1",**self.auth).json()['scene']['items'][0]
         self.assertEqual(saved['handling']['route'],'eligible')
         self.assertTrue(saved['handling']['upcycling_eligible'])
-        recommendation = saved['handling']['recommendations'][0]
+        self.assertEqual(saved['handling']['recommendations'],[])
+        recommendation = self.client.post(f"/api/predictions/{item['prediction']['id']}/recommendations/",**self.auth).json()['recommendations'][0]
         self.assertIn('source',recommendation['review'])
         selected = self.client.post(f"/api/predictions/{item['prediction']['id']}/recommendation/",json.dumps({'recommendation_id':recommendation['id']}),content_type='application/json',**self.auth)
         self.assertEqual(selected.status_code,200)

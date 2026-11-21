@@ -10,7 +10,6 @@ function Harness({initial}:{initial:MainRoute}){
   const [screen,navigate]=useState(initial);
   return <MainExperience screen={screen} navigate={navigate} user={null} onUserChange={jest.fn()} onCategory={jest.fn()} onLogout={jest.fn()}/>;
 }
-function action(tree:Renderer.ReactTestRenderer,label:string){return tree.root.findAllByProps({accessibilityLabel:label}).find(node=>typeof node.props.onPress==='function')!;}
 
 test('Learn opens its existing educational topics immediately without rendering/loading the CESD library',async()=>{
   (getLearningInformation as jest.Mock).mockClear();
@@ -18,7 +17,8 @@ test('Learn opens its existing educational topics immediately without rendering/
   await Renderer.act(async()=>{tree=Renderer.create(<Harness initial="learn"/>);});
   expect(tree.root.findAllByType(CESDLearning)).toHaveLength(0);
   expect(getLearningInformation).not.toHaveBeenCalled();
-  for(const title of ['Waste segregation','Disposal guidelines','Prohibited waste','Local policies','Recycling facilities','Everyday practices'])expect(JSON.stringify(tree.toJSON())).toContain(title);
+  for(const title of ['Waste segregation','Disposal guidelines','Prohibited waste','Local policies','Recycling facilities'])expect(JSON.stringify(tree.toJSON())).toContain(title);
+  for(const removed of ['Everyday practices','Published policies and materials','General learning tips are not item-specific'])expect(JSON.stringify(tree.toJSON())).not.toContain(removed);
   const title=tree.root.findAll(node=>node.props.children==='Waste segregation')[0];
   let parent=title.parent;while(parent && !parent.props.onPress)parent=parent.parent;
   await Renderer.act(()=>parent?.props.onPress());
@@ -26,15 +26,13 @@ test('Learn opens its existing educational topics immediately without rendering/
   await Renderer.act(()=>tree.unmount());
 });
 
-test('one dedicated Home card opens the existing CESD library and its Back action returns Home',async()=>{
+test('Home omits recent scans, resources and collection schedule while retaining projects and ideas',async()=>{
   let tree!:Renderer.ReactTestRenderer;
   await Renderer.act(async()=>{tree=Renderer.create(<Harness initial="home"/>);});
   expect(tree.root.findAllByType(CESDLearning)).toHaveLength(0);
-  await Renderer.act(async()=>action(tree,'Open CESD reference library').props.onPress());
-  expect(tree.root.findAllByType(CESDLearning)).toHaveLength(1);
-  expect(JSON.stringify(tree.toJSON())).toContain('not live announcements or CESD approval');
-  const back=tree.root.findAll(node=>typeof node.type==='function' && node.type.name==='BackHeader')[0];
-  await Renderer.act(async()=>back.props.onBack());
-  expect(action(tree,'Open CESD reference library')).toBeDefined();
+  const content=JSON.stringify(tree.toJSON());
+  for(const removed of ['Recent scan','Resources','CESD reference library','Collection schedule','View calendar'])expect(content).not.toContain(removed);
+  expect(content).toContain('Ongoing projects');
+  expect(content).toContain('Ideas for a greener tomorrow');
   await Renderer.act(()=>tree.unmount());
 });

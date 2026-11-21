@@ -76,12 +76,14 @@ OTHER_REFERENCES = {
 }
 
 
-def management_guidance(assessment, model_class=''):
+def management_guidance(assessment, model_class='', *, include_reuse=False):
     from .waste_taxonomy import FINE_CLASSES
+    from predictions.disposal_workflow import GLASS
     material = assessment.get('material', {})
     context = assessment.get('context') if isinstance(assessment.get('context'), dict) else {}
     label = material.get('label')
-    hazardous = (context.get('previous_contents') == 'Chemical or cleaning product'
+    glass = model_class.casefold() in GLASS or context.get('other_material') == 'Glass'
+    hazardous = (glass or context.get('previous_contents') == 'Chemical or cleaning product'
                  or context.get('contamination') == 'Chemical contamination'
                  or context.get('other_material') == 'Battery / electronic item'
                  or context.get('reported_category') == 'C'
@@ -94,6 +96,8 @@ def management_guidance(assessment, model_class=''):
     sections = []
 
     def add(key, title, lines):
+        if key == 'recovery' and not include_reuse:
+            return
         sections.append({'key': key, 'title': title, 'instructions': lines})
 
     if hazardous:
@@ -113,6 +117,8 @@ def management_guidance(assessment, model_class=''):
             add('preparation', 'Preparation Before Disposal', ['Identify the item and its previous contents before cleaning or combining it with other waste. Do not empty unknown contents.'])
             add('recovery', 'Recycling and Reuse', ['No material-specific reuse or recycling procedure is available for this unidentified or unsupported item. Retake a clearer photo or ask your barangay or CESD; do not guess a bin.'])
     safety = ['A photo cannot confirm contamination, previous contents or safe reuse. Do not burn, melt or use unknown material for food, toys or structural work.']
+    if glass:
+        safety.append('SNAPTURE routes glass to Hazardous Waste as an injury precaution. Not eligible for upcycling; do not reuse chipped or cracked glass, break or crush it, or handle loose shards with bare hands.')
     if not hazardous and not contaminated and not damaged:
         safety.append('Preparation suggestions apply only after you recognize the material and know it has no chemical or biological contamination. If in doubt, keep it separate and ask for help.')
     if context.get('condition') == 'Damaged or cracked':

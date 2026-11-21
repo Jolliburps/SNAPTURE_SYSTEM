@@ -53,12 +53,14 @@ class AutomaticRoutingTests(TestCase):
         payload = json.dumps({'prediction_id':item.prediction_id, 'recommendation_id':'paper_gift_wrap'})
         self.assertEqual(self.client.post(url, payload, content_type='application/json', **self.auth).status_code, 400)
         response = self.client.patch(f'/api/predictions/{item.prediction_id}/', json.dumps({
-            'condition':'Clean and dry', 'answers':{'material_confirmation':'paper'},
+            'condition':'Clean and dry','previous_contents':'No chemical contact known', 'answers':{'material_confirmation':'paper','contamination':'None known','moisture':'Dry'},
         }), content_type='application/json', **self.auth)
         self.assertEqual(response.status_code, 200)
         result = self.client.get(f'/api/scenes/{self.scene.id}/?history=1', **self.auth).json()['scene']['items'][0]
         self.assertFalse(result['automatic_route']['confirmation_required'])
-        self.assertTrue(result['action_advice']['projects'])
+        self.assertEqual(result['action_advice']['projects'],[])
+        ideas=self.client.post(f'/api/predictions/{item.prediction_id}/recommendations/',**self.auth).json()['recommendations']
+        self.assertTrue(ideas)
         self.assertEqual(self.client.post(url, payload, content_type='application/json', **self.auth).status_code, 201)
 
     def test_other_objects_route_to_disposal_not_automatically_residual(self):
@@ -89,14 +91,16 @@ class AutomaticRoutingTests(TestCase):
         item = self.item('material item', 'unknown_unsupported')
         self.automatic(item)
         response = self.client.patch(f'/api/predictions/{item.prediction_id}/', json.dumps({
-            'condition':'Clean and dry', 'answers':{'material_confirmation':'fabric_scraps'},
+            'condition':'Clean and dry','previous_contents':'No chemical contact known', 'answers':{'material_confirmation':'fabric_scraps','contamination':'None known','moisture':'Dry'},
         }), content_type='application/json', **self.auth)
         self.assertEqual(response.status_code, 200)
         result = self.client.get(f'/api/scenes/{self.scene.id}/?history=1', **self.auth).json()['scene']['items'][0]
         self.assertEqual(result['action_advice']['chosen_action'], 'recover')
         self.assertEqual(self.client.get(f'/api/scenes/{self.scene.id}/?history=1', **self.auth).json()['scene']['disposal_selection']['item_actions'][str(item.id)], 'recover')
-        self.assertTrue(result['action_advice']['projects'])
-        self.assertTrue(all(idea['id'].startswith('fabric_') for idea in result['action_advice']['projects']))
+        self.assertEqual(result['action_advice']['projects'],[])
+        ideas=self.client.post(f'/api/predictions/{item.prediction_id}/recommendations/',**self.auth).json()['recommendations']
+        self.assertTrue(ideas)
+        self.assertTrue(all(idea['id'].startswith('fabric_') for idea in ideas))
 
     def test_client_cannot_supply_action_overrides_in_automatic_mode(self):
         item = self.item()

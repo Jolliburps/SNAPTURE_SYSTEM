@@ -26,6 +26,7 @@ urlpatterns = [
     re_path(r'^media/(?P<path>(?:scenes|predictions)/.+)$', photo_privacy.protected_media),
     path('api/photo-privacy/preview/', photo_privacy.preview),
     path('api/scenes/', scene_views.scenes),
+    path('api/scenes/material-preview/', scene_views.material_preview),
     path('api/scenes/capabilities/', scene_views.capabilities),
     path('api/scenes/<int:scene_id>/', scene_views.scene_detail),
     path('api/scenes/<int:scene_id>/items/', scene_views.add_region),
@@ -35,6 +36,7 @@ urlpatterns = [
     path('api/auth/', include('accounts.urls')),
     path('api/predictions/', include('predictions.urls')),
     path('api/projects/', include('predictions.project_urls')),
+    path('api/upcycling/', include('upcycling.urls')),
     path('api/datasets/', include('datasets.urls')),
     path('api/evaluations/', include('evaluations.urls')),
 ]

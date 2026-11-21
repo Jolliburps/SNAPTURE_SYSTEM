@@ -10,6 +10,7 @@ import X from 'lucide-react-native/icons/x';
 
 import type { UserProject } from './api';
 import ProjectGuide from './ProjectGuide';
+import {PrivatePhoto} from './UpcyclingUI';
 import ProjectIdeaPicker from './ProjectIdeaPicker';
 import { activeProjectsSorted, type SavedEntry } from './projectData';
 
@@ -41,7 +42,7 @@ function ProgressBar({ percent }: { percent: number }) {
 
 function ProjectCard({ project, onPress }: { project: UserProject; onPress: () => void }) {
   return <Pressable style={styles.listCard} onPress={onPress} accessibilityLabel={`Open ${project.title}`}>
-    <View style={styles.art}><FolderOpen size={27} color={GREEN} /></View>
+    <View style={project.completion_photo_url?{width:74,marginRight:10}:styles.art}>{project.completion_photo_url?<PrivatePhoto compact path={project.completion_photo_url} label={`${project.title}: finished output`}/>:<FolderOpen size={27} color={GREEN}/>}</View>
     <View style={styles.cardCopy}>
       <Text style={styles.cardTitle} numberOfLines={1}>{project.title}</Text>
       <Text style={styles.cardSub} numberOfLines={1}>{project.material}</Text>
@@ -111,7 +112,7 @@ export default function ProjectPanels({ section, initialFilter = 'all', projects
           <Pressable onPress={()=>{if(!ideaBusy.current)onClose();}} disabled={ideaSaving} accessibilityLabel="Close" hitSlop={10}><X size={22} color={TEXT} /></Pressable>
         </View>
 
-        {changingProject?<ScrollView testID="project-panel-ideas-scroll" style={styles.flowViewport} contentContainerStyle={[styles.body,styles.flowContent]} showsVerticalScrollIndicator><ProjectIdeaPicker project={changingProject} onCancel={back} onBusyChange={value=>{ideaBusy.current=value;setIdeaSaving(value);}} onChanged={updated=>{onProjectChange?.(updated,changingProject.id);setChangingProject(null);setGuideId(updated.id);}}/></ScrollView>:project ? <ProjectGuide directCompletion key={project.id} project={project} onStep={onStep} onRestart={onRestart} onBusyChange={value=>{ideaBusy.current=value;setIdeaSaving(value);}} onChangeIdea={onProjectChange?value=>{setChangingProject(value);setGuideId(null);}:undefined} onDone={() => { setGuideId(null); setDetail(null); setFilter('completed'); if (section !== 'projects') onShowProjects(); }} /> : detail ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {changingProject?<ScrollView testID="project-panel-ideas-scroll" style={styles.flowViewport} contentContainerStyle={[styles.body,styles.flowContent]} showsVerticalScrollIndicator><ProjectIdeaPicker project={changingProject} onCancel={back} onBusyChange={value=>{ideaBusy.current=value;setIdeaSaving(value);}} onChanged={updated=>{onProjectChange?.(updated,changingProject.id);setChangingProject(null);setGuideId(updated.id);}}/></ScrollView>:project ? <ProjectGuide directCompletion key={project.id} project={project} onPhotoChange={updated=>onProjectChange?.(updated,updated.id)} onStep={onStep} onRestart={onRestart} onBusyChange={value=>{ideaBusy.current=value;setIdeaSaving(value);}} onChangeIdea={onProjectChange?value=>{setChangingProject(value);setGuideId(null);}:undefined} onDone={() => { setGuideId(null); setDetail(null); setFilter(project.status==='completed'?'completed':'active'); if (section !== 'projects' && project.status==='completed') onShowProjects(); }} /> : detail ? <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           <View style={styles.detailArtwork}><Lightbulb size={45} color={GREEN} /></View>
           <Text style={styles.detailTitle}>{detail.idea?.title || 'Saved recommendation'}</Text>
           <Text style={styles.smallGreen}>From {detail.record.title}</Text>
@@ -124,7 +125,7 @@ export default function ProjectPanels({ section, initialFilter = 'all', projects
           <Text style={styles.muted}>Track projects you have started.</Text>
           <View style={styles.filters}>{(['all', 'active', 'completed'] as const).map((value) => <Pressable key={value} style={[styles.filterChip, filter === value && styles.filterSelected]} onPress={() => setFilter(value)}><Text style={[styles.filterText, filter === value && styles.filterTextSelected]}>{value === 'active' ? 'In progress' : value === 'all' ? 'All' : 'Completed'}</Text></Pressable>)}</View>
           {projectsError ? <Text style={styles.error}>{projectsError}</Text> : null}
-          {shown.length ? shown.map((item) => <ProjectCard key={item.id} project={item} onPress={() => openGuide(item)} />) : <BlankState title={projectsLoading ? 'Loading projects…' : filter === 'completed' ? 'No completed projects yet' : 'No active projects yet'} body={projectsError ? 'Reconnect to load your projects.' : 'Start a saved idea to track its steps here.'} />}
+          {shown.length ? shown.map((item) => <ProjectCard key={item.id} project={item} onPress={() => openGuide(item)} />) : <BlankState title={projectsLoading ? 'Loading projects…' : filter === 'completed' ? 'No completed projects yet' : 'No active projects yet'} body={projectsError ? 'Reconnect to load your projects.' : 'Start an upcycling project after scanning or from your collection. Resume its procedure and saved photos here.'} />}
         </ScrollView> : <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Text style={styles.muted}>Recommendations you selected after scanning. A separate favorite toggle is not available yet.</Text>
           <View style={styles.search}><Search size={18} color={MUTED} /><TextInput value={search} onChangeText={setSearch} placeholder="Search saved ideas" placeholderTextColor={MUTED} style={styles.searchInput} /></View>

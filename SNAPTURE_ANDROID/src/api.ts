@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // The physical-phone prototype reaches the computer through `adb reverse`.
-// Run `adb reverse tcp:8000 tcp:8000` after connecting through USB or wireless debugging.
+// Run `adb reverse tcp:8000 tcp:8000` while the USB debugging cable is attached.
 // Use 10.0.2.2 instead when running on the Android emulator.
 export const API_BASE_URL = 'http://127.0.0.1:8000/api';
 const TOKEN_KEY = 'snapture_api_token';
@@ -12,7 +12,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch {
-    throw new Error(controller.signal.aborted?'The server took too long to respond. Please try again.':'Cannot connect to the SNAPTURE server. Make sure the backend is running. For Wi-Fi debugging, keep the phone and PC on the same Wi-Fi and reconnect wireless debugging on the PC. For USB debugging, check the cable connection.');
+    throw new Error(controller.signal.aborted?'The server took too long to respond. Please try again.':'Cannot connect to the SNAPTURE server. Keep the USB cable connected and restore the phone connection on the PC. Make sure the backend is running.');
   } finally {
     clearTimeout(timeout);
   }
@@ -42,21 +42,47 @@ export type PredictionSummary = {
   recommendation_choices?: Recommendation[];
 };
 
+export type TutorialPhoto = {
+  url: string | null;
+  step_index?: number;
+  source_stage: number | 'finished';
+  photo_status: string;
+  visual_type?: string;
+  visual_note?: string;
+  original_image_url?: string | null;
+  source_step_url?: string;
+};
+
+export type TutorialPhotos = {
+  version: string;
+  source_id: string;
+  source_url: string;
+  credit: string;
+  photo_rights: string;
+  finished: TutorialPhoto;
+  steps: TutorialPhoto[];
+};
+
 export type Recommendation = {
   id: string;
   title: string;
   summary: string;
   materials: string[];
   steps: string[];
-  fit_note?: string;
-  fit_basis?: string;
   quantity_note?: string;
   safety_note?: string;
+  photos?: TutorialPhotos;
+  basis?: 'educational_catalog';
+  review?: {review_level?:string;source?:string;review_note?:string;digest?:string};
 };
 
-export type IdeaReference = Recommendation & {status:'source_checked'|'awaiting_review';can_start:false;source:string;review_note:string;conditions:string[]};
+export type IdeaReference = Recommendation & {status:'source_checked'|'awaiting_review'|'educational';can_start:false;source:string;review_note:string;conditions:string[]};
 
 export type UserProject = {
+  photo_workflow?:boolean;
+  completion_photo_url?:string|null;
+  completion_id?:number|null;
+  completion_verification?:string|null;
   id: number;
   source_prediction_id: number | null;
   recommendation_id: string;
@@ -66,7 +92,7 @@ export type UserProject = {
   materials: string[];
   steps: string[];
   safety_note: string;
-  reference?: {source?:string;review_level?:string;reviewed_at?:string;key?:string;version?:number;digest?:string};
+  reference?: {source?:string;review_level?:string;reviewed_at?:string;key?:string;version?:number;digest?:string;photos?:TutorialPhotos;suitability_requirements?:{checkpoint_criteria?:string[]}};
   completed_steps: number[];
   completed_count: number;
   total_steps: number;
@@ -88,12 +114,16 @@ export type MaterialGuide = {
   disposal: string;
   model_status: string;
   upcycling: Recommendation[];
+  photo_ideas?: IdeaReference[];
+  home_tutorials?: IdeaReference[];
   idea_references?: IdeaReference[];
 };
 
 export type Prediction = PredictionSummary & {
+  scan_snapshot_available?:boolean;
+  screening?: ScreeningResult; screening_revision?:string;
   focus_box?: number[] | null;
-  recognition?: {status:'supported'|'needs_review'|'unsupported';suggested_label:string|null;reason:string};
+  recognition?: {status:'supported'|'needs_review'|'unsupported';suggested_label:string|null;reason:string;unavailable?:boolean};
   waste_identifier?: WasteIdentity | null;
   review_contribution?: string | null;
   image_quality?: ImageQuality;
@@ -143,8 +173,8 @@ export type SceneItem = { id: number; box: number[]; name: string; display_name?
 export type ScanScene = { id: number; image_url: string; created_at?: string; width: number; height: number; frame: number[]; single_item?:{enabled:boolean;status?:string}; status: string; error: string; quality: ImageQuality; items: SceneItem[]; truncated: boolean; detector: string; limitations: string; background_objects?: { name: string; count: number }[];disposal_selection?:{confirmed:boolean;item_ids:number[];confirmed_at?:string;item_actions?:Record<number,ItemAction>;item_conditions?:Record<number,string>} };
 export const imageUrl = (uri: string) => {
   const url=uri.startsWith('/') ? `${API_BASE_URL.replace(/\/api$/, '')}${uri}` : uri;
-  // Avoid reusing pre-privacy cached originals from an older app installation.
-  return /\/media\/(scenes|predictions)\//.test(url)?`${url}${url.includes('?')?'&':'?'}privacy=face-v1`:url;
+  // Refresh older cached responses after automatic face blurring was disabled.
+  return /\/media\/(scenes|predictions)\//.test(url)?`${url}${url.includes('?')?'&':'?'}photo=unblurred-v1`:url;
 };
 
 export async function preparePrivatePreview(uri:string) {
@@ -181,7 +211,30 @@ export async function contributeIdentification(id: number, withdraw = false) {
   }));
 }
 
-export async function createScene(uri: string, requestId: string, frame?: CaptureFrame, singleItem=false) {
+export type ReportedConcern='minor_damage'|'dirt'|'wet'|'contamination'|'unknown';
+export type ScanDetails={assessment_mode?:'ai'|'human_assisted';human_assisted_acknowledged?:boolean;mode:'single'|'batch';quantity:number;approximate_size:string;category_hint?:string;inspection_report?:'none_seen'|'concern_photo';previous_contents?:string;moisture_cause?:string;usable_quantity?:number;condition_policy?:'inspection-first-v1';reported_concern?:ReportedConcern;capture_mode?:'all-sides-v1'|'material-guided-v1'};
+
+export type PreviewMaterialScore={label:string;score:number};
+export type OutsideItemView='back'|'left'|'right'|'side'|'top'|'bottom';
+export type MaterialPreview=(
+  {status:'supported';label:string;token?:string;resinCode?:'1'|'2'} |
+  {status:'out_of_scope';disposal_token?:string} |
+  {status:'special_handling';handling_kind?:'separate'|'hazardous'} |
+  {status:'photo_review'|'unavailable'}
+) & {reason:string;box?:[number,number,number,number];image_width?:number;image_height?:number;crop_scores?:PreviewMaterialScore[];guide_scores?:PreviewMaterialScore[];resin_review_token?:string;capture_plan?:{views:OutsideItemView[];inside:boolean}};
+
+export async function previewScanMaterial(uri:string,frame:CaptureFrame) {
+  const token=await getStoredToken();
+  if(!token)throw new Error('Please log in before checking the material.');
+  const data=new FormData();
+  data.append('image',{uri:/^(file|content):/.test(uri)?uri:`file://${uri}`,name:'capture.jpg',type:'image/jpeg'} as unknown as Blob);
+  data.append('frame',JSON.stringify(frame));
+  return parseResponse<MaterialPreview>(await fetchWithTimeout(`${API_BASE_URL}/scenes/material-preview/`,{
+    method:'POST',headers:{Authorization:`Bearer ${token}`},body:data,
+  },90000));
+}
+
+export async function createScene(uri: string, requestId: string, frame?: CaptureFrame, singleItem=false, session?:{primaryView:string;views:Array<{view:string;uri:string;frame:CaptureFrame}>;details?:ScanDetails;previewToken?:string;resinCode?:'1'|'2';concernPhotos?:Array<{uri:string;frame:CaptureFrame}>}) {
   const token = await getStoredToken();
   if (!token) throw new Error('Please log in before analyzing.');
   const data = new FormData();
@@ -189,7 +242,22 @@ export async function createScene(uri: string, requestId: string, frame?: Captur
   data.append('request_id', requestId);
   if (frame) data.append('frame', JSON.stringify(frame));
   if (singleItem) data.append('single_item','1');
-  const response = await fetchWithTimeout(`${API_BASE_URL}/scenes/`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: data }, 180000);
+  if(session){
+    if(session.concernPhotos?.length){
+      session.concernPhotos.forEach(({uri:concern},index)=>{
+        data.append('concern_photo',{uri:/^(file|content):/.test(concern)?concern:`file://${concern}`,name:`concern-${index+1}.jpg`,type:'image/jpeg'} as unknown as Blob);
+      });
+      data.append('concern_frames',JSON.stringify(session.concernPhotos.map(photo=>photo.frame)));
+    }
+    if(session.previewToken)data.append('material_preview_token',session.previewToken);
+    if(session.resinCode)data.append('resin_code',session.resinCode);
+    if(session.details)data.append('scan_details',JSON.stringify(session.details));
+    data.append('primary_view',session.primaryView);data.append('same_item_confirmed','true');
+    data.append('view_names',JSON.stringify(session.views.map(v=>v.view)));data.append('view_frames',JSON.stringify(session.views.map(v=>v.frame)));
+    session.views.forEach(v=>data.append('additional_views',{uri:/^(file|content):/.test(v.uri)?v.uri:`file://${v.uri}`,name:`${v.view}.jpg`,type:'image/jpeg'} as unknown as Blob));
+  }
+  const photoCount = (session?.views.length ?? 0) + (session?.concernPhotos?.length ?? 0);
+  const response = await fetchWithTimeout(`${API_BASE_URL}/scenes/`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: data }, 180000+120000*photoCount);
   return parseResponse<{ scene: ScanScene }>(response);
 }
 
@@ -234,6 +302,7 @@ export async function getCollectionNotices(month: string) {
 }
 export type GuidanceSource = { key: string; version: number; source: string; review_level: string; review_note: string };
 export type Assessment = {
+  screening?: ScreeningResult;
   management_guidance?: {
     version:string; material_label:string; status:string; notice:string; legacy_supplement?:boolean;
     sections:{key:string;title:string;instructions:string[]}[];
@@ -586,4 +655,21 @@ export async function selectRecommendation(predictionId: number, recommendationI
     body: JSON.stringify({ recommendation_id: recommendationId }),
   });
   return parseResponse<{ prediction: Prediction }>(response);
+}
+
+export type ScreeningResult = {
+  version?:string;
+  status:'eligible'|'needs_information'|'needs_preparation'|'ineligible'|'unsupported';
+  eligible:boolean;reasons:string[];missing_information:string[];
+};
+export type RecommendationResponse = {prediction_id:number;scene_id:number|null;revision:string;
+  screening:ScreeningResult;status:'available'|'no_matching_project';recommendations:Recommendation[]};
+
+export async function requestUpcyclingRecommendations(predictionId:number,screeningRevision?:string) {
+  const token=await getStoredToken();
+  if(!token)throw new Error('Please log in before requesting recommendations.');
+  const response=await fetchWithTimeout(`${API_BASE_URL}/predictions/${predictionId}/recommendations/`,{
+    method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({screening_revision:screeningRevision}),
+  });
+  return parseResponse<RecommendationResponse>(response);
 }

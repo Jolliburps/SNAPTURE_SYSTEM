@@ -1,117 +1,101 @@
 import React from 'react';
 import Renderer from 'react-test-renderer';
-import {Text} from 'react-native';
 import App from '../App';
-import ProjectPanels from '../src/ProjectPanels';
-import ProjectGuide from '../src/ProjectGuide';
-import UpcyclingIdeaChoices from '../src/UpcyclingIdeaChoices';
+import ScanResult from '../src/ScanResult';
+import {launchImageLibrary} from 'react-native-image-picker';
 import * as api from '../src/api';
+import * as suitability from '../src/upcyclingApi';
 
 jest.mock('react-native-safe-area-context',()=>({SafeAreaProvider:({children}:{children:React.ReactNode})=>children,SafeAreaView:jest.requireActual('react-native').View}));
-jest.mock('../src/api',()=>({
-  ...jest.requireActual('../src/api'),
-  getCurrentUser:jest.fn().mockResolvedValue({id:1,role:'regular',display_name:'Test',barangay:''}),
-  getMaterials:jest.fn().mockResolvedValue({materials:[]}),
-  getPredictionOverview:jest.fn().mockResolvedValue({predictions:[],total_count:0}),
-  listSavedPredictions:jest.fn().mockResolvedValue([]),listProjects:jest.fn(),
-  createScene:jest.fn(),getScene:jest.fn(),confirmDisposalSelection:jest.fn(),startProject:jest.fn(),setProjectStep:jest.fn(),getProjectIdeas:jest.fn(),changeProjectIdea:jest.fn(),
+jest.mock('../src/api',()=>({...jest.requireActual('../src/api'),
+ getCurrentUser:jest.fn().mockResolvedValue({id:1,role:'regular',display_name:'Test',barangay:''}),
+ getMaterials:jest.fn().mockResolvedValue({materials:[]}),getPredictionOverview:jest.fn().mockResolvedValue({predictions:[],total_count:0}),
+ listSavedPredictions:jest.fn().mockResolvedValue([]),listProjects:jest.fn().mockResolvedValue([]),
+ createScene:jest.fn(),getScene:jest.fn(),startProject:jest.fn(),confirmDisposalSelection:jest.fn(),
+ previewScanMaterial:jest.fn().mockResolvedValue({status:'supported',label:'cardboard',reason:'Matches a supported material.'}),
 }));
-
-test('capture, analyze, choose task, finish steps and land in Projects completed',async()=>{
-  jest.useFakeTimers();
-  let tree!:Renderer.ReactTestRenderer;
-  let saved:api.UserProject|null=null;
-  const project={id:90,source_prediction_id:12,recommendation_id:'paper_gift_wrap',title:'Gift wrapping',material:'Paper',summary:'Reuse a sheet.',
-    materials:['Paper'],steps:['Flatten the paper.','Wrap the gift.','Tie with string.'],safety_note:'Use clean paper.',reference:{review_level:'educational'},
-    completed_steps:[],completed_count:0,total_steps:3,progress_percent:0,status:'active',created_at:'2026-10-22T00:00:00Z',updated_at:'2026-10-22T00:00:00Z'} as api.UserProject;
-  const prediction={id:12,title:'Paper',recommendation_choices:[],upcycling_ideas:[{id:'paper_gift_wrap',title:'Gift wrapping',summary:'Reuse a sheet.',materials:project.materials,steps:project.steps,safety_note:'Use clean paper.'}],
-    assessment:{material:{status:'needs_confirmation',title:'Paper'},missing_information:[],segregation:{status:'needs_information',instructions:[]}}} as unknown as api.Prediction;
-  const scene={id:8,width:200,height:200,image_url:'',status:'complete',quality:{flags:[]},items:[{id:1,name:'Paper',score:0,box:[0,0,1,1],display_box:false,prediction,route:{key:'review',label:'Review',reason:'Check material.'}}]} as unknown as api.ScanScene;
-  (api.listProjects as jest.Mock).mockImplementation(async()=>saved?[saved]:[]);
-  (api.createScene as jest.Mock).mockResolvedValue({scene});(api.getScene as jest.Mock).mockResolvedValue({scene});
-  (api.confirmDisposalSelection as jest.Mock).mockResolvedValue({scene:{...scene,disposal_selection:{confirmed:true,item_ids:[1],item_actions:{1:'recover'}},items:[{...scene.items[0],action_advice:{
-    chosen_action:'recover',title:'Recycle / upcycle',steps:['Check for residue.','Keep paper dry.','Reuse a clean sheet.'],waste_group:'recyclable',sources:[],projects:prediction.upcycling_ideas,
-  }}]}});
-  (api.startProject as jest.Mock).mockImplementation(async()=>{saved=project;return {project:saved};});
-  (api.setProjectStep as jest.Mock).mockImplementation(async(_id:number,index:number,completed:boolean)=>{
-    const steps=completed?[...new Set([...saved!.completed_steps,index])]:saved!.completed_steps.filter(value=>value!==index);
-    saved={...saved!,completed_steps:steps,completed_count:steps.length,progress_percent:Math.round(steps.length/3*100),status:steps.length===3?'completed':'active'};
-    return {project:saved};
-  });
-  const press=async(label:string)=>{
-    const node=tree.root.findAllByProps({accessibilityLabel:label}).find(value=>typeof value.props.onPress==='function');
-    expect(node).toBeDefined();
-    await Renderer.act(async()=>{await node!.props.onPress();});
-  };
-  try{
-    await Renderer.act(async()=>{tree=Renderer.create(<App/>);});
-    await press('Camera');
-    await Renderer.act(()=>tree.root.findAll(node=>typeof node.props.onStarted==='function')[0].props.onStarted());
-    await Renderer.act(()=>tree.root.findAllByProps({accessibilityLabel:'Camera framing area'}).find(node=>node.props.onLayout)!.props.onLayout({nativeEvent:{layout:{width:400,height:600}}}));
-    await press('Take photo');
-    const analyze=tree.root.findAll(node=>typeof node.props.onPress==='function' && node.findAllByType(Text).some(child=>child.props.children==='Analyze image'))[0];
-    await Renderer.act(async()=>{await analyze.props.onPress();});
-    await press('Show uncertain suggestions (1)');
-    await press('Select item 1: Paper');
-    await press('Clean & dry condition item 1');
-    await press('Continue with 1 selected item');
-    await press('Choose task: Gift wrapping');
-    expect(api.startProject).toHaveBeenCalledWith(12,'paper_gift_wrap');
-    expect(JSON.stringify(tree.toJSON())).toContain('Flatten the paper.');
-    await press('Mark as done');await Renderer.act(async()=>{jest.advanceTimersByTime(500);});
-    await press('Mark as done');await Renderer.act(async()=>{jest.advanceTimersByTime(500);});
-    await press('Completed');
-    expect(api.setProjectStep).toHaveBeenLastCalledWith(90,2,true);
-    expect(tree.root.findByType(ProjectPanels).props.initialFilter).toBe('completed');
-    expect(JSON.stringify(tree.toJSON())).toContain('Projects completed');
-    expect(JSON.stringify(tree.toJSON())).toContain('Gift wrapping');
-    expect(saved!.status).toBe('completed');
-  }finally{
-    if(tree)await Renderer.act(()=>tree.unmount());
-    jest.useRealTimers();
-  }
+jest.mock('../src/upcyclingApi',()=>({upcyclingRequest:jest.fn(),getSuggestions:jest.fn(),getVisual:jest.fn(),saveFacts:jest.fn(),startSuitable:jest.fn()}));
+const verdict={code:'assessment_pending',title:'Assessment Pending',reason:'Validated condition assessment is unavailable.',next_action:'Do not start yet.',can_start:false,blocking_reasons:['Missing condition assessment']};
+const details={mode:'batch',quantity:25,approximate_size:'20 x 10 cm',inspection_report:'none_seen',previous_contents:'No chemical contact known',condition_policy:'inspection-first-v1'};
+const prediction={id:12,decision:'cardboard',title:'Cardboard',input_method:'camera',recognition:{status:'supported'},image_quality:{workflow_version:'camera-assessment-v2',scan_details:details},recommendation_choices:[]} as unknown as api.Prediction;
+const scene={id:8,width:200,height:200,image_url:'',single_item:{enabled:true},status:'complete',quality:{flags:[]},items:[{id:1,name:'Cardboard',score:0,box:[0,0,1,1],display_box:false,prediction,route:{key:'review',label:'Review',reason:'Condition needs assessment.'}}]} as unknown as api.ScanScene;
+const button=(tree:Renderer.ReactTestRenderer,label:string)=>tree.root.findAllByProps({accessibilityLabel:label}).find(n=>typeof n.props.onPress==='function')!;
+async function press(tree:Renderer.ReactTestRenderer,label:string){const node=button(tree,label);expect(node).toBeDefined();await Renderer.act(async()=>{await node.props.onPress();});}
+async function enterDetailsAndCapture(tree:Renderer.ReactTestRenderer){
+ await press(tree,'Camera');
+ expect(tree.root.findAll(n=>typeof n.props.onStarted==='function')).toHaveLength(0);
+ await press(tree,'Open camera');await press(tree,'Open gallery');
+ await press(tree,'Continue to item details');
+ expect(button(tree,'Review scan').props.disabled).toBe(true);
+ await Renderer.act(()=>{tree.root.findAllByProps({accessibilityLabel:'Physical-item quantity'}).find(n=>n.props.onChangeText)!.props.onChangeText('25');tree.root.findAllByProps({accessibilityLabel:'Approximate size'}).find(n=>n.props.onChangeText)!.props.onChangeText('20 x 10 cm');});
+ await press(tree,'None');
+ await press(tree,'No chemical contact known');
+}
+beforeEach(()=>{
+ jest.clearAllMocks();
+ (launchImageLibrary as jest.Mock).mockImplementation((_options,callback)=>callback({assets:[{uri:'file:///batch.jpg'}]}));
+ (api.createScene as jest.Mock).mockResolvedValue({scene});(api.getScene as jest.Mock).mockResolvedValue({scene});
+ (suitability.upcyclingRequest as jest.Mock).mockResolvedValue({snapshot:null});
+ (suitability.getVisual as jest.Mock).mockResolvedValue({assessment:{primary:{status:'unavailable'},observations:[],conflicts:[],views:[],facts:{},scan_details:details,workflow:{},capability:{condition_assessment:'unavailable'},verdict}});
+ (suitability.getSuggestions as jest.Mock).mockResolvedValue({items:[],outcome:'assessment_pending',message:verdict.reason,facts:{},verdict});
 });
-
-test('fabric Change idea returns directly to the original blanket choices and reopens its saved cloth project',async()=>{
-  jest.clearAllMocks();
-  const ideas=[{id:'fabric_cleaning_cloth',title:'Cleaning cloth',summary:'Reuse clean fabric.',steps:['Check the blanket.','Prepare the cloth.','Store dry.']},
-    {id:'fabric_pouch',title:'Fabric pouch',summary:'Make a small pouch.',steps:['Choose fabric.','Fold it.','Secure it.']}];
-  const project={id:8,source_prediction_id:247,recommendation_id:'fabric_pouch',title:'Fabric pouch',material:'Fabric scraps',summary:'',materials:['Fabric'],steps:ideas[1].steps,safety_note:'Use suitable fabric.',completed_steps:[],completed_count:0,total_steps:3,progress_percent:0,status:'active',can_change_idea:true} as unknown as api.UserProject;
-  const cloth={...project,id:7,recommendation_id:'fabric_cleaning_cloth',title:'Cleaning cloth',steps:ideas[0].steps,completed_steps:[0],completed_count:1,progress_percent:33,can_change_idea:false};
-  const prediction={id:247,title:'Fabric scraps',condition:'Clean and dry',recommendation_choices:[],assessment:{material:{title:'Fabric scraps',status:'needs_confirmation'},segregation:{instructions:[]}}} as unknown as api.Prediction;
-  const scene={id:34,width:100,height:100,image_url:'/blanket-original.jpg',status:'complete',quality:{flags:[]},disposal_selection:{confirmed:true,item_ids:[1]},items:[{id:1,name:'blanket',score:.8,box:[.1,.1,.9,.9],prediction,route:{key:'review',label:'Review',reason:'Check material.'},action_advice:{chosen_action:'recover',title:'Recycle / upcycle',waste_group:'diversion',steps:['Use suitable fabric.'],sources:[],projects:ideas}}]} as unknown as api.ScanScene;
-  (api.listProjects as jest.Mock).mockResolvedValue([]);
-  (api.createScene as jest.Mock).mockResolvedValue({scene});(api.getScene as jest.Mock).mockResolvedValue({scene});
-  (api.startProject as jest.Mock).mockResolvedValue({project});
-  (api.getProjectIdeas as jest.Mock).mockResolvedValue({source:{prediction_id:247,material:'Fabric scraps',object_name:'blanket',image_url:'/blanket-crop.jpg'},ideas:[{...ideas[0],existing_project_id:7,existing_project_status:'active'},ideas[1]]});
-  (api.changeProjectIdea as jest.Mock).mockResolvedValue({project:cloth,reused_existing:true,replaced_project_id:8});
-  let tree!:Renderer.ReactTestRenderer;
-  const press=async(label:string)=>{const node=tree.root.findAllByProps({accessibilityLabel:label}).find(value=>typeof value.props.onPress==='function');expect(node).toBeDefined();await Renderer.act(async()=>{await node!.props.onPress();});};
-  try{
-    await Renderer.act(async()=>{tree=Renderer.create(<App/>);});
-    await press('Camera');await Renderer.act(()=>tree.root.findAll(node=>typeof node.props.onStarted==='function')[0].props.onStarted());
-    await Renderer.act(()=>tree.root.findAllByProps({accessibilityLabel:'Camera framing area'}).find(node=>node.props.onLayout)!.props.onLayout({nativeEvent:{layout:{width:400,height:600}}}));
-    await press('Take photo');
-    const analyze=tree.root.findAll(node=>typeof node.props.onPress==='function' && node.findAllByType(Text).some(child=>child.props.children==='Analyze image'))[0];
-    await Renderer.act(async()=>{await analyze.props.onPress();});
-    expect(tree.root.findByType(UpcyclingIdeaChoices).props.material).toBe('Fabric scraps');
-    await press('Choose task: Fabric pouch');await press('Change idea');
-    expect(tree.root.findAllByType(ProjectGuide)).toHaveLength(0);
-    expect(api.getProjectIdeas).toHaveBeenCalledWith(8);
-    expect(tree.root.findByType(UpcyclingIdeaChoices).props.material).toBe('Fabric scraps');
-    expect(tree.root.findAllByProps({accessibilityLabel:'Original item for upcycling ideas'})[0].props.source.uri).toContain('/blanket-crop.jpg');
-    await press('Back to current idea');
-    expect(tree.root.findByType(ProjectGuide).props.project.id).toBe(8);
-    expect(api.changeProjectIdea).not.toHaveBeenCalled();
-    await press('Change idea');
-    await press('Choose task: Cleaning cloth');
-    expect(api.changeProjectIdea).toHaveBeenCalledWith(8,'fabric_cleaning_cloth');
-    expect(api.startProject).toHaveBeenCalledTimes(1);
-    expect(tree.root.findByType(ProjectGuide).props.project.id).toBe(7);
-    expect(tree.root.findByType(ProjectGuide).props.project.completed_steps).toEqual([0]);
-    await press('Close upcycling flow');
-    expect(tree.root.findAllByType(ProjectGuide)).toHaveLength(0);
-    expect(tree.root.findByType(UpcyclingIdeaChoices).props.material).toBe('Fabric scraps');
-    expect(api.setProjectStep).not.toHaveBeenCalled();
-  }finally{if(tree)await Renderer.act(()=>tree.unmount());}
+test('details and representative capture lead to pending shared assessment without a project-start bypass',async()=>{
+ let tree!:Renderer.ReactTestRenderer;
+ try{
+  await Renderer.act(async()=>{tree=Renderer.create(<App/>);});
+  await enterDetailsAndCapture(tree);await press(tree,'Review scan');
+  expect(api.createScene).toHaveBeenCalledWith('file:///batch.jpg',expect.any(String),expect.any(Object),true,{primaryView:'front',views:[],details});
+  expect(tree.root.findByType(ScanResult).props.prediction.id).toBe(12);
+  expect(JSON.stringify(tree.toJSON())).toContain('Assessment Pending');
+  expect(JSON.stringify(tree.toJSON())).toContain('20 x 10 cm');
+  expect(api.confirmDisposalSelection).not.toHaveBeenCalled();
+  expect(api.startProject).not.toHaveBeenCalled();expect(suitability.startSuitable).not.toHaveBeenCalled();
+  expect(button(tree,'Check project eligibility')).toBeUndefined();
+  expect(button(tree,'Photograph a suspicious area')).toBeUndefined();
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Known contents or exposure');
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Projects for this item');
+ }finally{if(tree)await Renderer.act(()=>tree.unmount());}
+});
+test('review scan opens the verdict and loads matching ideas automatically',async()=>{
+ const suitable={...verdict,code:'suitable',title:'Suitable for Upcycling',reason:'The item passed the assessment.',can_start:true,blocking_reasons:[]};
+ (suitability.getVisual as jest.Mock).mockResolvedValue({assessment:{
+  primary:{status:'complete'},observations:[],conflicts:[],views:[],facts:{},scan_details:details,
+  workflow:{inspection_confirmed:true},capability:{condition_assessment:'available'},verdict:suitable,
+ }});
+ (suitability.getSuggestions as jest.Mock).mockResolvedValue({
+  items:[{id:'cardboard-organizer',title:'Cardboard Desk Organizer',summary:'Make a desk organizer.',status:'needs_information',
+   requires_project_review:true,missing_information:['published project-specific suitability requirements'],
+   requirements:{minimum_quantity:1,dimensions:{length:{minimum:200},width:{minimum:100}}}}],
+  outcome:'suitable',facts:{},verdict:suitable,
+ });
+ let tree!:Renderer.ReactTestRenderer;
+ try{
+  await Renderer.act(async()=>{tree=Renderer.create(<App/>);});
+  await enterDetailsAndCapture(tree);await press(tree,'Review scan');
+  expect(suitability.getSuggestions).toHaveBeenCalledWith(prediction.id,'',false);
+  expect(JSON.stringify(tree.toJSON())).toContain('Suitable for Upcycling');
+  expect(button(tree,'View requirements: Cardboard Desk Organizer')).toBeDefined();
+  await press(tree,'View requirements: Cardboard Desk Organizer');
+  expect(JSON.stringify(tree.toJSON())).toContain('Its requirements still need to be published.');
+  expect(tree.root.findAllByProps({accessibilityLabel:'length in mm'})).toHaveLength(0);
+  expect(tree.root.findAllByProps({accessibilityLabel:'Usable quantity'})).toHaveLength(0);
+  expect(button(tree,'Edit confirmed item details')).toBeUndefined();
+  expect(button(tree,'Choose a goal')).toBeUndefined();
+  expect(api.startProject).not.toHaveBeenCalled();
+ }finally{if(tree)await Renderer.act(()=>tree.unmount());}
+});
+test('assessment errors keep batch photos and metadata for retry',async()=>{
+ (api.createScene as jest.Mock).mockRejectedValueOnce(new Error('Service temporarily unavailable.')).mockResolvedValue({scene});
+ let tree!:Renderer.ReactTestRenderer;
+ try{
+  await Renderer.act(async()=>{tree=Renderer.create(<App/>);});
+  await enterDetailsAndCapture(tree);await press(tree,'Review scan');
+  expect(JSON.stringify(tree.toJSON())).toContain('Service temporarily unavailable.');
+  expect(JSON.stringify(tree.toJSON())).toContain('Item details');
+  expect(button(tree,'Review scan').props.disabled).toBe(false);
+  await press(tree,'Review scan');
+  const calls=(api.createScene as jest.Mock).mock.calls;
+  expect(calls).toHaveLength(2);expect(calls[1]).toEqual(calls[0]);expect(calls[1][4].details).toEqual(details);
+  expect(tree.root.findByType(ScanResult).props.prediction.id).toBe(12);
+ }finally{if(tree)await Renderer.act(()=>tree.unmount());}
 });

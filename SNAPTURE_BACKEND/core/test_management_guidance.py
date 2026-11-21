@@ -32,7 +32,7 @@ class ManagementGuidanceTests(TestCase):
                 assessment = record.assessment
                 advice = assessment['management_guidance']
                 self.assertEqual(advice['material_label'], label)
-                self.assertEqual({s['key'] for s in advice['sections']}, {'disposal', 'preparation', 'recovery', 'safety', 'impact', 'local'})
+                self.assertEqual({s['key'] for s in advice['sections']}, {'disposal', 'preparation', 'safety', 'impact', 'local'})
                 self.assertTrue(all(s['instructions'] for s in advice['sections']))
                 self.assertTrue(advice['sources'])
                 self.assertFalse(assessment['upcycling']['recommendations'])
@@ -57,7 +57,8 @@ class ManagementGuidanceTests(TestCase):
                                ('unknown_unsupported', {})]:
             record = self.record(label, **changes)
             advice = record.assessment['management_guidance']
-            recovery = next(s['instructions'] for s in advice['sections'] if s['key'] == 'recovery')
+            recovery = [s['instructions'] for s in advice['sections'] if s['key'] == 'recovery']
+            self.assertEqual(recovery, [])
             self.assertNotIn('gift wrapping', str(recovery))
             self.assertNotIn('dust a non-food surface', str(recovery))
             self.assertIn('reference', advice['notice'].lower())
@@ -106,7 +107,8 @@ class ManagementGuidanceTests(TestCase):
                                      ('dry leaf', 'garden-waste'),
                                      ('plastic bag or plastic wrapper', 'flexible packaging')]:
             record = self.record('unknown_unsupported', model_class=hypothesis)
-            advice = record.assessment['management_guidance']
+            from core.management_guidance import management_guidance
+            advice = management_guidance(record.assessment, hypothesis, include_reuse=True)
             self.assertIn(expected, str(advice))
             self.assertIn('not a confirmed material or bin assignment', advice['notice'])
             self.assertEqual(record.decision, 'unknown_unsupported')
